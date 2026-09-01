@@ -82,6 +82,9 @@ interface ActivityDao {
     @Query("SELECT * FROM activity_laps WHERE activityId = :activityId ORDER BY lapIndex ASC")
     suspend fun getLaps(activityId: String): List<ActivityLapEntity>
 
+    @Query("SELECT * FROM activity_laps WHERE activityId = :activityId ORDER BY lapIndex ASC")
+    fun observeLaps(activityId: String): Flow<List<ActivityLapEntity>>
+
     @Query("DELETE FROM activity_laps WHERE activityId = :activityId")
     suspend fun deleteLaps(activityId: String)
 

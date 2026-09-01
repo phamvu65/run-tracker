@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -61,10 +62,7 @@ fun ActivityDetailScreen(
                     CircularProgressIndicator(Modifier.align(Alignment.Center))
 
                 ActivityDetailUiState.NotFound ->
-                    Text(
-                        "Không tìm thấy buổi tập",
-                        modifier = Modifier.align(Alignment.Center),
-                    )
+                    Text("Không tìm thấy buổi tập", modifier = Modifier.align(Alignment.Center))
 
                 is ActivityDetailUiState.Loaded -> LoadedContent(s)
             }
@@ -76,24 +74,31 @@ fun ActivityDetailScreen(
 private fun LoadedContent(state: ActivityDetailUiState.Loaded) {
     Column(Modifier.fillMaxSize()) {
         if (state.routePoints.isEmpty()) {
-            Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+            Box(
+                Modifier.fillMaxWidth().height(220.dp),
+                contentAlignment = Alignment.Center,
+            ) {
                 Text("Không có dữ liệu GPS", style = MaterialTheme.typography.bodyMedium)
             }
         } else {
             RouteMap(
                 points = state.routePoints,
-                modifier = Modifier.fillMaxWidth().weight(1f),
+                modifier = Modifier.fillMaxWidth().height(260.dp),
             )
         }
 
-        StatsPanel(
-            activity = state.activity,
-            pointCount = state.routePoints.size,
-            modifier = Modifier
+        Column(
+            Modifier
                 .fillMaxWidth()
+                .weight(1f)
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
-        )
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            StatsPanel(activity = state.activity, pointCount = state.routePoints.size)
+            ElevationChart(points = state.routePoints, modifier = Modifier.fillMaxWidth())
+            LapList(laps = state.laps, modifier = Modifier.fillMaxWidth())
+        }
     }
 }
 

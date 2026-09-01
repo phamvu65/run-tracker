@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.runtracker.domain.model.Activity
+import com.example.runtracker.domain.model.ActivityLap
 import com.example.runtracker.domain.model.RoutePoint
 import com.example.runtracker.domain.repository.ActivityRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -26,11 +27,12 @@ class ActivityDetailViewModel @Inject constructor(
     val state: StateFlow<ActivityDetailUiState> = combine(
         repository.observeActivity(activityId),
         repository.observeRoutePoints(activityId),
-    ) { activity, points ->
+        repository.observeLaps(activityId),
+    ) { activity, points, laps ->
         if (activity == null) {
             ActivityDetailUiState.NotFound
         } else {
-            ActivityDetailUiState.Loaded(activity, points)
+            ActivityDetailUiState.Loaded(activity, points, laps)
         }
     }.stateIn(
         viewModelScope,
@@ -45,5 +47,6 @@ sealed interface ActivityDetailUiState {
     data class Loaded(
         val activity: Activity,
         val routePoints: List<RoutePoint>,
+        val laps: List<ActivityLap>,
     ) : ActivityDetailUiState
 }

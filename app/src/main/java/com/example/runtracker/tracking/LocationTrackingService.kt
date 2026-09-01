@@ -22,6 +22,7 @@ import com.example.runtracker.domain.model.ActivityType
 import com.example.runtracker.domain.model.RoutePoint
 import com.example.runtracker.domain.repository.ActivityRepository
 import com.example.runtracker.domain.tracking.GeoMath
+import com.example.runtracker.domain.tracking.LapCalculator
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -266,6 +267,9 @@ class LocationTrackingService : Service() {
                 elevationLossMeters = s.elevationLossMeters,
             ),
         )
+
+        // Lap tự động theo km từ trace đã lưu (đã qua lọc nhiễu).
+        repository.replaceLaps(id, LapCalculator.splitByDistance(repository.getRoutePoints(id)))
 
         session.reset()
         activityId = null
