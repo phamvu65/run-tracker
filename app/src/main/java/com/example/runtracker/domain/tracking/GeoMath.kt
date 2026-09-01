@@ -24,6 +24,9 @@ object GeoMath {
         return 2 * EARTH_RADIUS_METERS * asin(min(1.0, sqrt(a)))
     }
 
+    fun distanceMeters(a: GeoPoint, b: GeoPoint): Double =
+        distanceMeters(a.latitude, a.longitude, b.latitude, b.longitude)
+
     /** Tổng độ dài đường gấp khúc qua các điểm, mét. */
     fun pathDistanceMeters(points: List<GeoPoint>): Double {
         var sum = 0.0

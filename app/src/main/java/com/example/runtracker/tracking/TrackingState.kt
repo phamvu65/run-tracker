@@ -21,6 +21,13 @@ data class TrackingState(
     val lastLatitude: Double? = null,
     val lastLongitude: Double? = null,
     val lastUpdate: Instant? = null,
+    // Turn-by-turn navigation (null nếu không theo route nào)
+    val navRouteName: String? = null,
+    val navInstruction: String? = null,
+    val navDistanceMeters: Double? = null,
+    val navOffRoute: Boolean = false,
+    val navStepIndex: Int = 0,
+    val navStepCount: Int = 0,
 ) {
     val isActive: Boolean get() = status != TrackingStatus.IDLE
 

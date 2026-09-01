@@ -4,7 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.runtracker.core.LOCAL_USER_ID
 import com.example.runtracker.domain.model.Activity
+import com.example.runtracker.domain.model.Route
 import com.example.runtracker.domain.repository.ActivityRepository
+import com.example.runtracker.domain.repository.RouteRepository
 import com.example.runtracker.domain.usecase.FinalizeActivityUseCase
 import com.example.runtracker.tracking.TrackingSession
 import com.example.runtracker.tracking.TrackingState
@@ -21,8 +23,9 @@ import javax.inject.Inject
 
 @HiltViewModel
 class TrackingViewModel @Inject constructor(
-    session: TrackingSession,
+    private val session: TrackingSession,
     private val repository: ActivityRepository,
+    private val routeRepository: RouteRepository,
     private val stateStore: TrackingStateStore,
     private val finalizeActivityUseCase: FinalizeActivityUseCase,
 ) : ViewModel() {
@@ -31,6 +34,17 @@ class TrackingViewModel @Inject constructor(
 
     val activities: StateFlow<List<Activity>> = repository.observeActivities(LOCAL_USER_ID)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val routes: StateFlow<List<Route>> = routeRepository.observeRoutes(LOCAL_USER_ID)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val selectedRoute: StateFlow<Route?> = session.selectedRoute
+
+    fun selectRoute(routeId: String?) {
+        viewModelScope.launch {
+            session.selectRoute(routeId?.let { routeRepository.getRoute(it) })
+        }
+    }
 
     /** Id buổi tập còn cờ "đang chạy" nhưng service không còn tracking — tức bị OS kill. */
     private val _interruptedActivityId = MutableStateFlow<String?>(null)

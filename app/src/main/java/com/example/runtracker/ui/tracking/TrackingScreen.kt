@@ -43,6 +43,7 @@ import com.example.runtracker.core.formatClock
 import com.example.runtracker.core.formatPace
 import com.example.runtracker.core.hasLocationPermission
 import com.example.runtracker.core.trackingPermissions
+import com.example.runtracker.domain.model.Route
 import com.example.runtracker.tracking.LocationTrackingService
 import com.example.runtracker.tracking.TrackingStatus
 import kotlin.math.roundToInt
@@ -60,6 +61,9 @@ fun TrackingScreen(
     val state by viewModel.tracking.collectAsState()
     val activities by viewModel.activities.collectAsState()
     val interruptedId by viewModel.interruptedActivityId.collectAsState()
+    val routes by viewModel.routes.collectAsState()
+    val selectedRoute by viewModel.selectedRoute.collectAsState()
+    var showRoutePicker by remember { mutableStateOf(false) }
 
     var hasPermission by remember { mutableStateOf(context.hasLocationPermission()) }
     var pendingAction by remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -78,6 +82,18 @@ fun TrackingScreen(
             pendingAction = action
             permissionLauncher.launch(trackingPermissions())
         }
+    }
+
+    if (showRoutePicker) {
+        RoutePickerDialog(
+            routes = routes,
+            selectedId = selectedRoute?.id,
+            onSelect = {
+                viewModel.selectRoute(it)
+                showRoutePicker = false
+            },
+            onDismiss = { showRoutePicker = false },
+        )
     }
 
     interruptedId?.let { id ->
@@ -107,6 +123,28 @@ fun TrackingScreen(
             }
         }
         Spacer(Modifier.height(8.dp))
+
+        if (state.status != TrackingStatus.IDLE && state.navRouteName != null) {
+            NavigationCard(
+                routeName = state.navRouteName!!,
+                instruction = state.navInstruction,
+                distanceMeters = state.navDistanceMeters,
+                offRoute = state.navOffRoute,
+                stepIndex = state.navStepIndex,
+                stepCount = state.navStepCount,
+            )
+            Spacer(Modifier.height(12.dp))
+        }
+
+        if (state.status == TrackingStatus.IDLE) {
+            OutlinedButton(
+                onClick = { showRoutePicker = true },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(selectedRoute?.let { "Route: ${it.name}" } ?: "Chọn route để dẫn đường")
+            }
+            Spacer(Modifier.height(12.dp))
+        }
 
         StatRow("Thời gian", formatClock(state.elapsedSeconds))
         StatRow("Quãng đường", "%.2f km".format(state.distanceMeters / 1000.0))
@@ -231,6 +269,76 @@ private fun BatteryOptimizationCard(context: android.content.Context) {
             }
         }
     }
+}
+
+@Composable
+private fun NavigationCard(
+    routeName: String,
+    instruction: String?,
+    distanceMeters: Double?,
+    offRoute: Boolean,
+    stepIndex: Int,
+    stepCount: Int,
+) {
+    val container = if (offRoute) {
+        MaterialTheme.colorScheme.errorContainer
+    } else {
+        MaterialTheme.colorScheme.primaryContainer
+    }
+    Card(colors = CardDefaults.cardColors(containerColor = container)) {
+        Column(Modifier.fillMaxWidth().padding(12.dp)) {
+            Text(routeName, style = MaterialTheme.typography.labelMedium)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                when {
+                    offRoute -> "⚠ Đã đi chệch route"
+                    instruction != null -> instruction
+                    else -> "Bám theo route"
+                },
+                style = MaterialTheme.typography.titleMedium,
+            )
+            val meta = buildList {
+                distanceMeters?.let { add("còn ${it.roundToInt()} m") }
+                if (stepCount > 0) add("bước ${(stepIndex + 1).coerceAtMost(stepCount)}/$stepCount")
+            }
+            if (meta.isNotEmpty()) {
+                Text(meta.joinToString(" · "), style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
+@Composable
+private fun RoutePickerDialog(
+    routes: List<Route>,
+    selectedId: String?,
+    onSelect: (String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Chọn route") },
+        text = {
+            if (routes.isEmpty()) {
+                Text("Chưa có route. Dựng route ở màn Hồ sơ → Routes đã lưu.")
+            } else {
+                LazyColumn {
+                    item {
+                        TextButton(onClick = { onSelect(null) }) { Text("Không dẫn đường") }
+                    }
+                    items(routes, key = { it.id }) { route ->
+                        TextButton(onClick = { onSelect(route.id) }) {
+                            Text(
+                                (if (route.id == selectedId) "✓ " else "") +
+                                    "${route.name} · ${route.distanceMeters.roundToInt() / 1000.0} km",
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Đóng") } },
+    )
 }
 
 @Composable

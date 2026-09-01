@@ -20,7 +20,10 @@ import com.example.runtracker.core.LOCAL_USER_ID
 import com.example.runtracker.core.formatClock
 import com.example.runtracker.domain.model.Activity
 import com.example.runtracker.domain.model.ActivityType
+import com.example.runtracker.domain.model.GeoPoint
 import com.example.runtracker.domain.model.RoutePoint
+import com.example.runtracker.domain.model.RouteWaypoint
+import com.example.runtracker.domain.navigation.RouteNavigator
 import com.example.runtracker.domain.repository.ActivityRepository
 import com.example.runtracker.domain.tracking.GeoMath
 import com.example.runtracker.domain.tracking.RunAggregator
@@ -75,6 +78,11 @@ class LocationTrackingService : Service() {
     private var pausedAccumSeconds: Long = 0
     private var pausedAt: Instant? = null
 
+    // Điều hướng turn-by-turn (rỗng nếu không theo route)
+    private var navSteps: List<RouteWaypoint> = emptyList()
+    private var navPolyline: List<GeoPoint> = emptyList()
+    private var navStepIndex: Int = 0
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
@@ -119,9 +127,27 @@ class LocationTrackingService : Service() {
         startAsForeground(TrackingStatus.TRACKING)
         acquireWakeLock()
 
+        val route = session.selectedRoute.value
+        navPolyline = route?.polyline.orEmpty()
+        navStepIndex = 0
+        navSteps = when {
+            route == null -> emptyList()
+            route.waypoints.any { !it.instruction.isNullOrBlank() } ->
+                route.waypoints.filter { !it.instruction.isNullOrBlank() }
+            navPolyline.isNotEmpty() ->
+                listOf(RouteWaypoint(0, navPolyline.last(), "Về đích"))
+            else -> emptyList()
+        }
+
         session.reset()
         session.update {
-            it.copy(status = TrackingStatus.TRACKING, activityId = id, startedAt = now)
+            it.copy(
+                status = TrackingStatus.TRACKING,
+                activityId = id,
+                startedAt = now,
+                navRouteName = route?.name,
+                navStepCount = navSteps.size,
+            )
         }
 
         scope.launch { repository.upsertActivity(initialActivity(id, now)) }
@@ -261,7 +287,30 @@ class LocationTrackingService : Service() {
             }
         }
         lastAccepted = accepted
+        updateNavigation(accepted)
         updateNotification()
+    }
+
+    private fun updateNavigation(point: RoutePoint) {
+        if (navSteps.isEmpty()) return
+        val progress = RouteNavigator.progress(
+            location = GeoPoint(point.latitude, point.longitude),
+            steps = navSteps,
+            polyline = navPolyline,
+            currentStepIndex = navStepIndex,
+        )
+        navStepIndex = progress.stepIndex
+        session.update {
+            it.copy(
+                navInstruction = when {
+                    progress.arrived -> "Đã tới đích"
+                    else -> progress.nextInstruction
+                },
+                navDistanceMeters = progress.distanceToNextMeters,
+                navOffRoute = progress.offRoute,
+                navStepIndex = progress.stepIndex,
+            )
+        }
     }
 
     private fun startTicker() {
@@ -309,11 +358,15 @@ class LocationTrackingService : Service() {
         stateStore.clear()
 
         session.reset()
+        session.selectRoute(null)
         activityId = null
         startedAt = null
         lastAccepted = null
         pausedAccumSeconds = 0
         pausedAt = null
+        navSteps = emptyList()
+        navPolyline = emptyList()
+        navStepIndex = 0
     }
 
     // ---- Notification ----
