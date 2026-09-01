@@ -27,6 +27,40 @@ object GeoMath {
     fun distanceMeters(a: GeoPoint, b: GeoPoint): Double =
         distanceMeters(a.latitude, a.longitude, b.latitude, b.longitude)
 
+    /** Nội suy tuyến tính giữa 2 điểm; `fraction` 0..1. */
+    fun interpolate(a: GeoPoint, b: GeoPoint, fraction: Double): GeoPoint = GeoPoint(
+        latitude = a.latitude + (b.latitude - a.latitude) * fraction,
+        longitude = a.longitude + (b.longitude - a.longitude) * fraction,
+    )
+
+    /**
+     * Lấy `count` điểm cách đều nhau theo chiều dài dọc đường gấp khúc.
+     * Trả về nguyên list nếu đã ít hơn `count` điểm.
+     */
+    fun resample(points: List<GeoPoint>, count: Int): List<GeoPoint> {
+        if (count < 2 || points.size <= count) return points
+        val total = pathDistanceMeters(points)
+        if (total == 0.0) return listOf(points.first())
+
+        val step = total / (count - 1)
+        val out = ArrayList<GeoPoint>(count)
+        out += points.first()
+        var accumulated = 0.0
+        var target = step
+
+        for (i in 1 until points.size) {
+            val segLength = distanceMeters(points[i - 1], points[i])
+            while (segLength > 0.0 && accumulated + segLength >= target && out.size < count - 1) {
+                val fraction = (target - accumulated) / segLength
+                out += interpolate(points[i - 1], points[i], fraction)
+                target += step
+            }
+            accumulated += segLength
+        }
+        out += points.last()
+        return out
+    }
+
     /** Tổng độ dài đường gấp khúc qua các điểm, mét. */
     fun pathDistanceMeters(points: List<GeoPoint>): Double {
         var sum = 0.0

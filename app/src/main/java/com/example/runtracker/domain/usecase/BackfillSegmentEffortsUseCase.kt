@@ -1,30 +1,37 @@
 package com.example.runtracker.domain.usecase
 
+import com.example.runtracker.core.LOCAL_USER_ID
 import com.example.runtracker.domain.model.SegmentEffort
 import com.example.runtracker.domain.repository.ActivityRepository
 import com.example.runtracker.domain.repository.SegmentRepository
 import com.example.runtracker.domain.segment.SegmentMatcher
+import java.time.Instant
 import javax.inject.Inject
 
 /**
- * Sau khi một activity được chốt số liệu, thử khớp trace với mọi segment và tạo effort cho
- * những segment khớp mà chưa có effort từ activity này.
+ * Sau khi tạo một segment mới, quét toàn bộ activity đã có và tạo effort cho những buổi
+ * đi qua segment đó (mà chưa có effort).
  */
-class DetectSegmentEffortsUseCase @Inject constructor(
+class BackfillSegmentEffortsUseCase @Inject constructor(
     private val activityRepository: ActivityRepository,
     private val segmentRepository: SegmentRepository,
 ) {
-    suspend operator fun invoke(activityId: String) {
-        val activity = activityRepository.getActivity(activityId) ?: return
-        val route = activityRepository.getRoutePoints(activityId)
-        if (route.size < 2) return
+    suspend operator fun invoke(segmentId: String) {
+        val segment = segmentRepository.getSegment(segmentId) ?: return
+        val activities = activityRepository.getActivitiesBetween(
+            userId = LOCAL_USER_ID,
+            from = Instant.EPOCH,
+            to = Instant.now(),
+        )
 
-        val alreadyMatched = segmentRepository.getEffortsForActivity(activityId)
-            .map { it.segmentId }
-            .toSet()
+        for (activity in activities) {
+            val alreadyMatched = segmentRepository.getEffortsForActivity(activity.id)
+                .any { it.segmentId == segmentId }
+            if (alreadyMatched) continue
 
-        for (segment in segmentRepository.getAllSegments()) {
-            if (segment.id in alreadyMatched) continue
+            val route = activityRepository.getRoutePoints(activity.id)
+            if (route.size < 2) continue
+
             val match = SegmentMatcher.match(
                 route = route,
                 segmentStart = segment.start,
@@ -36,8 +43,8 @@ class DetectSegmentEffortsUseCase @Inject constructor(
             segmentRepository.addEffort(
                 SegmentEffort(
                     id = 0,
-                    segmentId = segment.id,
-                    activityId = activityId,
+                    segmentId = segmentId,
+                    activityId = activity.id,
                     userId = activity.userId,
                     elapsedSeconds = match.elapsedSeconds,
                     startTime = match.startTime,

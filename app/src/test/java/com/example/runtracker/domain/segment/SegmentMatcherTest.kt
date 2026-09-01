@@ -56,6 +56,52 @@ class SegmentMatcherTest {
     }
 
     @Test
+    fun `matches when the route shape follows the segment polyline`() {
+        val route = (0..10).map { routePoint(it * 100.0, it * 30L) }
+        val polyline = (0..10).map { geo(it * 100.0) }
+
+        val match = SegmentMatcher.match(
+            route = route,
+            segmentStart = geo(0.0),
+            segmentEnd = geo(1_000.0),
+            segmentDistanceMeters = 1_000.0,
+            segmentPolyline = polyline,
+        )
+
+        assertNotNull(match)
+    }
+
+    @Test
+    fun `rejects when the route bulges away from the segment polyline`() {
+        val northDegrees = 200.0 / 111_320.0 // ~200 m về phía bắc
+        val route = listOf(
+            routePoint(0.0, 0),
+            routePoint(250.0, 60),
+            RoutePoint(
+                latitude = northDegrees,
+                longitude = 500.0 / metersPerDegree,
+                altitude = 0.0,
+                speedMps = null,
+                accuracyMeters = 5f,
+                timestamp = base.plusSeconds(120),
+            ),
+            routePoint(750.0, 180),
+            routePoint(1_000.0, 240),
+        )
+        val polyline = (0..10).map { geo(it * 100.0) } // đường thẳng y = 0
+
+        val match = SegmentMatcher.match(
+            route = route,
+            segmentStart = geo(0.0),
+            segmentEnd = geo(1_000.0),
+            segmentDistanceMeters = 1_000.0,
+            segmentPolyline = polyline,
+        )
+
+        assertNull(match)
+    }
+
+    @Test
     fun `no match when traversed distance is far from the segment distance`() {
         val route = (0..10).map { routePoint(it * 100.0, it * 30L) }
 

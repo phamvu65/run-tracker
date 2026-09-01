@@ -17,6 +17,7 @@ import com.example.runtracker.ui.routes.RouteBuilderScreen
 import com.example.runtracker.ui.routes.RouteDetailScreen
 import com.example.runtracker.ui.routes.RouteListScreen
 import com.example.runtracker.ui.segments.ARG_SEGMENT_ID
+import com.example.runtracker.ui.segments.SegmentCreateScreen
 import com.example.runtracker.ui.segments.SegmentDetailScreen
 import com.example.runtracker.ui.segments.SegmentListScreen
 import com.example.runtracker.ui.tracking.TrackingScreen
@@ -30,6 +31,8 @@ private object Routes {
     const val HR_SENSOR = "hr_sensor"
     const val SEGMENTS = "segments"
     const val SEGMENT_DETAIL = "segment/{$ARG_SEGMENT_ID}"
+    const val SEGMENT_CREATE = "segment_create/{$ARG_ACTIVITY_ID}"
+    fun segmentCreate(activityId: String) = "segment_create/$activityId"
     const val ROUTES = "routes"
     const val ROUTE_BUILDER = "route_builder"
     const val ROUTE_DETAIL = "route/{$ARG_ROUTE_ID}"
@@ -110,8 +113,26 @@ fun RunTrackerNavHost(modifier: Modifier = Modifier) {
         composable(
             route = Routes.DETAIL,
             arguments = listOf(navArgument(ARG_ACTIVITY_ID) { type = NavType.StringType }),
+        ) { entry ->
+            val activityId = entry.arguments?.getString(ARG_ACTIVITY_ID)
+            ActivityDetailScreen(
+                onBack = { navController.popBackStack() },
+                onCreateSegment = {
+                    activityId?.let { navController.navigate(Routes.segmentCreate(it)) }
+                },
+            )
+        }
+        composable(
+            route = Routes.SEGMENT_CREATE,
+            arguments = listOf(navArgument(ARG_ACTIVITY_ID) { type = NavType.StringType }),
         ) {
-            ActivityDetailScreen(onBack = { navController.popBackStack() })
+            SegmentCreateScreen(
+                onBack = { navController.popBackStack() },
+                onCreated = { segmentId ->
+                    navController.popBackStack()
+                    navController.navigate(Routes.segment(segmentId))
+                },
+            )
         }
     }
 }

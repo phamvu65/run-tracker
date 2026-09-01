@@ -5,28 +5,50 @@ import com.example.runtracker.domain.model.GeoPoint
 import com.example.runtracker.domain.model.Segment
 import com.example.runtracker.domain.repository.ActivityRepository
 import com.example.runtracker.domain.repository.SegmentRepository
+import com.example.runtracker.domain.tracking.GeoMath
 import com.example.runtracker.domain.tracking.RouteStats
 import java.util.UUID
 import javax.inject.Inject
 
 /**
- * Tạo segment từ toàn bộ đường đi của một activity (v1 — chưa chọn đoạn con).
- * Tạo xong dò luôn effort cho chính activity nguồn.
+ * Tạo segment từ một đoạn con của đường đi một activity, chọn theo khoảng quãng đường
+ * `[fromDistanceMeters, toDistanceMeters]`. Bỏ trống -> toàn bộ route.
+ * Tạo xong dò ngược mọi activity đã có.
  */
 class CreateSegmentUseCase @Inject constructor(
     private val activityRepository: ActivityRepository,
     private val segmentRepository: SegmentRepository,
-    private val detectSegmentEfforts: DetectSegmentEffortsUseCase,
+    private val backfillSegmentEfforts: BackfillSegmentEffortsUseCase,
 ) {
-    /** @return id segment mới, hoặc null nếu activity không đủ điểm GPS. */
-    suspend operator fun invoke(activityId: String, name: String): String? {
+    /** @return id segment mới, hoặc null nếu đoạn được chọn quá ngắn / không đủ điểm. */
+    suspend operator fun invoke(
+        activityId: String,
+        name: String,
+        fromDistanceMeters: Double? = null,
+        toDistanceMeters: Double? = null,
+    ): String? {
         val route = activityRepository.getRoutePoints(activityId)
         if (route.size < 2) return null
 
-        val points = route.map { GeoPoint(it.latitude, it.longitude) }
-        val distance = RouteStats.cumulativeDistances(route).last()
+        val cumulative = RouteStats.cumulativeDistances(route)
+        val total = cumulative.last()
+        val from = (fromDistanceMeters ?: 0.0).coerceIn(0.0, total)
+        val to = (toDistanceMeters ?: total).coerceIn(from, total)
+
+        val sliceIndices = route.indices.filter { cumulative[it] in from..to }
+        val slice = if (sliceIndices.size >= 2) {
+            route.subList(sliceIndices.first(), sliceIndices.last() + 1)
+        } else {
+            route
+        }
+        if (slice.size < 2) return null
+
+        val points = slice.map { GeoPoint(it.latitude, it.longitude) }
+        val distance = GeoMath.pathDistanceMeters(points)
+        if (distance < MIN_SEGMENT_METERS) return null
+
         val grade = if (distance > 0) {
-            (route.last().altitude - route.first().altitude) / distance * 100.0
+            (slice.last().altitude - slice.first().altitude) / distance * 100.0
         } else {
             0.0
         }
@@ -43,7 +65,11 @@ class CreateSegmentUseCase @Inject constructor(
             isPublic = true,
         )
         segmentRepository.upsertSegment(segment)
-        detectSegmentEfforts(activityId)
+        backfillSegmentEfforts(segment.id)
         return segment.id
+    }
+
+    private companion object {
+        const val MIN_SEGMENT_METERS = 100.0
     }
 }

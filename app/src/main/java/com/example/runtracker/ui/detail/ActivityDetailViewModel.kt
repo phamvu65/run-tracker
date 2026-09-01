@@ -18,7 +18,6 @@ import com.example.runtracker.domain.repository.ZoneSettingsRepository
 import com.example.runtracker.domain.training.TrimpCalculator
 import com.example.runtracker.domain.training.ZoneDistribution
 import com.example.runtracker.domain.training.ZoneTime
-import com.example.runtracker.domain.usecase.CreateSegmentUseCase
 import com.example.runtracker.domain.usecase.ImportHeartRateUseCase
 import com.example.runtracker.domain.usecase.RefreshTrainingMetricsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -44,7 +43,6 @@ class ActivityDetailViewModel @Inject constructor(
     private val refreshTrainingMetrics: RefreshTrainingMetricsUseCase,
     private val heartRateSource: HeartRateSource,
     private val importHeartRate: ImportHeartRateUseCase,
-    private val createSegmentUseCase: CreateSegmentUseCase,
 ) : ViewModel() {
 
     private val activityId: String = checkNotNull(savedStateHandle[ARG_ACTIVITY_ID])
@@ -99,10 +97,6 @@ class ActivityDetailViewModel @Inject constructor(
 
     init {
         viewModelScope.launch { _heartRateAvailable.value = heartRateSource.isAvailable() }
-    }
-
-    fun createSegment(name: String) {
-        viewModelScope.launch { createSegmentUseCase(activityId, name) }
     }
 
     fun setPerceivedExertion(rpe: Int) {

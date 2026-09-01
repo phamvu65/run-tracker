@@ -13,7 +13,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -21,17 +20,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -50,6 +46,7 @@ import kotlin.math.roundToInt
 @Composable
 fun ActivityDetailScreen(
     onBack: () -> Unit,
+    onCreateSegment: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: ActivityDetailViewModel = hiltViewModel(),
 ) {
@@ -99,7 +96,7 @@ fun ActivityDetailScreen(
                         }
                     },
                     onSetRpe = viewModel::setPerceivedExertion,
-                    onCreateSegment = viewModel::createSegment,
+                    onCreateSegment = onCreateSegment,
                 )
             }
         }
@@ -115,7 +112,7 @@ private fun LoadedContent(
     segmentEfforts: List<SegmentEffortRow>,
     onSyncHeartRate: () -> Unit,
     onSetRpe: (Int) -> Unit,
-    onCreateSegment: (String) -> Unit,
+    onCreateSegment: () -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
         if (state.routePoints.isEmpty()) {
@@ -244,10 +241,8 @@ private fun Stat(label: String, value: String) {
 @Composable
 private fun SegmentSection(
     efforts: List<SegmentEffortRow>,
-    onCreateSegment: (String) -> Unit,
+    onCreateSegment: () -> Unit,
 ) {
-    var showDialog by remember { mutableStateOf(false) }
-
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text("Segments", style = MaterialTheme.typography.titleSmall)
         efforts.forEach { effort ->
@@ -264,34 +259,6 @@ private fun SegmentSection(
                 )
             }
         }
-        OutlinedButton(onClick = { showDialog = true }) { Text("Tạo segment từ buổi này") }
-    }
-
-    if (showDialog) {
-        var name by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showDialog = false },
-            title = { Text("Tên segment") },
-            text = {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    singleLine = true,
-                    label = { Text("Ví dụ: Dốc cầu Sài Gòn") },
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = name.isNotBlank(),
-                    onClick = {
-                        onCreateSegment(name.trim())
-                        showDialog = false
-                    },
-                ) { Text("Tạo") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDialog = false }) { Text("Huỷ") }
-            },
-        )
+        OutlinedButton(onClick = onCreateSegment) { Text("Tạo segment từ buổi này") }
     }
 }
