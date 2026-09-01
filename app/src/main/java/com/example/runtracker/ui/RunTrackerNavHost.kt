@@ -9,10 +9,12 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.runtracker.ui.detail.ARG_ACTIVITY_ID
 import com.example.runtracker.ui.detail.ActivityDetailScreen
+import com.example.runtracker.ui.profile.ProfileScreen
 import com.example.runtracker.ui.tracking.TrackingScreen
 
 private object Routes {
     const val TRACKING = "tracking"
+    const val PROFILE = "profile"
     const val DETAIL = "detail/{$ARG_ACTIVITY_ID}"
     fun detail(activityId: String) = "detail/$activityId"
 }
@@ -29,7 +31,11 @@ fun RunTrackerNavHost(modifier: Modifier = Modifier) {
         composable(Routes.TRACKING) {
             TrackingScreen(
                 onActivityClick = { navController.navigate(Routes.detail(it)) },
+                onProfileClick = { navController.navigate(Routes.PROFILE) },
             )
+        }
+        composable(Routes.PROFILE) {
+            ProfileScreen(onBack = { navController.popBackStack() })
         }
         composable(
             route = Routes.DETAIL,

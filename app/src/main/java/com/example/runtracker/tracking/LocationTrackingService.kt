@@ -16,6 +16,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.getSystemService
 import com.example.runtracker.MainActivity
+import com.example.runtracker.core.LOCAL_USER_ID
 import com.example.runtracker.core.formatClock
 import com.example.runtracker.domain.model.Activity
 import com.example.runtracker.domain.model.ActivityType
@@ -281,7 +282,7 @@ class LocationTrackingService : Service() {
 
     private fun initialActivity(id: String, now: Instant) = Activity(
         id = id,
-        userId = DEFAULT_USER_ID,
+        userId = LOCAL_USER_ID,
         type = ActivityType.RUNNING,
         startTime = now,
         endTime = now,
@@ -422,7 +423,6 @@ class LocationTrackingService : Service() {
         private const val NOTIF_ID = 1001
         private const val LOCATION_INTERVAL_MS = 3_000L
         private const val MAX_WAKE_LOCK_MS = 6L * 60 * 60 * 1000 // 6h an toàn
-        private const val DEFAULT_USER_ID = "local-user"
 
         fun start(context: Context) = send(context, ACTION_START, foreground = true)
         fun pause(context: Context) = send(context, ACTION_PAUSE, foreground = false)

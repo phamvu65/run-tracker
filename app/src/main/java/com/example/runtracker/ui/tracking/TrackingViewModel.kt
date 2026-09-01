@@ -2,6 +2,7 @@ package com.example.runtracker.ui.tracking
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.runtracker.core.LOCAL_USER_ID
 import com.example.runtracker.domain.model.Activity
 import com.example.runtracker.domain.repository.ActivityRepository
 import com.example.runtracker.domain.usecase.FinalizeActivityUseCase
@@ -17,8 +18,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-
-private const val LOCAL_USER_ID = "local-user"
 
 @HiltViewModel
 class TrackingViewModel @Inject constructor(
