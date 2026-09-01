@@ -38,3 +38,6 @@ obj/
 # Misc
 .DS_Store
 *.log
+
+# Ngữ cảnh riêng cho AI assistant — không public
+CLAUDE.md
