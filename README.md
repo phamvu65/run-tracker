@@ -13,6 +13,7 @@ và `docs/database_design.md` cho schema.
    ```
 
    Lấy key tại Google Cloud Console → APIs & Services → Credentials, bật
-   **Maps SDK for Android**. Thiếu key thì app vẫn chạy, chỉ có bản đồ ở màn
-   chi tiết buổi tập hiện trống.
+   **Maps SDK for Android** (và **Directions API** nếu muốn Route Builder bám
+   đường — thiếu thì fallback đường thẳng). Thiếu key thì app vẫn chạy, chỉ có
+   bản đồ hiện trống.
 3. Cắm thiết bị thật (khuyến khích, cần GPS) và Run.

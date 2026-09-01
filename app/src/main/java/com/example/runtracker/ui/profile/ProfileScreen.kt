@@ -41,6 +41,7 @@ import java.time.Year
 fun ProfileScreen(
     onBack: () -> Unit,
     onOpenZones: () -> Unit = {},
+    onOpenRoutes: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
@@ -137,6 +138,9 @@ fun ProfileScreen(
 
             OutlinedButton(onClick = onOpenZones, modifier = Modifier.fillMaxWidth()) {
                 Text("Vùng nhịp tim")
+            }
+            OutlinedButton(onClick = onOpenRoutes, modifier = Modifier.fillMaxWidth()) {
+                Text("Routes đã lưu")
             }
         }
     }

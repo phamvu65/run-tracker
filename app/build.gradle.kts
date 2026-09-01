@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
 }
@@ -31,6 +32,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
+        buildConfigField("String", "MAPS_API_KEY", "\"$mapsApiKey\"")
     }
 
     buildTypes {
@@ -51,6 +53,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -97,6 +100,12 @@ dependencies {
 
     // Wearable data
     implementation(libs.androidx.health.connect.client)
+
+    // Network — Google Directions API
+    implementation(libs.retrofit)
+    implementation(libs.retrofitSerializationConverter)
+    implementation(libs.okhttpLoggingInterceptor)
+    implementation(libs.kotlinxSerializationJson)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

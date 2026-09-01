@@ -1,5 +1,6 @@
 package com.example.runtracker.domain.tracking
 
+import com.example.runtracker.domain.model.GeoPoint
 import kotlin.math.asin
 import kotlin.math.cos
 import kotlin.math.min
@@ -21,5 +22,17 @@ object GeoMath {
         val a = sin(dLat / 2).pow(2) +
             cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) * sin(dLon / 2).pow(2)
         return 2 * EARTH_RADIUS_METERS * asin(min(1.0, sqrt(a)))
+    }
+
+    /** Tổng độ dài đường gấp khúc qua các điểm, mét. */
+    fun pathDistanceMeters(points: List<GeoPoint>): Double {
+        var sum = 0.0
+        for (i in 1 until points.size) {
+            sum += distanceMeters(
+                points[i - 1].latitude, points[i - 1].longitude,
+                points[i].latitude, points[i].longitude,
+            )
+        }
+        return sum
     }
 }
