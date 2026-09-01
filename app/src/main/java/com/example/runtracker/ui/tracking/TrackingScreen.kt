@@ -17,11 +17,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -32,7 +28,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
@@ -51,9 +46,6 @@ import kotlin.math.roundToInt
 @Composable
 fun TrackingScreen(
     onActivityClick: (String) -> Unit = {},
-    onProfileClick: () -> Unit = {},
-    onFitnessClick: () -> Unit = {},
-    onSegmentsClick: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: TrackingViewModel = hiltViewModel(),
 ) {
@@ -110,18 +102,10 @@ fun TrackingScreen(
     }
 
     Column(modifier.fillMaxSize().padding(16.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                "Ghi hoạt động",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.weight(1f),
-            )
-            TextButton(onClick = onFitnessClick) { Text("Fitness") }
-            TextButton(onClick = onSegmentsClick) { Text("Segments") }
-            IconButton(onClick = onProfileClick) {
-                Icon(Icons.Filled.Person, contentDescription = "Hồ sơ")
-            }
-        }
+        Text(
+            "Ghi hoạt động",
+            style = MaterialTheme.typography.titleMedium,
+        )
         Spacer(Modifier.height(8.dp))
 
         if (state.status != TrackingStatus.IDLE && state.navRouteName != null) {

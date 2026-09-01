@@ -38,7 +38,7 @@ import kotlin.math.roundToLong
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FitnessScreen(
-    onBack: () -> Unit,
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: FitnessViewModel = hiltViewModel(),
 ) {
@@ -51,8 +51,10 @@ fun FitnessScreen(
             TopAppBar(
                 title = { Text("Fitness & Freshness") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
+                        }
                     }
                 },
             )

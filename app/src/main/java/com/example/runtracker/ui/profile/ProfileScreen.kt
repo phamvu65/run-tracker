@@ -39,7 +39,7 @@ import java.time.Year
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
-    onBack: () -> Unit,
+    onBack: (() -> Unit)? = null,
     onOpenZones: () -> Unit = {},
     onOpenRoutes: () -> Unit = {},
     onOpenHrSensor: () -> Unit = {},
@@ -52,7 +52,7 @@ fun ProfileScreen(
     LaunchedEffect(saved) {
         if (saved) {
             viewModel.consumeSaved()
-            onBack()
+            onBack?.invoke()
         }
     }
 
@@ -72,8 +72,10 @@ fun ProfileScreen(
             TopAppBar(
                 title = { Text("Hồ sơ") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
+                        }
                     }
                 },
             )

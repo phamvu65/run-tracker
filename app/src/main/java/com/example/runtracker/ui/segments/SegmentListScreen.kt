@@ -31,7 +31,7 @@ import kotlin.math.roundToInt
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SegmentListScreen(
-    onBack: () -> Unit,
+    onBack: (() -> Unit)? = null,
     onSegmentClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SegmentListViewModel = hiltViewModel(),
@@ -44,8 +44,10 @@ fun SegmentListScreen(
             TopAppBar(
                 title = { Text("Segments") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
+                        }
                     }
                 },
             )

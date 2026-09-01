@@ -32,7 +32,7 @@ import com.example.runtracker.core.formatDistanceKm
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RouteListScreen(
-    onBack: () -> Unit,
+    onBack: (() -> Unit)? = null,
     onRouteClick: (String) -> Unit,
     onCreateRoute: () -> Unit,
     modifier: Modifier = Modifier,
@@ -46,8 +46,10 @@ fun RouteListScreen(
             TopAppBar(
                 title = { Text("Routes") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
+                        }
                     }
                 },
             )
