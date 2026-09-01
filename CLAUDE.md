@@ -85,7 +85,14 @@ T1/D1 = thời gian/quãng đường activity tốt nhất gần đây; D2 = c�
   - 9 DAO trong `.../data/local/dao/` (nhóm theo aggregate: `ActivityDao` gộp activity/route_points/heart_rate_samples/activity_laps; `TrainingLoadDao` gộp daily_training_load/fitness_freshness_snapshots; `SegmentDao`, `RouteDao`, `ChallengeDao` gộp cha-con tương ứng)
   - `RunTrackerDatabase` (version 1, `exportSchema = true`)
   - `di/DatabaseModule` (Hilt, provides DB + tất cả DAO), `RunTrackerApp` (`@HiltAndroidApp`), `MainActivity` gắn `@AndroidEntryPoint`
-- **Chưa có Repository / domain / ViewModel nào** — DAO là lớp thấp nhất hiện có.
+- **Đã có Activity repository layer** (nhánh `feat/activity-repository`, build + unit test pass):
+  - `domain/model/`: `Activity` (+ `ActivityType`), `RoutePoint`, `HeartRateSample`, `ActivityLap`, `ActivityDetail` — dùng `java.time.Instant` + `kotlin.time.Duration`, không mang `isSynced`/`updatedAt`.
+  - `domain/tracking/`: `GpsTrackFilter` (lọc nhiễu: accuracy > 25m, tốc độ > 7 m/s giữa 2 điểm, timestamp trùng/lệch) + `GeoMath` (haversine) — thuần JVM, có test.
+  - `domain/repository/ActivityRepository` + `data/repository/ActivityRepositoryImpl` (dùng `ActivityDao`, `@IoDispatcher`). `appendRoutePoints` tự lọc nhiễu dựa trên điểm cuối đã lưu (`ActivityDao.getLastRoutePoint`).
+  - `data/mapper/ActivityMappers.kt`: entity <-> domain.
+  - DI mới: `di/RepositoryModule` (`@Binds ActivityRepository`), `di/DispatcherModule` + `di/IoDispatcher` qualifier.
+  - Test: `GpsTrackFilterTest`, `ActivityMappersTest`.
+- **Chưa có** repository cho các entity khác, chưa có domain use-case / ViewModel.
 - Sai lệch nhỏ so với bản thiết kế gốc (có chủ đích, đã cập nhật lại `docs/database_design.md`):
   - Thêm `Index` cho `route_waypoints.routeId` (tránh warning FK của Room).
   - Thêm cột `sex: String?` ("MALE"/"FEMALE", null -> dùng nhánh công thức nam) vào bảng `users` để phục vụ hệ số TRIMP nam/nữ.
@@ -94,7 +101,8 @@ T1/D1 = thời gian/quãng đường activity tốt nhất gần đây; D2 = c�
 
 1. ~~Thêm dependencies vào Gradle~~ ✅
 2. ~~Tạo các Room Entity + DAO theo schema~~ ✅
-3. Xây lớp Repository (domain model + mapper) trên các DAO, bắt đầu từ Activity/RoutePoint
-4. Xây Foreground Service ghi GPS + lọc nhiễu (Phase 1)
+3. ~~Activity repository layer (domain model + mapper + GPS filter)~~ ✅ (`feat/activity-repository`)
+4. Xây Foreground Service ghi GPS (dùng `ActivityRepository.appendRoutePoints`) + notification liên tục (Phase 1)
 5. UI tối thiểu: start/stop tracking, danh sách + chi tiết activity, map polyline
-6. Sau khi Phase 1 chạy ổn: module TRIMP + job WorkManager tính CTL/ATL/TSB (Phase 2) — nhớ wire Hilt WorkerFactory
+6. Repository cho `UserEntity` (cần cho tính TRIMP/zone) + các entity còn lại khi tới việc dùng
+7. Sau khi Phase 1 chạy ổn: module TRIMP + job WorkManager tính CTL/ATL/TSB (Phase 2) — nhớ wire Hilt WorkerFactory

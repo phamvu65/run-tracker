@@ -59,6 +59,10 @@ interface ActivityDao {
     @Query("SELECT * FROM route_points WHERE activityId = :activityId ORDER BY timestamp ASC")
     suspend fun getRoutePoints(activityId: String): List<RoutePointEntity>
 
+    /** Điểm mới nhất đã lưu — mốc để lọc nhiễu batch điểm kế tiếp mà không phải đọc cả trace. */
+    @Query("SELECT * FROM route_points WHERE activityId = :activityId ORDER BY timestamp DESC LIMIT 1")
+    suspend fun getLastRoutePoint(activityId: String): RoutePointEntity?
+
     @Query("SELECT * FROM route_points WHERE activityId = :activityId ORDER BY timestamp ASC")
     fun observeRoutePoints(activityId: String): Flow<List<RoutePointEntity>>
 
