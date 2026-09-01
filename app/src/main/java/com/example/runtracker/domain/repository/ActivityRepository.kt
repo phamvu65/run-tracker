@@ -20,7 +20,11 @@ interface ActivityRepository {
 
     fun observeRoutePoints(activityId: String): Flow<List<RoutePoint>>
 
+    fun observeLaps(activityId: String): Flow<List<ActivityLap>>
+
     suspend fun getActivity(activityId: String): Activity?
+
+    suspend fun getRoutePoints(activityId: String): List<RoutePoint>
 
     suspend fun getActivityDetail(activityId: String): ActivityDetail?
 
