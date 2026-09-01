@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -18,6 +19,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -32,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.health.connect.client.PermissionController
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.formatClock
 import com.example.runtracker.core.formatDistanceKm
@@ -46,6 +49,15 @@ fun ActivityDetailScreen(
     viewModel: ActivityDetailViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val heartRateAvailable by viewModel.heartRateAvailable.collectAsState()
+
+    val heartRatePermissionLauncher = rememberLauncherForActivityResult(
+        contract = PermissionController.createRequestPermissionResultContract(),
+    ) { granted ->
+        if (granted.containsAll(viewModel.heartRatePermissions)) {
+            viewModel.onHeartRatePermissionGranted()
+        }
+    }
 
     Scaffold(
         modifier = modifier,
@@ -70,6 +82,13 @@ fun ActivityDetailScreen(
 
                 is ActivityDetailUiState.Loaded -> LoadedContent(
                     state = s,
+                    heartRateAvailable = heartRateAvailable,
+                    importMessage = viewModel.importMessage,
+                    onSyncHeartRate = {
+                        viewModel.importHeartRateOrRequest {
+                            heartRatePermissionLauncher.launch(viewModel.heartRatePermissions)
+                        }
+                    },
                     onSetRpe = viewModel::setPerceivedExertion,
                 )
             }
@@ -80,6 +99,9 @@ fun ActivityDetailScreen(
 @Composable
 private fun LoadedContent(
     state: ActivityDetailUiState.Loaded,
+    heartRateAvailable: Boolean,
+    importMessage: String?,
+    onSyncHeartRate: () -> Unit,
     onSetRpe: (Int) -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
@@ -107,7 +129,13 @@ private fun LoadedContent(
         ) {
             StatsPanel(state = state)
             if (state.canEnterRpe) {
-                RpeEditor(current = state.activity.perceivedExertion, onSave = onSetRpe)
+                NoHeartRateSection(
+                    rpe = state.activity.perceivedExertion,
+                    heartRateAvailable = heartRateAvailable,
+                    importMessage = importMessage,
+                    onSyncHeartRate = onSyncHeartRate,
+                    onSetRpe = onSetRpe,
+                )
             }
             ElevationChart(points = state.routePoints, modifier = Modifier.fillMaxWidth())
             LapList(laps = state.laps, modifier = Modifier.fillMaxWidth())
@@ -141,15 +169,41 @@ private fun StatsPanel(state: ActivityDetailUiState.Loaded, modifier: Modifier =
 }
 
 @Composable
+private fun NoHeartRateSection(
+    rpe: Int?,
+    heartRateAvailable: Boolean,
+    importMessage: String?,
+    onSyncHeartRate: () -> Unit,
+    onSetRpe: (Int) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Chưa có nhịp tim", style = MaterialTheme.typography.titleSmall)
+
+        if (heartRateAvailable) {
+            Text(
+                "Đồng bộ nhịp tim từ Health Connect (đồng hồ / vòng đeo), hoặc nhập RPE.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedButton(onClick = onSyncHeartRate) { Text("Đồng bộ nhịp tim") }
+            importMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+        } else {
+            Text(
+                "Health Connect không khả dụng — nhập RPE (1 rất nhẹ … 10 kiệt sức) để tính TRIMP.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        RpeEditor(current = rpe, onSave = onSetRpe)
+    }
+}
+
+@Composable
 private fun RpeEditor(current: Int?, onSave: (Int) -> Unit) {
     var rpe by remember(current) { mutableIntStateOf(current ?: 5) }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("Cảm giác gắng sức (RPE): $rpe", style = MaterialTheme.typography.titleSmall)
-        Text(
-            "Không có nhịp tim — nhập RPE (1 rất nhẹ … 10 kiệt sức) để tính TRIMP.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Text("Cảm giác gắng sức (RPE): $rpe", style = MaterialTheme.typography.bodyMedium)
         Slider(
             value = rpe.toFloat(),
             onValueChange = { rpe = it.roundToInt() },

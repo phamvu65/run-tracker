@@ -17,7 +17,7 @@ workManager = "2.10.0"
 playServicesLocation = "21.3.0"
 mapsCompose = "6.4.1"
 navigationCompose = "2.8.4"
-healthConnect = "1.1.0-alpha10"
+healthConnect = "1.1.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
