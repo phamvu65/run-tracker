@@ -23,11 +23,14 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
@@ -41,6 +44,7 @@ import com.example.runtracker.core.trackingPermissions
 import com.example.runtracker.domain.model.Route
 import com.example.runtracker.tracking.LocationTrackingService
 import com.example.runtracker.tracking.TrackingStatus
+import com.google.android.gms.maps.model.LatLng
 import kotlin.math.roundToInt
 
 @Composable
@@ -55,7 +59,25 @@ fun TrackingScreen(
     val interruptedId by viewModel.interruptedActivityId.collectAsState()
     val routes by viewModel.routes.collectAsState()
     val selectedRoute by viewModel.selectedRoute.collectAsState()
+    val liveTrace by viewModel.liveTrace.collectAsState()
     var showRoutePicker by remember { mutableStateOf(false) }
+    var voiceEnabled by rememberSaveable { mutableStateOf(true) }
+
+    val speak = rememberRouteVoice()
+    var lastSpokenStep by remember { mutableIntStateOf(-1) }
+    var lastOffRoute by remember { mutableStateOf(false) }
+    LaunchedEffect(state.navStepIndex, state.navOffRoute, state.navRouteName, voiceEnabled) {
+        if (!voiceEnabled || state.status == TrackingStatus.IDLE || state.navRouteName == null) {
+            return@LaunchedEffect
+        }
+        if (state.navOffRoute) {
+            if (!lastOffRoute) speak("Đã đi chệch tuyến đường")
+        } else if (state.navStepIndex != lastSpokenStep) {
+            state.navInstruction?.let { speak(it) }
+            lastSpokenStep = state.navStepIndex
+        }
+        lastOffRoute = state.navOffRoute
+    }
 
     var hasPermission by remember { mutableStateOf(context.hasLocationPermission()) }
     var pendingAction by remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -108,6 +130,25 @@ fun TrackingScreen(
         )
         Spacer(Modifier.height(8.dp))
 
+        if (state.status != TrackingStatus.IDLE) {
+            val traceLatLngs = remember(liveTrace) {
+                liveTrace.map { LatLng(it.latitude, it.longitude) }
+            }
+            val routeLatLngs = remember(selectedRoute) {
+                selectedRoute?.polyline?.map { LatLng(it.latitude, it.longitude) }.orEmpty()
+            }
+            val current = state.lastLatitude?.let { lat ->
+                state.lastLongitude?.let { lng -> LatLng(lat, lng) }
+            }
+            LiveTrackingMap(
+                trace = traceLatLngs,
+                plannedRoute = routeLatLngs,
+                current = current,
+                modifier = Modifier.fillMaxWidth().height(240.dp),
+            )
+            Spacer(Modifier.height(12.dp))
+        }
+
         if (state.status != TrackingStatus.IDLE && state.navRouteName != null) {
             NavigationCard(
                 routeName = state.navRouteName!!,
@@ -117,6 +158,9 @@ fun TrackingScreen(
                 stepIndex = state.navStepIndex,
                 stepCount = state.navStepCount,
             )
+            TextButton(onClick = { voiceEnabled = !voiceEnabled }) {
+                Text(if (voiceEnabled) "🔊 Tắt đọc chỉ đường" else "🔈 Bật đọc chỉ đường")
+            }
             Spacer(Modifier.height(12.dp))
         }
 
@@ -178,30 +222,32 @@ fun TrackingScreen(
             BatteryOptimizationCard(context = context)
         }
 
-        Spacer(Modifier.height(24.dp))
-        Text("Lịch sử (${activities.size})", style = MaterialTheme.typography.titleSmall)
-        Spacer(Modifier.height(4.dp))
+        if (state.status == TrackingStatus.IDLE) {
+            Spacer(Modifier.height(24.dp))
+            Text("Lịch sử (${activities.size})", style = MaterialTheme.typography.titleSmall)
+            Spacer(Modifier.height(4.dp))
 
-        LazyColumn(Modifier.fillMaxSize()) {
-            items(activities, key = { it.id }) { activity ->
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable { onActivityClick(activity.id) }
-                        .padding(vertical = 8.dp),
-                ) {
-                    Text(
-                        "%.2f km · %s".format(
-                            activity.distanceMeters / 1000.0,
-                            formatClock(activity.movingTime.inWholeSeconds),
-                        ),
-                    )
-                    Text(
-                        "${activity.type} · ${activity.startTime}",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
+            LazyColumn(Modifier.fillMaxSize()) {
+                items(activities, key = { it.id }) { activity ->
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { onActivityClick(activity.id) }
+                            .padding(vertical = 8.dp),
+                    ) {
+                        Text(
+                            "%.2f km · %s".format(
+                                activity.distanceMeters / 1000.0,
+                                formatClock(activity.movingTime.inWholeSeconds),
+                            ),
+                        )
+                        Text(
+                            "${activity.type} · ${activity.startTime}",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    HorizontalDivider()
                 }
-                HorizontalDivider()
             }
         }
     }
