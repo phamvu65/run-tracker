@@ -28,6 +28,8 @@ interface ActivityRepository {
 
     suspend fun getRoutePoints(activityId: String): List<RoutePoint>
 
+    suspend fun getHeartRateSamples(activityId: String): List<HeartRateSample>
+
     suspend fun getActivityDetail(activityId: String): ActivityDetail?
 
     /** Dùng cho tính TRIMP / training load theo khoảng ngày (Phase 2). */

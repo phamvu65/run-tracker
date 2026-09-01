@@ -18,9 +18,12 @@ import androidx.core.content.getSystemService
 import com.example.runtracker.MainActivity
 import com.example.runtracker.core.LOCAL_USER_ID
 import com.example.runtracker.core.formatClock
+import com.example.runtracker.data.health.BleHeartRateStore
+import com.example.runtracker.domain.health.LiveHeartRateSource
 import com.example.runtracker.domain.model.Activity
 import com.example.runtracker.domain.model.ActivityType
 import com.example.runtracker.domain.model.GeoPoint
+import com.example.runtracker.domain.model.HeartRateSample
 import com.example.runtracker.domain.model.RoutePoint
 import com.example.runtracker.domain.model.RouteWaypoint
 import com.example.runtracker.domain.navigation.RouteNavigator
@@ -66,11 +69,16 @@ class LocationTrackingService : Service() {
     @Inject lateinit var session: TrackingSession
     @Inject lateinit var stateStore: TrackingStateStore
     @Inject lateinit var finalizeActivityUseCase: FinalizeActivityUseCase
+    @Inject lateinit var liveHeartRateSource: LiveHeartRateSource
+    @Inject lateinit var bleHeartRateStore: BleHeartRateStore
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var locationJob: Job? = null
     private var tickerJob: Job? = null
+    private var heartRateJob: Job? = null
     private var wakeLock: PowerManager.WakeLock? = null
+
+    private val heartRateBuffer = mutableListOf<HeartRateSample>()
 
     private var activityId: String? = null
     private var startedAt: Instant? = null
@@ -105,6 +113,7 @@ class LocationTrackingService : Service() {
     override fun onDestroy() {
         locationJob?.cancel()
         tickerJob?.cancel()
+        heartRateJob?.cancel()
         releaseWakeLock()
         scope.cancel()
         super.onDestroy()
@@ -153,6 +162,39 @@ class LocationTrackingService : Service() {
         scope.launch { repository.upsertActivity(initialActivity(id, now)) }
         startLocationCollection()
         startTicker()
+        startHeartRateCollection(id)
+    }
+
+    private fun startHeartRateCollection(id: String) {
+        heartRateJob?.cancel()
+        val address = bleHeartRateStore.savedAddress() ?: return
+        if (!liveHeartRateSource.isSupported() || !liveHeartRateSource.hasPermissions()) return
+
+        heartRateJob = scope.launch {
+            liveHeartRateSource.connect(address)
+                .catch { e -> Log.w(TAG, "heart-rate stream ended", e) }
+                .collect { bpm -> onHeartRate(id, bpm) }
+        }
+    }
+
+    private suspend fun onHeartRate(id: String, bpm: Int) {
+        session.update { it.copy(liveHeartRateBpm = bpm) }
+        if (session.state.value.status != TrackingStatus.TRACKING) return
+
+        heartRateBuffer += HeartRateSample(bpm = bpm, timestamp = Instant.now())
+        if (heartRateBuffer.size >= HEART_RATE_FLUSH_SIZE) {
+            val batch = heartRateBuffer.toList()
+            heartRateBuffer.clear()
+            repository.appendHeartRateSamples(id, batch)
+        }
+    }
+
+    private suspend fun flushHeartRate() {
+        val id = activityId ?: return
+        if (heartRateBuffer.isEmpty()) return
+        val batch = heartRateBuffer.toList()
+        heartRateBuffer.clear()
+        repository.appendHeartRateSamples(id, batch)
     }
 
     /** Khôi phục buổi tập bị gián đoạn: nạp lại aggregate từ trace đã lưu rồi ghi tiếp. */
@@ -203,6 +245,7 @@ class LocationTrackingService : Service() {
 
             startLocationCollection()
             startTicker()
+            startHeartRateCollection(id)
             updateNotification()
         }
     }
@@ -228,9 +271,13 @@ class LocationTrackingService : Service() {
     private fun stop() {
         locationJob?.cancel()
         tickerJob?.cancel()
+        heartRateJob?.cancel()
         releaseWakeLock()
         scope.launch {
-            withContext(NonCancellable) { finalizeAndReset() }
+            withContext(NonCancellable) {
+                flushHeartRate()
+                finalizeAndReset()
+            }
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
         }
@@ -367,6 +414,7 @@ class LocationTrackingService : Service() {
         navSteps = emptyList()
         navPolyline = emptyList()
         navStepIndex = 0
+        heartRateBuffer.clear()
     }
 
     // ---- Notification ----
@@ -475,6 +523,7 @@ class LocationTrackingService : Service() {
         private const val CHANNEL_ID = "tracking"
         private const val NOTIF_ID = 1001
         private const val LOCATION_INTERVAL_MS = 3_000L
+        private const val HEART_RATE_FLUSH_SIZE = 10
         private const val MAX_WAKE_LOCK_MS = 6L * 60 * 60 * 1000 // 6h an toàn
 
         fun start(context: Context) = send(context, ACTION_START, foreground = true)

@@ -10,6 +10,7 @@ import androidx.navigation.navArgument
 import com.example.runtracker.ui.detail.ARG_ACTIVITY_ID
 import com.example.runtracker.ui.detail.ActivityDetailScreen
 import com.example.runtracker.ui.fitness.FitnessScreen
+import com.example.runtracker.ui.hrsensor.HrSensorScreen
 import com.example.runtracker.ui.profile.ProfileScreen
 import com.example.runtracker.ui.routes.ARG_ROUTE_ID
 import com.example.runtracker.ui.routes.RouteBuilderScreen
@@ -26,6 +27,7 @@ private object Routes {
     const val PROFILE = "profile"
     const val FITNESS = "fitness"
     const val ZONES = "zones"
+    const val HR_SENSOR = "hr_sensor"
     const val SEGMENTS = "segments"
     const val SEGMENT_DETAIL = "segment/{$ARG_SEGMENT_ID}"
     const val ROUTES = "routes"
@@ -59,7 +61,11 @@ fun RunTrackerNavHost(modifier: Modifier = Modifier) {
                 onBack = { navController.popBackStack() },
                 onOpenZones = { navController.navigate(Routes.ZONES) },
                 onOpenRoutes = { navController.navigate(Routes.ROUTES) },
+                onOpenHrSensor = { navController.navigate(Routes.HR_SENSOR) },
             )
+        }
+        composable(Routes.HR_SENSOR) {
+            HrSensorScreen(onBack = { navController.popBackStack() })
         }
         composable(Routes.FITNESS) {
             FitnessScreen(onBack = { navController.popBackStack() })

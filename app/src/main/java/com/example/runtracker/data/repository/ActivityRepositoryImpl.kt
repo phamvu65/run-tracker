@@ -46,6 +46,9 @@ class ActivityRepositoryImpl @Inject constructor(
     override suspend fun getRoutePoints(activityId: String): List<RoutePoint> =
         activityDao.getRoutePoints(activityId).map { it.toDomain() }
 
+    override suspend fun getHeartRateSamples(activityId: String): List<HeartRateSample> =
+        activityDao.getHeartRateSamples(activityId).map { it.toDomain() }
+
     override suspend fun getActivityDetail(activityId: String): ActivityDetail? = withContext(io) {
         val activity = activityDao.getActivity(activityId)?.toDomain() ?: return@withContext null
         ActivityDetail(

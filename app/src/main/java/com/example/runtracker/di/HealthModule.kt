@@ -1,7 +1,9 @@
 package com.example.runtracker.di
 
+import com.example.runtracker.data.health.BleHeartRateSource
 import com.example.runtracker.data.health.HealthConnectHeartRateSource
 import com.example.runtracker.domain.health.HeartRateSource
+import com.example.runtracker.domain.health.LiveHeartRateSource
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -15,4 +17,8 @@ abstract class HealthModule {
     @Binds
     @Singleton
     abstract fun bindHeartRateSource(impl: HealthConnectHeartRateSource): HeartRateSource
+
+    @Binds
+    @Singleton
+    abstract fun bindLiveHeartRateSource(impl: BleHeartRateSource): LiveHeartRateSource
 }

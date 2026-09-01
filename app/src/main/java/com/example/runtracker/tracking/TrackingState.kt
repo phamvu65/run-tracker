@@ -21,6 +21,8 @@ data class TrackingState(
     val lastLatitude: Double? = null,
     val lastLongitude: Double? = null,
     val lastUpdate: Instant? = null,
+    /** Nhịp tim live từ đai BLE (null nếu không kết nối). */
+    val liveHeartRateBpm: Int? = null,
     // Turn-by-turn navigation (null nếu không theo route nào)
     val navRouteName: String? = null,
     val navInstruction: String? = null,

@@ -3,6 +3,7 @@ package com.example.runtracker.domain.usecase
 import com.example.runtracker.domain.repository.ActivityRepository
 import com.example.runtracker.domain.tracking.LapCalculator
 import com.example.runtracker.domain.tracking.RunAggregator
+import com.example.runtracker.domain.training.summary
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
@@ -30,6 +31,7 @@ class FinalizeActivityUseCase @Inject constructor(
         val activity = repository.getActivity(activityId) ?: return
         val points = repository.getRoutePoints(activityId)
         val aggregate = RunAggregator.fromPoints(points)
+        val hr = repository.getHeartRateSamples(activityId).summary()
         val end = endTime ?: points.lastOrNull()?.timestamp ?: Instant.now()
         val totalSeconds = (Duration.between(activity.startTime, end).seconds - pausedSeconds)
             .coerceAtLeast(0)
@@ -37,6 +39,8 @@ class FinalizeActivityUseCase @Inject constructor(
         repository.upsertActivity(
             activity.copy(
                 endTime = end,
+                avgHeartRate = hr?.averageBpm ?: activity.avgHeartRate,
+                maxHeartRate = hr?.maxBpm ?: activity.maxHeartRate,
                 distanceMeters = aggregate.distanceMeters,
                 duration = totalSeconds.seconds,
                 movingTime = aggregate.movingTimeSeconds.seconds,

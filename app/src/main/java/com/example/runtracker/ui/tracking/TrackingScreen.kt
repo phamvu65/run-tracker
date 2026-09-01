@@ -149,6 +149,7 @@ fun TrackingScreen(
         StatRow("Thời gian", formatClock(state.elapsedSeconds))
         StatRow("Quãng đường", "%.2f km".format(state.distanceMeters / 1000.0))
         StatRow("Pace", formatPace(state.avgPaceSecPerKm))
+        state.liveHeartRateBpm?.let { StatRow("Nhịp tim", "$it bpm") }
         StatRow(
             "Độ cao +/-",
             "${state.elevationGainMeters.roundToInt()} / ${state.elevationLossMeters.roundToInt()} m",

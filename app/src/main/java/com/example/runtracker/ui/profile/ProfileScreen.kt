@@ -42,6 +42,7 @@ fun ProfileScreen(
     onBack: () -> Unit,
     onOpenZones: () -> Unit = {},
     onOpenRoutes: () -> Unit = {},
+    onOpenHrSensor: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
@@ -141,6 +142,9 @@ fun ProfileScreen(
             }
             OutlinedButton(onClick = onOpenRoutes, modifier = Modifier.fillMaxWidth()) {
                 Text("Routes đã lưu")
+            }
+            OutlinedButton(onClick = onOpenHrSensor, modifier = Modifier.fillMaxWidth()) {
+                Text("Đai nhịp tim (BLE)")
             }
         }
     }
