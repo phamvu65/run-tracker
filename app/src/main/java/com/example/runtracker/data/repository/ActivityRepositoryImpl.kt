@@ -37,6 +37,9 @@ class ActivityRepositoryImpl @Inject constructor(
     override fun observeLaps(activityId: String): Flow<List<ActivityLap>> =
         activityDao.observeLaps(activityId).map { list -> list.map { it.toDomain() } }
 
+    override fun observeHeartRateSamples(activityId: String): Flow<List<HeartRateSample>> =
+        activityDao.observeHeartRateSamples(activityId).map { list -> list.map { it.toDomain() } }
+
     override suspend fun getActivity(activityId: String): Activity? =
         activityDao.getActivity(activityId)?.toDomain()
 

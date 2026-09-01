@@ -12,11 +12,13 @@ import com.example.runtracker.ui.detail.ActivityDetailScreen
 import com.example.runtracker.ui.fitness.FitnessScreen
 import com.example.runtracker.ui.profile.ProfileScreen
 import com.example.runtracker.ui.tracking.TrackingScreen
+import com.example.runtracker.ui.zones.ZoneSettingsScreen
 
 private object Routes {
     const val TRACKING = "tracking"
     const val PROFILE = "profile"
     const val FITNESS = "fitness"
+    const val ZONES = "zones"
     const val DETAIL = "detail/{$ARG_ACTIVITY_ID}"
     fun detail(activityId: String) = "detail/$activityId"
 }
@@ -38,10 +40,16 @@ fun RunTrackerNavHost(modifier: Modifier = Modifier) {
             )
         }
         composable(Routes.PROFILE) {
-            ProfileScreen(onBack = { navController.popBackStack() })
+            ProfileScreen(
+                onBack = { navController.popBackStack() },
+                onOpenZones = { navController.navigate(Routes.ZONES) },
+            )
         }
         composable(Routes.FITNESS) {
             FitnessScreen(onBack = { navController.popBackStack() })
+        }
+        composable(Routes.ZONES) {
+            ZoneSettingsScreen(onBack = { navController.popBackStack() })
         }
         composable(
             route = Routes.DETAIL,

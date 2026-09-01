@@ -39,6 +39,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.formatClock
 import com.example.runtracker.core.formatDistanceKm
 import com.example.runtracker.core.formatPace
+import com.example.runtracker.domain.training.ZoneTime
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -50,6 +51,7 @@ fun ActivityDetailScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val heartRateAvailable by viewModel.heartRateAvailable.collectAsState()
+    val zoneDistribution by viewModel.zoneDistribution.collectAsState()
 
     val heartRatePermissionLauncher = rememberLauncherForActivityResult(
         contract = PermissionController.createRequestPermissionResultContract(),
@@ -84,6 +86,7 @@ fun ActivityDetailScreen(
                     state = s,
                     heartRateAvailable = heartRateAvailable,
                     importMessage = viewModel.importMessage,
+                    zoneDistribution = zoneDistribution,
                     onSyncHeartRate = {
                         viewModel.importHeartRateOrRequest {
                             heartRatePermissionLauncher.launch(viewModel.heartRatePermissions)
@@ -101,6 +104,7 @@ private fun LoadedContent(
     state: ActivityDetailUiState.Loaded,
     heartRateAvailable: Boolean,
     importMessage: String?,
+    zoneDistribution: List<ZoneTime>,
     onSyncHeartRate: () -> Unit,
     onSetRpe: (Int) -> Unit,
 ) {
@@ -138,6 +142,7 @@ private fun LoadedContent(
                 )
             }
             ElevationChart(points = state.routePoints, modifier = Modifier.fillMaxWidth())
+            ZoneDistributionList(distribution = zoneDistribution, modifier = Modifier.fillMaxWidth())
             LapList(laps = state.laps, modifier = Modifier.fillMaxWidth())
         }
     }

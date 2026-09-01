@@ -74,6 +74,9 @@ interface ActivityDao {
     @Query("SELECT * FROM heart_rate_samples WHERE activityId = :activityId ORDER BY timestamp ASC")
     suspend fun getHeartRateSamples(activityId: String): List<HeartRateSampleEntity>
 
+    @Query("SELECT * FROM heart_rate_samples WHERE activityId = :activityId ORDER BY timestamp ASC")
+    fun observeHeartRateSamples(activityId: String): Flow<List<HeartRateSampleEntity>>
+
     // ---- ActivityLap ----
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

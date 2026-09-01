@@ -4,10 +4,12 @@ import com.example.runtracker.data.repository.ActivityRepositoryImpl
 import com.example.runtracker.data.repository.PerformancePredictionRepositoryImpl
 import com.example.runtracker.data.repository.TrainingLoadRepositoryImpl
 import com.example.runtracker.data.repository.UserRepositoryImpl
+import com.example.runtracker.data.repository.ZoneSettingsRepositoryImpl
 import com.example.runtracker.domain.repository.ActivityRepository
 import com.example.runtracker.domain.repository.PerformancePredictionRepository
 import com.example.runtracker.domain.repository.TrainingLoadRepository
 import com.example.runtracker.domain.repository.UserRepository
+import com.example.runtracker.domain.repository.ZoneSettingsRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -35,4 +37,8 @@ abstract class RepositoryModule {
     abstract fun bindPerformancePredictionRepository(
         impl: PerformancePredictionRepositoryImpl,
     ): PerformancePredictionRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindZoneSettingsRepository(impl: ZoneSettingsRepositoryImpl): ZoneSettingsRepository
 }

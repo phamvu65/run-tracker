@@ -92,6 +92,7 @@ class UpdatePerformancePredictionsUseCaseTest {
         override fun observeActivity(activityId: String): Flow<Activity?> = unused()
         override fun observeRoutePoints(activityId: String): Flow<List<RoutePoint>> = unused()
         override fun observeLaps(activityId: String): Flow<List<ActivityLap>> = unused()
+        override fun observeHeartRateSamples(activityId: String): Flow<List<HeartRateSample>> = unused()
         override suspend fun getActivity(activityId: String): Activity? = unused()
         override suspend fun getRoutePoints(activityId: String): List<RoutePoint> = unused()
         override suspend fun getActivityDetail(activityId: String): ActivityDetail? = unused()
