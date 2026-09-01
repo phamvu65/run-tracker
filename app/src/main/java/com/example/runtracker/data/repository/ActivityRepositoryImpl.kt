@@ -34,8 +34,14 @@ class ActivityRepositoryImpl @Inject constructor(
     override fun observeRoutePoints(activityId: String): Flow<List<RoutePoint>> =
         activityDao.observeRoutePoints(activityId).map { list -> list.map { it.toDomain() } }
 
+    override fun observeLaps(activityId: String): Flow<List<ActivityLap>> =
+        activityDao.observeLaps(activityId).map { list -> list.map { it.toDomain() } }
+
     override suspend fun getActivity(activityId: String): Activity? =
         activityDao.getActivity(activityId)?.toDomain()
+
+    override suspend fun getRoutePoints(activityId: String): List<RoutePoint> =
+        activityDao.getRoutePoints(activityId).map { it.toDomain() }
 
     override suspend fun getActivityDetail(activityId: String): ActivityDetail? = withContext(io) {
         val activity = activityDao.getActivity(activityId)?.toDomain() ?: return@withContext null
