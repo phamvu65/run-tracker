@@ -51,6 +51,7 @@ import kotlin.math.roundToInt
 fun TrackingScreen(
     onActivityClick: (String) -> Unit = {},
     onProfileClick: () -> Unit = {},
+    onFitnessClick: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: TrackingViewModel = hiltViewModel(),
 ) {
@@ -98,6 +99,7 @@ fun TrackingScreen(
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f),
             )
+            TextButton(onClick = onFitnessClick) { Text("Fitness") }
             IconButton(onClick = onProfileClick) {
                 Icon(Icons.Filled.Person, contentDescription = "Hồ sơ")
             }

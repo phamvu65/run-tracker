@@ -9,7 +9,7 @@ import com.example.runtracker.domain.model.RoutePoint
 import com.example.runtracker.domain.repository.ActivityRepository
 import com.example.runtracker.domain.repository.UserRepository
 import com.example.runtracker.domain.training.TrimpCalculator
-import com.example.runtracker.domain.usecase.UpdateDailyTrainingLoadUseCase
+import com.example.runtracker.domain.usecase.RefreshTrainingMetricsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -27,7 +27,7 @@ class ActivityDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val repository: ActivityRepository,
     userRepository: UserRepository,
-    private val updateDailyTrainingLoad: UpdateDailyTrainingLoadUseCase,
+    private val refreshTrainingMetrics: RefreshTrainingMetricsUseCase,
 ) : ViewModel() {
 
     private val activityId: String = checkNotNull(savedStateHandle[ARG_ACTIVITY_ID])
@@ -59,7 +59,7 @@ class ActivityDetailViewModel @Inject constructor(
         viewModelScope.launch {
             val activity = repository.getActivity(activityId) ?: return@launch
             repository.upsertActivity(activity.copy(perceivedExertion = rpe.coerceIn(1, 10)))
-            updateDailyTrainingLoad(activity.startTime.atZone(ZoneId.systemDefault()).toLocalDate())
+            refreshTrainingMetrics(activity.startTime.atZone(ZoneId.systemDefault()).toLocalDate())
         }
     }
 }

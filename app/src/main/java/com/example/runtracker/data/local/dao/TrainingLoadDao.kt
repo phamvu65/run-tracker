@@ -31,6 +31,9 @@ interface TrainingLoadDao {
         toDate: String
     ): List<DailyTrainingLoadEntity>
 
+    @Query("SELECT MIN(date) FROM daily_training_load WHERE userId = :userId")
+    suspend fun getEarliestDailyLoadDate(userId: String): String?
+
     // ---- FitnessFreshnessSnapshot ----
 
     @Upsert

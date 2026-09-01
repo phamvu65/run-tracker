@@ -79,11 +79,13 @@ dependencies {
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
+    implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
 
-    // WorkManager (Phase 2 — Hilt worker factory sẽ wire khi làm job CTL/ATL/TSB)
+    // WorkManager (job tính CTL/ATL/TSB mỗi đêm)
     implementation(libs.androidx.work.runtime.ktx)
 
     // Navigation

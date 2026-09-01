@@ -16,6 +16,9 @@ interface TrainingLoadRepository {
         to: LocalDate,
     ): List<DailyTrainingLoad>
 
+    /** Ngày sớm nhất có dữ liệu training load; null nếu chưa có gì. */
+    suspend fun getEarliestDailyLoadDate(userId: String): LocalDate?
+
     // Fitness & Freshness snapshots (CTL/ATL/TSB — Phase 2 job)
     suspend fun upsertSnapshot(snapshot: FitnessFreshnessSnapshot)
     suspend fun getSnapshot(userId: String, date: LocalDate): FitnessFreshnessSnapshot?

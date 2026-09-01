@@ -29,6 +29,9 @@ class TrainingLoadRepositoryImpl @Inject constructor(
     ): List<DailyTrainingLoad> =
         dao.getDailyLoadsBetween(userId, from.toString(), to.toString()).map { it.toDomain() }
 
+    override suspend fun getEarliestDailyLoadDate(userId: String): LocalDate? =
+        dao.getEarliestDailyLoadDate(userId)?.let(LocalDate::parse)
+
     override suspend fun upsertSnapshot(snapshot: FitnessFreshnessSnapshot) =
         dao.upsertSnapshot(snapshot.toEntity())
 
