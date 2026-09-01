@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,6 +7,13 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
 }
+
+// Google Maps API key: đặt `MAPS_API_KEY=...` trong local.properties (đã gitignore).
+// Thiếu key thì app vẫn build, chỉ là map hiện trống.
+val mapsApiKey: String = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}.getProperty("MAPS_API_KEY", "")
 
 android {
     namespace = "com.example.runtracker"
@@ -20,6 +29,8 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
     }
 
     buildTypes {
@@ -74,6 +85,9 @@ dependencies {
 
     // WorkManager (Phase 2 — Hilt worker factory sẽ wire khi làm job CTL/ATL/TSB)
     implementation(libs.androidx.work.runtime.ktx)
+
+    // Navigation
+    implementation(libs.androidx.navigation.compose)
 
     // Location & Maps
     implementation(libs.play.services.location)

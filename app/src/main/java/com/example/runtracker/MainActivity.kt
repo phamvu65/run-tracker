@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
-import com.example.runtracker.ui.tracking.TrackingScreen
+import com.example.runtracker.ui.RunTrackerNavHost
 import com.example.runtracker.ui.theme.RunTrackerTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -20,7 +20,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             RunTrackerTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    TrackingScreen(modifier = Modifier.padding(innerPadding))
+                    RunTrackerNavHost(modifier = Modifier.padding(innerPadding))
                 }
             }
         }
