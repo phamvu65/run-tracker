@@ -5,15 +5,17 @@ import com.example.runtracker.domain.tracking.LapCalculator
 import com.example.runtracker.domain.tracking.RunAggregator
 import java.time.Duration
 import java.time.Instant
+import java.time.ZoneId
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Chốt số liệu cuối cho một buổi tập: tính lại aggregate + lap từ trace đã lưu, ghi đè Activity.
- * Dùng cho cả STOP bình thường và "kết thúc" buổi bị gián đoạn.
+ * Chốt số liệu cuối cho một buổi tập: tính lại aggregate + lap từ trace đã lưu, ghi đè Activity,
+ * rồi cập nhật training load của ngày. Dùng cho cả STOP bình thường và "kết thúc" buổi bị gián đoạn.
  */
 class FinalizeActivityUseCase @Inject constructor(
     private val repository: ActivityRepository,
+    private val updateDailyTrainingLoad: UpdateDailyTrainingLoadUseCase,
 ) {
     /**
      * @param endTime null -> lấy timestamp điểm GPS cuối (đúng cho buổi bị gián đoạn), fallback now.
@@ -52,5 +54,8 @@ class FinalizeActivityUseCase @Inject constructor(
             ),
         )
         repository.replaceLaps(activityId, LapCalculator.splitByDistance(points))
+
+        val date = activity.startTime.atZone(ZoneId.systemDefault()).toLocalDate()
+        updateDailyTrainingLoad(date)
     }
 }

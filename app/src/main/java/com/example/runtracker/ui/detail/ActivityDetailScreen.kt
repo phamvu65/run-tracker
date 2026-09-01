@@ -12,17 +12,22 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -31,7 +36,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.formatClock
 import com.example.runtracker.core.formatDistanceKm
 import com.example.runtracker.core.formatPace
-import com.example.runtracker.domain.model.Activity
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -64,14 +68,20 @@ fun ActivityDetailScreen(
                 ActivityDetailUiState.NotFound ->
                     Text("Không tìm thấy buổi tập", modifier = Modifier.align(Alignment.Center))
 
-                is ActivityDetailUiState.Loaded -> LoadedContent(s)
+                is ActivityDetailUiState.Loaded -> LoadedContent(
+                    state = s,
+                    onSetRpe = viewModel::setPerceivedExertion,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun LoadedContent(state: ActivityDetailUiState.Loaded) {
+private fun LoadedContent(
+    state: ActivityDetailUiState.Loaded,
+    onSetRpe: (Int) -> Unit,
+) {
     Column(Modifier.fillMaxSize()) {
         if (state.routePoints.isEmpty()) {
             Box(
@@ -95,7 +105,10 @@ private fun LoadedContent(state: ActivityDetailUiState.Loaded) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            StatsPanel(activity = state.activity, pointCount = state.routePoints.size)
+            StatsPanel(state = state)
+            if (state.canEnterRpe) {
+                RpeEditor(current = state.activity.perceivedExertion, onSave = onSetRpe)
+            }
             ElevationChart(points = state.routePoints, modifier = Modifier.fillMaxWidth())
             LapList(laps = state.laps, modifier = Modifier.fillMaxWidth())
         }
@@ -103,7 +116,8 @@ private fun LoadedContent(state: ActivityDetailUiState.Loaded) {
 }
 
 @Composable
-private fun StatsPanel(activity: Activity, pointCount: Int, modifier: Modifier = Modifier) {
+private fun StatsPanel(state: ActivityDetailUiState.Loaded, modifier: Modifier = Modifier) {
+    val activity = state.activity
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
             "${activity.type} · ${activity.startTime}",
@@ -118,10 +132,33 @@ private fun StatsPanel(activity: Activity, pointCount: Int, modifier: Modifier =
             "Độ cao +/-",
             "${activity.elevationGainMeters.roundToInt()} / ${activity.elevationLossMeters.roundToInt()} m",
         )
+        Stat("Relative Effort (TRIMP)", state.trimp?.roundToInt()?.toString() ?: "—")
         activity.avgHeartRate?.let { Stat("Nhịp tim TB", "$it bpm") }
         activity.maxHeartRate?.let { Stat("Nhịp tim tối đa", "$it bpm") }
         activity.calories?.let { Stat("Calo", "$it kcal") }
-        Stat("Điểm GPS", pointCount.toString())
+        Stat("Điểm GPS", state.routePoints.size.toString())
+    }
+}
+
+@Composable
+private fun RpeEditor(current: Int?, onSave: (Int) -> Unit) {
+    var rpe by remember(current) { mutableIntStateOf(current ?: 5) }
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("Cảm giác gắng sức (RPE): $rpe", style = MaterialTheme.typography.titleSmall)
+        Text(
+            "Không có nhịp tim — nhập RPE (1 rất nhẹ … 10 kiệt sức) để tính TRIMP.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Slider(
+            value = rpe.toFloat(),
+            onValueChange = { rpe = it.roundToInt() },
+            valueRange = 1f..10f,
+            steps = 8,
+        )
+        Button(onClick = { onSave(rpe) }) {
+            Text(if (current == null) "Lưu RPE" else "Cập nhật RPE")
+        }
     }
 }
 
