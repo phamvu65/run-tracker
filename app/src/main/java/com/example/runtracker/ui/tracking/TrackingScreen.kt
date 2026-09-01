@@ -2,6 +2,7 @@ package com.example.runtracker.ui.tracking
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -38,6 +39,7 @@ import kotlin.math.roundToInt
 
 @Composable
 fun TrackingScreen(
+    onActivityClick: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: TrackingViewModel = hiltViewModel(),
 ) {
@@ -108,7 +110,12 @@ fun TrackingScreen(
 
         LazyColumn(Modifier.fillMaxSize()) {
             items(activities, key = { it.id }) { activity ->
-                Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { onActivityClick(activity.id) }
+                        .padding(vertical = 8.dp),
+                ) {
                     Text(
                         "%.2f km · %s".format(
                             activity.distanceMeters / 1000.0,

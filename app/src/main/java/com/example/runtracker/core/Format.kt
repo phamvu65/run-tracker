@@ -11,6 +11,9 @@ fun formatClock(totalSeconds: Long): String {
     return if (h > 0) "%d:%02d:%02d".format(h, m, sec) else "%d:%02d".format(m, sec)
 }
 
+/** Mét -> "x.xx km". */
+fun formatDistanceKm(meters: Double): String = "%.2f km".format(meters / 1000.0)
+
 /** Pace giây/km -> "m:ss /km"; "--:-- /km" khi chưa có dữ liệu. */
 fun formatPace(secPerKm: Double): String {
     if (secPerKm <= 0.0) return "--:-- /km"
