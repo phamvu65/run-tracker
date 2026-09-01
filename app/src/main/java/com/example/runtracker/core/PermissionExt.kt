@@ -1,0 +1,31 @@
+package com.example.runtracker.core
+
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.core.content.ContextCompat
+
+/** Có ít nhất quyền vị trí xấp xỉ (coarse) — đủ để bắt đầu, fine cho độ chính xác tốt hơn. */
+fun Context.hasLocationPermission(): Boolean {
+    fun granted(p: String) =
+        ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED
+    return granted(Manifest.permission.ACCESS_FINE_LOCATION) ||
+        granted(Manifest.permission.ACCESS_COARSE_LOCATION)
+}
+
+fun Context.hasNotificationPermission(): Boolean =
+    Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+        ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.POST_NOTIFICATIONS,
+        ) == PackageManager.PERMISSION_GRANTED
+
+/** Các quyền cần xin trước khi bắt đầu ghi GPS, tuỳ phiên bản Android. */
+fun trackingPermissions(): Array<String> = buildList {
+    add(Manifest.permission.ACCESS_FINE_LOCATION)
+    add(Manifest.permission.ACCESS_COARSE_LOCATION)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        add(Manifest.permission.POST_NOTIFICATIONS)
+    }
+}.toTypedArray()
