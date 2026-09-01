@@ -16,6 +16,7 @@ import kotlin.time.Duration.Companion.seconds
 class FinalizeActivityUseCase @Inject constructor(
     private val repository: ActivityRepository,
     private val refreshTrainingMetrics: RefreshTrainingMetricsUseCase,
+    private val detectSegmentEfforts: DetectSegmentEffortsUseCase,
 ) {
     /**
      * @param endTime null -> lấy timestamp điểm GPS cuối (đúng cho buổi bị gián đoạn), fallback now.
@@ -54,6 +55,8 @@ class FinalizeActivityUseCase @Inject constructor(
             ),
         )
         repository.replaceLaps(activityId, LapCalculator.splitByDistance(points))
+
+        detectSegmentEfforts(activityId)
 
         val date = activity.startTime.atZone(ZoneId.systemDefault()).toLocalDate()
         refreshTrainingMetrics(date)

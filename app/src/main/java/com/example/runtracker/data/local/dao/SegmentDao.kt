@@ -23,6 +23,9 @@ interface SegmentDao {
     @Query("SELECT * FROM segments ORDER BY name ASC")
     fun observeSegments(): Flow<List<SegmentEntity>>
 
+    @Query("SELECT * FROM segments")
+    suspend fun getAllSegments(): List<SegmentEntity>
+
     // ---- SegmentEffort ----
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -30,6 +33,9 @@ interface SegmentDao {
 
     @Query("SELECT * FROM segment_efforts WHERE activityId = :activityId")
     suspend fun getEffortsForActivity(activityId: String): List<SegmentEffortEntity>
+
+    @Query("SELECT * FROM segment_efforts WHERE activityId = :activityId")
+    fun observeEffortsForActivity(activityId: String): Flow<List<SegmentEffortEntity>>
 
     /** Leaderboard đầy đủ — không giới hạn top 10 như Strava free. */
     @Query(

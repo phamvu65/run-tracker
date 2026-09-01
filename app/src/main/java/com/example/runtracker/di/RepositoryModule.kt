@@ -2,11 +2,13 @@ package com.example.runtracker.di
 
 import com.example.runtracker.data.repository.ActivityRepositoryImpl
 import com.example.runtracker.data.repository.PerformancePredictionRepositoryImpl
+import com.example.runtracker.data.repository.SegmentRepositoryImpl
 import com.example.runtracker.data.repository.TrainingLoadRepositoryImpl
 import com.example.runtracker.data.repository.UserRepositoryImpl
 import com.example.runtracker.data.repository.ZoneSettingsRepositoryImpl
 import com.example.runtracker.domain.repository.ActivityRepository
 import com.example.runtracker.domain.repository.PerformancePredictionRepository
+import com.example.runtracker.domain.repository.SegmentRepository
 import com.example.runtracker.domain.repository.TrainingLoadRepository
 import com.example.runtracker.domain.repository.UserRepository
 import com.example.runtracker.domain.repository.ZoneSettingsRepository
@@ -41,4 +43,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindZoneSettingsRepository(impl: ZoneSettingsRepositoryImpl): ZoneSettingsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSegmentRepository(impl: SegmentRepositoryImpl): SegmentRepository
 }

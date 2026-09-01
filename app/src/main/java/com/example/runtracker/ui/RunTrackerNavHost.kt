@@ -11,6 +11,9 @@ import com.example.runtracker.ui.detail.ARG_ACTIVITY_ID
 import com.example.runtracker.ui.detail.ActivityDetailScreen
 import com.example.runtracker.ui.fitness.FitnessScreen
 import com.example.runtracker.ui.profile.ProfileScreen
+import com.example.runtracker.ui.segments.ARG_SEGMENT_ID
+import com.example.runtracker.ui.segments.SegmentDetailScreen
+import com.example.runtracker.ui.segments.SegmentListScreen
 import com.example.runtracker.ui.tracking.TrackingScreen
 import com.example.runtracker.ui.zones.ZoneSettingsScreen
 
@@ -19,8 +22,11 @@ private object Routes {
     const val PROFILE = "profile"
     const val FITNESS = "fitness"
     const val ZONES = "zones"
+    const val SEGMENTS = "segments"
+    const val SEGMENT_DETAIL = "segment/{$ARG_SEGMENT_ID}"
     const val DETAIL = "detail/{$ARG_ACTIVITY_ID}"
     fun detail(activityId: String) = "detail/$activityId"
+    fun segment(segmentId: String) = "segment/$segmentId"
 }
 
 @Composable
@@ -37,6 +43,7 @@ fun RunTrackerNavHost(modifier: Modifier = Modifier) {
                 onActivityClick = { navController.navigate(Routes.detail(it)) },
                 onProfileClick = { navController.navigate(Routes.PROFILE) },
                 onFitnessClick = { navController.navigate(Routes.FITNESS) },
+                onSegmentsClick = { navController.navigate(Routes.SEGMENTS) },
             )
         }
         composable(Routes.PROFILE) {
@@ -50,6 +57,18 @@ fun RunTrackerNavHost(modifier: Modifier = Modifier) {
         }
         composable(Routes.ZONES) {
             ZoneSettingsScreen(onBack = { navController.popBackStack() })
+        }
+        composable(Routes.SEGMENTS) {
+            SegmentListScreen(
+                onBack = { navController.popBackStack() },
+                onSegmentClick = { navController.navigate(Routes.segment(it)) },
+            )
+        }
+        composable(
+            route = Routes.SEGMENT_DETAIL,
+            arguments = listOf(navArgument(ARG_SEGMENT_ID) { type = NavType.StringType }),
+        ) {
+            SegmentDetailScreen(onBack = { navController.popBackStack() })
         }
         composable(
             route = Routes.DETAIL,

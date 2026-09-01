@@ -52,6 +52,7 @@ fun TrackingScreen(
     onActivityClick: (String) -> Unit = {},
     onProfileClick: () -> Unit = {},
     onFitnessClick: () -> Unit = {},
+    onSegmentsClick: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: TrackingViewModel = hiltViewModel(),
 ) {
@@ -100,6 +101,7 @@ fun TrackingScreen(
                 modifier = Modifier.weight(1f),
             )
             TextButton(onClick = onFitnessClick) { Text("Fitness") }
+            TextButton(onClick = onSegmentsClick) { Text("Segments") }
             IconButton(onClick = onProfileClick) {
                 Icon(Icons.Filled.Person, contentDescription = "Hồ sơ")
             }

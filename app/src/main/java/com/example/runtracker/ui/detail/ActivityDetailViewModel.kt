@@ -12,11 +12,13 @@ import com.example.runtracker.domain.model.Activity
 import com.example.runtracker.domain.model.ActivityLap
 import com.example.runtracker.domain.model.RoutePoint
 import com.example.runtracker.domain.repository.ActivityRepository
+import com.example.runtracker.domain.repository.SegmentRepository
 import com.example.runtracker.domain.repository.UserRepository
 import com.example.runtracker.domain.repository.ZoneSettingsRepository
 import com.example.runtracker.domain.training.TrimpCalculator
 import com.example.runtracker.domain.training.ZoneDistribution
 import com.example.runtracker.domain.training.ZoneTime
+import com.example.runtracker.domain.usecase.CreateSegmentUseCase
 import com.example.runtracker.domain.usecase.ImportHeartRateUseCase
 import com.example.runtracker.domain.usecase.RefreshTrainingMetricsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -38,9 +40,11 @@ class ActivityDetailViewModel @Inject constructor(
     private val repository: ActivityRepository,
     userRepository: UserRepository,
     zoneSettingsRepository: ZoneSettingsRepository,
+    segmentRepository: SegmentRepository,
     private val refreshTrainingMetrics: RefreshTrainingMetricsUseCase,
     private val heartRateSource: HeartRateSource,
     private val importHeartRate: ImportHeartRateUseCase,
+    private val createSegmentUseCase: CreateSegmentUseCase,
 ) : ViewModel() {
 
     private val activityId: String = checkNotNull(savedStateHandle[ARG_ACTIVITY_ID])
@@ -83,8 +87,22 @@ class ActivityDetailViewModel @Inject constructor(
         if (zones == null) emptyList() else ZoneDistribution.compute(samples, zones.zones)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    val segmentEfforts: StateFlow<List<SegmentEffortRow>> = combine(
+        segmentRepository.observeEffortsForActivity(activityId),
+        segmentRepository.observeSegments(),
+    ) { efforts, segments ->
+        val byId = segments.associateBy { it.id }
+        efforts.mapNotNull { effort ->
+            byId[effort.segmentId]?.let { SegmentEffortRow(it.name, effort.elapsedSeconds) }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     init {
         viewModelScope.launch { _heartRateAvailable.value = heartRateSource.isAvailable() }
+    }
+
+    fun createSegment(name: String) {
+        viewModelScope.launch { createSegmentUseCase(activityId, name) }
     }
 
     fun setPerceivedExertion(rpe: Int) {
@@ -116,6 +134,8 @@ class ActivityDetailViewModel @Inject constructor(
         }
     }
 }
+
+data class SegmentEffortRow(val segmentName: String, val elapsedSeconds: Double)
 
 sealed interface ActivityDetailUiState {
     data object Loading : ActivityDetailUiState
