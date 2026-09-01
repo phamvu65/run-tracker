@@ -10,6 +10,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.example.runtracker.domain.usecase.RecalculateFitnessFreshnessUseCase
+import com.example.runtracker.domain.usecase.UpdatePerformancePredictionsUseCase
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import java.time.Duration
@@ -25,10 +26,12 @@ class FitnessFreshnessWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
     private val recalculate: RecalculateFitnessFreshnessUseCase,
+    private val updatePredictions: UpdatePerformancePredictionsUseCase,
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result = try {
         recalculate(LocalDate.now())
+        updatePredictions()
         Result.success()
     } catch (t: Throwable) {
         if (runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.failure()

@@ -12,6 +12,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -24,9 +25,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.runtracker.core.formatClock
+import com.example.runtracker.core.formatPace
+import com.example.runtracker.domain.model.PerformancePrediction
+import com.example.runtracker.domain.training.RaceDistance
 import kotlin.math.roundToInt
+import kotlin.math.roundToLong
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,6 +43,7 @@ fun FitnessScreen(
     viewModel: FitnessViewModel = hiltViewModel(),
 ) {
     val snapshots by viewModel.snapshots.collectAsState()
+    val predictions by viewModel.predictions.collectAsState()
 
     Scaffold(
         modifier = modifier,
@@ -51,7 +59,7 @@ fun FitnessScreen(
         },
     ) { padding ->
         val latest = snapshots.lastOrNull()
-        if (latest == null) {
+        if (latest == null && predictions.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 Text(
                     "Chưa có dữ liệu. Ghi một buổi tập (nhập RPE hoặc có nhịp tim) để bắt đầu.",
@@ -69,14 +77,52 @@ fun FitnessScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Metric("Fitness", latest.ctl, Modifier.weight(1f))
-                Metric("Fatigue", latest.atl, Modifier.weight(1f))
-                Metric("Form", latest.tsb, Modifier.weight(1f))
+            if (latest != null) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Metric("Fitness", latest.ctl, Modifier.weight(1f))
+                    Metric("Fatigue", latest.atl, Modifier.weight(1f))
+                    Metric("Form", latest.tsb, Modifier.weight(1f))
+                }
+                Text(formInterpretation(latest.tsb), style = MaterialTheme.typography.bodyMedium)
+                FitnessChart(snapshots = snapshots, modifier = Modifier.fillMaxWidth())
             }
-            Text(formInterpretation(latest.tsb), style = MaterialTheme.typography.bodyMedium)
 
-            FitnessChart(snapshots = snapshots, modifier = Modifier.fillMaxWidth())
+            if (predictions.isNotEmpty()) {
+                PredictionSection(predictions)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PredictionSection(predictions: List<PerformancePrediction>) {
+    val byLabel = predictions.associateBy { it.distanceLabel }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("Dự đoán thành tích", style = MaterialTheme.typography.titleSmall)
+        Text(
+            "Riegel, dựa trên buổi chạy nhanh nhất 90 ngày gần đây.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        RaceDistance.entries.forEach { race ->
+            val p = byLabel[race.label] ?: return@forEach
+            Row(Modifier.fillMaxWidth()) {
+                Text(race.label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    formatClock(p.predictedSeconds.roundToLong()),
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    formatPace(p.predictedSeconds / (race.meters / 1000.0)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            HorizontalDivider()
         }
     }
 }
