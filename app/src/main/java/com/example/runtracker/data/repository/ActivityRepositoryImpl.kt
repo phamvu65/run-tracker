@@ -64,14 +64,17 @@ class ActivityRepositoryImpl @Inject constructor(
         )
     }
 
-    override suspend fun appendRoutePoints(activityId: String, points: List<RoutePoint>): Int {
-        if (points.isEmpty()) return 0
+    override suspend fun appendRoutePoints(
+        activityId: String,
+        points: List<RoutePoint>,
+    ): List<RoutePoint> {
+        if (points.isEmpty()) return emptyList()
         val previous = activityDao.getLastRoutePoint(activityId)?.toDomain()
         val clean = GpsTrackFilter.sanitize(previous, points)
         if (clean.isNotEmpty()) {
             activityDao.insertRoutePoints(clean.map { it.toEntity(activityId) })
         }
-        return clean.size
+        return clean
     }
 
     override suspend fun appendHeartRateSamples(
