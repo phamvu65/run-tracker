@@ -102,7 +102,13 @@ T1/D1 = thời gian/quãng đường activity tốt nhất gần đây; D2 = c�
   - Aggregate tính tăng dần từ điểm đã qua `GpsTrackFilter`: distance (haversine), movingTime (speed ≥ 0.6 m/s), elevation gain/loss (ngưỡng 1m), pace theo moving time.
   - UI: `ui/tracking/TrackingScreen` + `TrackingViewModel` — xin quyền (fine/coarse + POST_NOTIFICATIONS), nút Start/Pause/Resume/Stop, số liệu live, lịch sử activity. **Thay hẳn debug harness cũ** (đã xoá `debug/`).
   - Test: `TrackingStateTest` (pace, formatClock).
-  - **Chưa làm**: map polyline, chi tiết activity, khôi phục sau khi OS kill service, xin `ACCESS_BACKGROUND_LOCATION` ("Allow all the time"), hướng dẫn whitelist battery cho Xiaomi/Oppo, ghi HR từ Health Connect.
+- **Đã có màn chi tiết activity + map polyline** (nhánh `feat/activity-detail-map`, build + lint + test pass; map cần API key mới hiện):
+  - `androidx.navigation:navigation-compose` — `ui/RunTrackerNavHost` với route `tracking` và `detail/{activityId}`. `MainActivity` giờ render NavHost.
+  - `ui/detail/ActivityDetailViewModel` (`SavedStateHandle` lấy `activityId`, `combine(observeActivity, observeRoutePoints)`), `ActivityDetailScreen` (TopAppBar + back, map chiếm nửa trên, panel số liệu cuộn được), `RouteMap` (maps-compose `GoogleMap` + `Polyline` + marker đầu/cuối, camera fit bounds sau `onMapLoaded`).
+  - `TrackingScreen`: item lịch sử bấm được → điều hướng sang chi tiết.
+  - **Google Maps API key**: đọc `MAPS_API_KEY` từ `local.properties` trong `app/build.gradle.kts` → `manifestPlaceholders` → `<meta-data com.google.android.geo.API_KEY>`. Thiếu key vẫn build, chỉ map trống. Thêm `INTERNET` + `ACCESS_NETWORK_STATE` vào manifest.
+  - `core/Format.kt` thêm `formatDistanceKm`.
+  - **Chưa làm**: lap tự động theo km, biểu đồ pace/elevation, khôi phục sau khi OS kill service, `ACCESS_BACKGROUND_LOCATION`, whitelist battery Xiaomi/Oppo, HR từ Health Connect.
 - **Chưa có** repository cho các entity khác, chưa có domain use-case.
 - Sai lệch nhỏ so với bản thiết kế gốc (có chủ đích, đã cập nhật lại `docs/database_design.md`):
   - Thêm `Index` cho `route_waypoints.routeId` (tránh warning FK của Room).
@@ -114,7 +120,8 @@ T1/D1 = thời gian/quãng đường activity tốt nhất gần đây; D2 = c�
 2. ~~Tạo các Room Entity + DAO theo schema~~ ✅
 3. ~~Activity repository layer (domain model + mapper + GPS filter)~~ ✅ (`feat/activity-repository`)
 4. ~~Foreground Service ghi GPS + notification liên tục~~ ✅ (`feat/gps-tracking-service`) — cần test trên device thật
-5. Màn chi tiết activity + map polyline (Google Maps SDK, cần API key), lap tự động theo km
-6. Khôi phục tracking sau khi service bị kill; hướng dẫn whitelist battery (Xiaomi/Oppo)
-7. Repository cho `UserEntity` (cần cho tính TRIMP/zone) + các entity còn lại khi tới việc dùng
-8. Sau khi Phase 1 chạy ổn: module TRIMP + job WorkManager tính CTL/ATL/TSB (Phase 2) — nhớ wire Hilt WorkerFactory
+5. ~~Màn chi tiết activity + map polyline~~ ✅ (`feat/activity-detail-map`) — cần `MAPS_API_KEY` trong `local.properties` để map hiện
+6. Lap tự động theo km + biểu đồ pace/elevation trong màn chi tiết
+7. Khôi phục tracking sau khi service bị kill; hướng dẫn whitelist battery (Xiaomi/Oppo)
+8. Repository cho `UserEntity` (cần cho tính TRIMP/zone) + các entity còn lại khi tới việc dùng
+9. Sau khi Phase 1 chạy ổn: module TRIMP + job WorkManager tính CTL/ATL/TSB (Phase 2) — nhớ wire Hilt WorkerFactory
