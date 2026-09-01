@@ -1,0 +1,40 @@
+# Built application files / archives
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+
+# Signing / secrets — KHÔNG commit
+*.jks
+*.keystore
+keystore.properties
+/local.properties
+local.properties
+
+# Gradle
+.gradle/
+/build
+/captures
+build/
+
+# Kotlin
+.kotlin/
+
+# Android Studio / IntelliJ
+*.iml
+.idea/*
+!.idea/gradle.xml
+!.idea/compiler.xml
+!.idea/misc.xml
+!.idea/inspectionProfiles/
+.navigation/
+.externalNativeBuild
+.cxx
+
+# NDK
+obj/
+
+# Misc
+.DS_Store
+*.log

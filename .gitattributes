@@ -1,0 +1,11 @@
+# Chuẩn hoá line ending: repo dùng LF, tránh churn khi commit từ Windows.
+* text=auto eol=lf
+
+*.bat  text eol=crlf
+*.jar  binary
+*.webp binary
+*.png  binary
+*.jpg  binary
+*.keystore binary
+*.jks  binary
+gradlew text eol=lf
