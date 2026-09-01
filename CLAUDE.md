@@ -92,7 +92,18 @@ T1/D1 = thời gian/quãng đường activity tốt nhất gần đây; D2 = c�
   - `data/mapper/ActivityMappers.kt`: entity <-> domain.
   - DI mới: `di/RepositoryModule` (`@Binds ActivityRepository`), `di/DispatcherModule` + `di/IoDispatcher` qualifier.
   - Test: `GpsTrackFilterTest`, `ActivityMappersTest`.
-- **Chưa có** repository cho các entity khác, chưa có domain use-case / ViewModel.
+  - `appendRoutePoints` trả về `List<RoutePoint>` (các điểm thực lưu sau lọc) thay vì `Int` — service dùng để cộng dồn quãng đường.
+- **Đã có Foreground GPS tracking service** (nhánh `feat/gps-tracking-service`, build + lint + test pass, CHƯA chạy trên device):
+  - `tracking/LocationTrackingService` (`@AndroidEntryPoint Service`): action START/PAUSE/RESUME/STOP; notification liên tục (channel `tracking`, IMPORTANCE_LOW) có nút Tạm dừng/Tiếp tục/Kết thúc; partial wake lock khi đang ghi; `START_NOT_STICKY`; `foregroundServiceType=location`.
+  - Tạo `ActivityEntity` (userId cố định `"local-user"`, type `RUNNING`) lúc START, ghi đè aggregate lúc STOP (`finalizeActivity` trong `NonCancellable`).
+  - `tracking/TrackingSession` (`@Singleton`, `StateFlow<TrackingState>`) — cầu nối state Service ↔ UI, sống độc lập vòng đời Service.
+  - `tracking/LocationClient` (interface) + `FusedLocationClient` (callbackFlow quanh `FusedLocationProviderClient`, HIGH_ACCURACY, interval 3s).
+  - `di/LocationModule` + `LocationBindModule`. `core/PermissionExt.kt`, `core/Format.kt`.
+  - Aggregate tính tăng dần từ điểm đã qua `GpsTrackFilter`: distance (haversine), movingTime (speed ≥ 0.6 m/s), elevation gain/loss (ngưỡng 1m), pace theo moving time.
+  - UI: `ui/tracking/TrackingScreen` + `TrackingViewModel` — xin quyền (fine/coarse + POST_NOTIFICATIONS), nút Start/Pause/Resume/Stop, số liệu live, lịch sử activity. **Thay hẳn debug harness cũ** (đã xoá `debug/`).
+  - Test: `TrackingStateTest` (pace, formatClock).
+  - **Chưa làm**: map polyline, chi tiết activity, khôi phục sau khi OS kill service, xin `ACCESS_BACKGROUND_LOCATION` ("Allow all the time"), hướng dẫn whitelist battery cho Xiaomi/Oppo, ghi HR từ Health Connect.
+- **Chưa có** repository cho các entity khác, chưa có domain use-case.
 - Sai lệch nhỏ so với bản thiết kế gốc (có chủ đích, đã cập nhật lại `docs/database_design.md`):
   - Thêm `Index` cho `route_waypoints.routeId` (tránh warning FK của Room).
   - Thêm cột `sex: String?` ("MALE"/"FEMALE", null -> dùng nhánh công thức nam) vào bảng `users` để phục vụ hệ số TRIMP nam/nữ.
@@ -102,7 +113,8 @@ T1/D1 = thời gian/quãng đường activity tốt nhất gần đây; D2 = c�
 1. ~~Thêm dependencies vào Gradle~~ ✅
 2. ~~Tạo các Room Entity + DAO theo schema~~ ✅
 3. ~~Activity repository layer (domain model + mapper + GPS filter)~~ ✅ (`feat/activity-repository`)
-4. Xây Foreground Service ghi GPS (dùng `ActivityRepository.appendRoutePoints`) + notification liên tục (Phase 1)
-5. UI tối thiểu: start/stop tracking, danh sách + chi tiết activity, map polyline
-6. Repository cho `UserEntity` (cần cho tính TRIMP/zone) + các entity còn lại khi tới việc dùng
-7. Sau khi Phase 1 chạy ổn: module TRIMP + job WorkManager tính CTL/ATL/TSB (Phase 2) — nhớ wire Hilt WorkerFactory
+4. ~~Foreground Service ghi GPS + notification liên tục~~ ✅ (`feat/gps-tracking-service`) — cần test trên device thật
+5. Màn chi tiết activity + map polyline (Google Maps SDK, cần API key), lap tự động theo km
+6. Khôi phục tracking sau khi service bị kill; hướng dẫn whitelist battery (Xiaomi/Oppo)
+7. Repository cho `UserEntity` (cần cho tính TRIMP/zone) + các entity còn lại khi tới việc dùng
+8. Sau khi Phase 1 chạy ổn: module TRIMP + job WorkManager tính CTL/ATL/TSB (Phase 2) — nhớ wire Hilt WorkerFactory

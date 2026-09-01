@@ -34,9 +34,9 @@ interface ActivityRepository {
 
     /**
      * Nối thêm điểm GPS trong lúc tracking. Điểm được lọc nhiễu trước khi lưu.
-     * @return số điểm thực sự được lưu sau khi lọc.
+     * @return các điểm thực sự được lưu (đã qua lọc), theo thứ tự thời gian; rỗng nếu bị loại hết.
      */
-    suspend fun appendRoutePoints(activityId: String, points: List<RoutePoint>): Int
+    suspend fun appendRoutePoints(activityId: String, points: List<RoutePoint>): List<RoutePoint>
 
     suspend fun appendHeartRateSamples(activityId: String, samples: List<HeartRateSample>)
 
