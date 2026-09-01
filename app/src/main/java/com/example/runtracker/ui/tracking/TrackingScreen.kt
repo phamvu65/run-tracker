@@ -13,11 +13,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -29,6 +33,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.runtracker.core.BatteryOptimization
 import com.example.runtracker.core.formatClock
 import com.example.runtracker.core.formatPace
 import com.example.runtracker.core.hasLocationPermission
@@ -46,13 +51,38 @@ fun TrackingScreen(
     val context = LocalContext.current
     val state by viewModel.tracking.collectAsState()
     val activities by viewModel.activities.collectAsState()
+    val interruptedId by viewModel.interruptedActivityId.collectAsState()
 
     var hasPermission by remember { mutableStateOf(context.hasLocationPermission()) }
+    var pendingAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
     ) { result ->
         hasPermission = result.values.any { it }
-        if (hasPermission) LocationTrackingService.start(context)
+        if (hasPermission) pendingAction?.invoke()
+        pendingAction = null
+    }
+
+    fun withPermission(action: () -> Unit) {
+        if (context.hasLocationPermission()) {
+            action()
+        } else {
+            pendingAction = action
+            permissionLauncher.launch(trackingPermissions())
+        }
+    }
+
+    interruptedId?.let { id ->
+        InterruptedRunDialog(
+            onResume = {
+                withPermission {
+                    LocationTrackingService.restore(context, id)
+                    viewModel.onInterruptedResumed()
+                }
+            },
+            onFinalize = viewModel::finalizeInterrupted,
+            onDiscard = viewModel::discardInterrupted,
+        )
     }
 
     Column(modifier.fillMaxSize().padding(16.dp)) {
@@ -62,7 +92,10 @@ fun TrackingScreen(
         StatRow("Thời gian", formatClock(state.elapsedSeconds))
         StatRow("Quãng đường", "%.2f km".format(state.distanceMeters / 1000.0))
         StatRow("Pace", formatPace(state.avgPaceSecPerKm))
-        StatRow("Độ cao +/-", "${state.elevationGainMeters.roundToInt()} / ${state.elevationLossMeters.roundToInt()} m")
+        StatRow(
+            "Độ cao +/-",
+            "${state.elevationGainMeters.roundToInt()} / ${state.elevationLossMeters.roundToInt()} m",
+        )
         StatRow("Điểm GPS", state.pointCount.toString())
 
         Spacer(Modifier.height(16.dp))
@@ -70,13 +103,7 @@ fun TrackingScreen(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             when (state.status) {
                 TrackingStatus.IDLE -> Button(
-                    onClick = {
-                        if (context.hasLocationPermission()) {
-                            LocationTrackingService.start(context)
-                        } else {
-                            permissionLauncher.launch(trackingPermissions())
-                        }
-                    },
+                    onClick = { withPermission { LocationTrackingService.start(context) } },
                 ) { Text("Bắt đầu") }
 
                 TrackingStatus.TRACKING -> {
@@ -104,6 +131,11 @@ fun TrackingScreen(
             )
         }
 
+        if (state.status == TrackingStatus.IDLE && !BatteryOptimization.isIgnoringOptimizations(context)) {
+            Spacer(Modifier.height(12.dp))
+            BatteryOptimizationCard(context = context)
+        }
+
         Spacer(Modifier.height(24.dp))
         Text("Lịch sử (${activities.size})", style = MaterialTheme.typography.titleSmall)
         Spacer(Modifier.height(4.dp))
@@ -128,6 +160,55 @@ fun TrackingScreen(
                     )
                 }
                 HorizontalDivider()
+            }
+        }
+    }
+}
+
+@Composable
+private fun InterruptedRunDialog(
+    onResume: () -> Unit,
+    onFinalize: () -> Unit,
+    onDiscard: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = {},
+        title = { Text("Buổi tập bị gián đoạn") },
+        text = {
+            Text(
+                "Ứng dụng bị dừng khi đang ghi. Bạn muốn làm gì với dữ liệu đã lưu?",
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onResume) { Text("Tiếp tục ghi") }
+        },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(onClick = onFinalize) { Text("Kết thúc") }
+                TextButton(onClick = onDiscard) { Text("Xoá") }
+            }
+        },
+    )
+}
+
+@Composable
+private fun BatteryOptimizationCard(context: android.content.Context) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.padding(12.dp)) {
+            Text(
+                "Điện thoại có thể tự tắt việc ghi GPS khi khoá màn hình.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { BatteryOptimization.requestIgnoreOptimizations(context) }) {
+                    Text("Tắt tối ưu hoá pin")
+                }
+                if (BatteryOptimization.hasAggressiveOem()) {
+                    OutlinedButton(onClick = { BatteryOptimization.openOemAutoStartSettings(context) }) {
+                        Text("Tự khởi động")
+                    }
+                }
             }
         }
     }

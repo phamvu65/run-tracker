@@ -22,7 +22,8 @@ import com.example.runtracker.domain.model.ActivityType
 import com.example.runtracker.domain.model.RoutePoint
 import com.example.runtracker.domain.repository.ActivityRepository
 import com.example.runtracker.domain.tracking.GeoMath
-import com.example.runtracker.domain.tracking.LapCalculator
+import com.example.runtracker.domain.tracking.RunAggregator
+import com.example.runtracker.domain.usecase.FinalizeActivityUseCase
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -40,7 +41,6 @@ import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
 import kotlin.math.roundToLong
-import kotlin.time.Duration.Companion.seconds
 
 /**
  * Foreground Service ghi GPS (Phase 1). Vòng đời điều khiển qua các action Intent:
@@ -50,7 +50,9 @@ import kotlin.time.Duration.Companion.seconds
  * - Trạng thái live đẩy sang [TrackingSession] cho UI.
  * - Notification liên tục bắt buộc khi đang ghi (Android 8+); giữ partial wake lock để CPU
  *   không ngủ giữa các lần cập nhật vị trí.
- * - START_NOT_STICKY: nếu OS kill, các điểm đã lưu vẫn còn trong DB, người dùng bắt đầu lại thủ công.
+ * - START_NOT_STICKY. Nếu OS kill: các điểm đã lưu vẫn còn trong DB và [TrackingStateStore]
+ *   giữ id buổi đang chạy; lần mở app sau, UI phát hiện và cho chọn tiếp tục / kết thúc / xoá
+ *   (action [ACTION_RESTORE]).
  */
 @AndroidEntryPoint
 class LocationTrackingService : Service() {
@@ -58,6 +60,8 @@ class LocationTrackingService : Service() {
     @Inject lateinit var locationClient: LocationClient
     @Inject lateinit var repository: ActivityRepository
     @Inject lateinit var session: TrackingSession
+    @Inject lateinit var stateStore: TrackingStateStore
+    @Inject lateinit var finalizeActivityUseCase: FinalizeActivityUseCase
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var locationJob: Job? = null
@@ -80,6 +84,7 @@ class LocationTrackingService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START -> start()
+            ACTION_RESTORE -> restore(intent.getStringExtra(EXTRA_ACTIVITY_ID))
             ACTION_PAUSE -> pause()
             ACTION_RESUME -> resume()
             ACTION_STOP -> stop()
@@ -108,6 +113,7 @@ class LocationTrackingService : Service() {
         lastAccepted = null
         pausedAccumSeconds = 0
         pausedAt = null
+        stateStore.markActive(id)
 
         startAsForeground(TrackingStatus.TRACKING)
         acquireWakeLock()
@@ -120,6 +126,58 @@ class LocationTrackingService : Service() {
         scope.launch { repository.upsertActivity(initialActivity(id, now)) }
         startLocationCollection()
         startTicker()
+    }
+
+    /** Khôi phục buổi tập bị gián đoạn: nạp lại aggregate từ trace đã lưu rồi ghi tiếp. */
+    private fun restore(id: String?) {
+        if (id == null) {
+            stopSelf()
+            return
+        }
+        if (activityId != null) return
+        activityId = id
+        startAsForeground(TrackingStatus.TRACKING)
+        acquireWakeLock()
+
+        scope.launch {
+            val activity = repository.getActivity(id)
+            if (activity == null) {
+                stateStore.clear()
+                activityId = null
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+                return@launch
+            }
+            val points = repository.getRoutePoints(id)
+            val aggregate = RunAggregator.fromPoints(points)
+            val last = points.lastOrNull()
+
+            startedAt = activity.startTime
+            lastAccepted = last
+            pausedAccumSeconds = 0
+            pausedAt = null
+
+            session.reset()
+            session.update {
+                it.copy(
+                    status = TrackingStatus.TRACKING,
+                    activityId = id,
+                    startedAt = activity.startTime,
+                    distanceMeters = aggregate.distanceMeters,
+                    movingTimeSeconds = aggregate.movingTimeSeconds,
+                    elevationGainMeters = aggregate.elevationGainMeters,
+                    elevationLossMeters = aggregate.elevationLossMeters,
+                    pointCount = points.size,
+                    lastLatitude = last?.latitude,
+                    lastLongitude = last?.longitude,
+                    lastUpdate = last?.timestamp,
+                )
+            }
+
+            startLocationCollection()
+            startTicker()
+            updateNotification()
+        }
     }
 
     private fun pause() {
@@ -145,7 +203,7 @@ class LocationTrackingService : Service() {
         tickerJob?.cancel()
         releaseWakeLock()
         scope.launch {
-            withContext(NonCancellable) { finalizeActivity() }
+            withContext(NonCancellable) { finalizeAndReset() }
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
         }
@@ -174,7 +232,7 @@ class LocationTrackingService : Service() {
             )
             val dtSeconds = (accepted.timestamp.toEpochMilli() - prev.timestamp.toEpochMilli()) / 1000.0
             val dAlt = accepted.altitude - prev.altitude
-            val moving = dtSeconds > 0 && meters / dtSeconds >= MOVING_SPEED_MPS
+            val moving = dtSeconds > 0 && meters / dtSeconds >= RunAggregator.MOVING_SPEED_MPS
 
             session.update { s ->
                 s.copy(
@@ -182,9 +240,9 @@ class LocationTrackingService : Service() {
                     movingTimeSeconds = s.movingTimeSeconds +
                         if (moving) dtSeconds.roundToLong() else 0,
                     elevationGainMeters = s.elevationGainMeters +
-                        if (dAlt > ELEVATION_THRESHOLD_M) dAlt else 0.0,
+                        if (dAlt > RunAggregator.ELEVATION_THRESHOLD_M) dAlt else 0.0,
                     elevationLossMeters = s.elevationLossMeters +
-                        if (dAlt < -ELEVATION_THRESHOLD_M) -dAlt else 0.0,
+                        if (dAlt < -RunAggregator.ELEVATION_THRESHOLD_M) -dAlt else 0.0,
                     pointCount = s.pointCount + 1,
                     lastLatitude = accepted.latitude,
                     lastLongitude = accepted.longitude,
@@ -243,33 +301,11 @@ class LocationTrackingService : Service() {
         gpxRawPath = null,
     )
 
-    private suspend fun finalizeActivity() {
+    private suspend fun finalizeAndReset() {
         val id = activityId ?: return
-        val start = startedAt ?: return
-        val existing = repository.getActivity(id) ?: return
-        val s = session.state.value
-        val end = Instant.now()
-        val totalSeconds = (Duration.between(start, end).seconds - pausedAccumSeconds).coerceAtLeast(0)
-
-        repository.upsertActivity(
-            existing.copy(
-                endTime = end,
-                distanceMeters = s.distanceMeters,
-                duration = totalSeconds.seconds,
-                movingTime = s.movingTimeSeconds.seconds,
-                avgPaceSecPerKm = s.avgPaceSecPerKm,
-                avgSpeedKmh = if (totalSeconds > 0) {
-                    (s.distanceMeters / 1000.0) / (totalSeconds / 3600.0)
-                } else {
-                    0.0
-                },
-                elevationGainMeters = s.elevationGainMeters,
-                elevationLossMeters = s.elevationLossMeters,
-            ),
-        )
-
-        // Lap tự động theo km từ trace đã lưu (đã qua lọc nhiễu).
-        repository.replaceLaps(id, LapCalculator.splitByDistance(repository.getRoutePoints(id)))
+        // Tính lại aggregate + lap từ trace đã lưu (số liệu chuẩn, không lệ thuộc state bộ nhớ).
+        finalizeActivityUseCase(id, endTime = Instant.now(), pausedSeconds = pausedAccumSeconds)
+        stateStore.clear()
 
         session.reset()
         activityId = null
@@ -375,16 +411,16 @@ class LocationTrackingService : Service() {
 
     companion object {
         const val ACTION_START = "com.example.runtracker.tracking.START"
+        const val ACTION_RESTORE = "com.example.runtracker.tracking.RESTORE"
         const val ACTION_PAUSE = "com.example.runtracker.tracking.PAUSE"
         const val ACTION_RESUME = "com.example.runtracker.tracking.RESUME"
         const val ACTION_STOP = "com.example.runtracker.tracking.STOP"
 
+        private const val EXTRA_ACTIVITY_ID = "activityId"
         private const val TAG = "LocationTrackingService"
         private const val CHANNEL_ID = "tracking"
         private const val NOTIF_ID = 1001
         private const val LOCATION_INTERVAL_MS = 3_000L
-        private const val MOVING_SPEED_MPS = 0.6
-        private const val ELEVATION_THRESHOLD_M = 1.0
         private const val MAX_WAKE_LOCK_MS = 6L * 60 * 60 * 1000 // 6h an toàn
         private const val DEFAULT_USER_ID = "local-user"
 
@@ -392,6 +428,13 @@ class LocationTrackingService : Service() {
         fun pause(context: Context) = send(context, ACTION_PAUSE, foreground = false)
         fun resume(context: Context) = send(context, ACTION_RESUME, foreground = false)
         fun stop(context: Context) = send(context, ACTION_STOP, foreground = false)
+
+        fun restore(context: Context, activityId: String) {
+            val intent = Intent(context, LocationTrackingService::class.java)
+                .setAction(ACTION_RESTORE)
+                .putExtra(EXTRA_ACTIVITY_ID, activityId)
+            context.startForegroundService(intent)
+        }
 
         private fun send(context: Context, action: String, foreground: Boolean) {
             val intent = Intent(context, LocationTrackingService::class.java).setAction(action)
