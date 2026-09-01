@@ -165,15 +165,26 @@ class LocationTrackingService : Service() {
         startHeartRateCollection(id)
     }
 
+    /**
+     * Kết nối đai BLE và tự nối lại nếu rớt sóng: mỗi lần flow [LiveHeartRateSource.connect]
+     * kết thúc (mất kết nối hoặc lỗi), xoá bpm live khỏi state rồi thử lại sau một khoảng chờ,
+     * cho tới khi service dừng (job bị huỷ ở [stop]/[pause]/[onDestroy]).
+     */
     private fun startHeartRateCollection(id: String) {
         heartRateJob?.cancel()
         val address = bleHeartRateStore.savedAddress() ?: return
         if (!liveHeartRateSource.isSupported() || !liveHeartRateSource.hasPermissions()) return
 
         heartRateJob = scope.launch {
-            liveHeartRateSource.connect(address)
-                .catch { e -> Log.w(TAG, "heart-rate stream ended", e) }
-                .collect { bpm -> onHeartRate(id, bpm) }
+            while (isActive) {
+                liveHeartRateSource.connect(address)
+                    .catch { e -> Log.w(TAG, "heart-rate stream error", e) }
+                    .collect { bpm -> onHeartRate(id, bpm) }
+                session.update { it.copy(liveHeartRateBpm = null) }
+                updateNotification()
+                if (!isActive) break
+                delay(HEART_RATE_RECONNECT_DELAY_MS)
+            }
         }
     }
 
@@ -441,7 +452,10 @@ class LocationTrackingService : Service() {
             TrackingStatus.PAUSED -> "Đã tạm dừng"
             else -> "Đang ghi hoạt động"
         }
-        val text = "%.2f km · %s".format(km, formatClock(s.elapsedSeconds))
+        val text = buildString {
+            append("%.2f km · %s".format(km, formatClock(s.elapsedSeconds)))
+            s.liveHeartRateBpm?.let { append(" · ").append(it).append(" bpm") }
+        }
 
         val contentIntent = PendingIntent.getActivity(
             this,
@@ -524,6 +538,7 @@ class LocationTrackingService : Service() {
         private const val NOTIF_ID = 1001
         private const val LOCATION_INTERVAL_MS = 3_000L
         private const val HEART_RATE_FLUSH_SIZE = 10
+        private const val HEART_RATE_RECONNECT_DELAY_MS = 5_000L
         private const val MAX_WAKE_LOCK_MS = 6L * 60 * 60 * 1000 // 6h an toàn
 
         fun start(context: Context) = send(context, ACTION_START, foreground = true)
