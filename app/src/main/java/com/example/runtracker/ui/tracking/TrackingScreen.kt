@@ -62,7 +62,6 @@ import com.example.runtracker.ui.components.StatCell
 import com.example.runtracker.ui.components.StatStrip
 import com.example.runtracker.ui.components.StravaLabel
 import com.example.runtracker.ui.theme.Spacing
-import com.google.android.gms.maps.model.LatLng
 
 @Composable
 fun TrackingScreen(
@@ -153,18 +152,15 @@ fun TrackingScreen(
         )
     }
 
-    val routeLatLngs = remember(selectedRoute) {
-        selectedRoute?.polyline?.map { LatLng(it.latitude, it.longitude) }.orEmpty()
-    }
-    val traceLatLngs = remember(liveTrace) { liveTrace.toLatLng() }
+    val plannedRoute = remember(selectedRoute) { selectedRoute?.polyline.orEmpty() }
     val current = state.lastLatitude?.let { lat ->
-        state.lastLongitude?.let { lng -> LatLng(lat, lng) }
+        state.lastLongitude?.let { lng -> GeoPoint(lat, lng) }
     }
 
     Box(modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         TrackingMap(
-            plannedRoute = routeLatLngs,
-            trace = traceLatLngs,
+            plannedRoute = plannedRoute,
+            trace = liveTrace,
             current = current,
             follow = state.status != TrackingStatus.IDLE,
             modifier = Modifier.fillMaxSize(),
@@ -217,8 +213,6 @@ fun TrackingScreen(
         )
     }
 }
-
-private fun List<GeoPoint>.toLatLng(): List<LatLng> = map { LatLng(it.latitude, it.longitude) }
 
 @Composable
 private fun RecordPanel(

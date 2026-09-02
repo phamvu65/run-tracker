@@ -1,8 +1,10 @@
 package com.example.runtracker.ui.tracking
 
 import android.annotation.SuppressLint
+import android.content.Context
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -10,20 +12,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.viewinterop.AndroidView
 import com.example.runtracker.core.hasLocationPermission
-import kotlin.coroutines.resume
+import com.example.runtracker.domain.model.GeoPoint
+import com.example.runtracker.ui.common.MapLine
+import com.example.runtracker.ui.common.MapMarker
+import com.example.runtracker.ui.common.fitToPoints
+import com.example.runtracker.ui.common.rememberOsmMapView
+import com.example.runtracker.ui.common.renderPath
 import com.google.android.gms.location.LocationServices
-import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.LatLngBounds
-import com.google.maps.android.compose.GoogleMap
-import com.google.maps.android.compose.MapProperties
-import com.google.maps.android.compose.MapType
-import com.google.maps.android.compose.MapUiSettings
-import com.google.maps.android.compose.Marker
-import com.google.maps.android.compose.Polyline
-import com.google.maps.android.compose.rememberCameraPositionState
-import com.google.maps.android.compose.rememberMarkerState
+import kotlinx.coroutines.suspendCancellableCoroutine
+import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
+import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
+import org.osmdroid.util.GeoPoint as OsmPoint
+import kotlin.coroutines.resume
 
 /**
  * Bản đồ toàn màn hình cho màn Ghi. Lúc chờ (IDLE): hiện chấm vị trí của tôi + route đã chọn.
@@ -31,84 +34,94 @@ import com.google.maps.android.compose.rememberMarkerState
  */
 @Composable
 fun TrackingMap(
-    plannedRoute: List<LatLng>,
-    trace: List<LatLng>,
-    current: LatLng?,
+    plannedRoute: List<GeoPoint>,
+    trace: List<GeoPoint>,
+    current: GeoPoint?,
     follow: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val density = LocalDensity.current.density
     val hasPermission = remember { context.hasLocationPermission() }
-    val cameraPositionState = rememberCameraPositionState()
-    var mapLoaded by remember { mutableStateOf(false) }
-    var cameraInitialized by remember { mutableStateOf(false) }
+    val mapView = rememberOsmMapView()
 
-    // Lấy vị trí gần nhất một lần để đặt camera khi chưa có fix nào.
-    var lastKnown by remember { mutableStateOf<LatLng?>(null) }
+    val outline = MaterialTheme.colorScheme.outline
+    val primary = MaterialTheme.colorScheme.primary
+
+    // Vị trí gần nhất để đặt camera khi chưa có fix nào.
+    var lastKnown by remember { mutableStateOf<GeoPoint?>(null) }
     LaunchedEffect(hasPermission) {
         if (hasPermission && lastKnown == null) {
             runCatching { fetchLastLocation(context) }.getOrNull()?.let { lastKnown = it }
         }
     }
 
-    LaunchedEffect(mapLoaded, current, lastKnown, plannedRoute, follow) {
-        if (!mapLoaded) return@LaunchedEffect
+    // Chấm "vị trí của tôi" của osmdroid (chỉ bật khi có quyền).
+    val myLocationOverlay = remember(mapView, hasPermission) {
+        if (hasPermission) {
+            MyLocationNewOverlay(GpsMyLocationProvider(context), mapView).apply { disableFollowLocation() }
+        } else {
+            null
+        }
+    }
+    DisposableEffect(myLocationOverlay) {
+        myLocationOverlay?.enableMyLocation()
+        onDispose { myLocationOverlay?.disableMyLocation() }
+    }
+
+    var cameraInitialized by remember { mutableStateOf(false) }
+    LaunchedEffect(current, lastKnown, plannedRoute, follow) {
         when {
             follow && current != null -> {
-                val update = CameraUpdateFactory.newLatLngZoom(current, 16f)
-                if (cameraInitialized) cameraPositionState.animate(update)
-                else { cameraPositionState.move(update); cameraInitialized = true }
+                if (!cameraInitialized) {
+                    mapView.controller.setZoom(16.0)
+                    cameraInitialized = true
+                }
+                mapView.controller.animateTo(OsmPoint(current.latitude, current.longitude))
             }
             !cameraInitialized && plannedRoute.size >= 2 -> {
-                val bounds = LatLngBounds.builder().apply { plannedRoute.forEach(::include) }.build()
-                cameraPositionState.move(CameraUpdateFactory.newLatLngBounds(bounds, 120))
+                mapView.fitToPoints(plannedRoute, (32 * density).toInt())
                 cameraInitialized = true
             }
             !cameraInitialized -> {
                 (current ?: lastKnown)?.let {
-                    cameraPositionState.move(CameraUpdateFactory.newLatLngZoom(it, 16f))
+                    mapView.controller.setZoom(16.0)
+                    mapView.controller.setCenter(OsmPoint(it.latitude, it.longitude))
                     cameraInitialized = true
                 }
             }
         }
     }
 
-    GoogleMap(
+    val lines = buildList {
+        if (plannedRoute.size >= 2) add(MapLine(plannedRoute, outline, widthDp = 3f))
+        if (trace.size >= 2) add(MapLine(trace, primary, widthDp = 4.5f))
+    }
+    val markers = current?.let { listOf(MapMarker(it, "Vị trí hiện tại")) }.orEmpty()
+
+    AndroidView(
         modifier = modifier,
-        cameraPositionState = cameraPositionState,
-        properties = remember(hasPermission) {
-            MapProperties(mapType = MapType.NORMAL, isMyLocationEnabled = hasPermission)
-        },
-        uiSettings = remember {
-            MapUiSettings(
-                zoomControlsEnabled = false,
-                mapToolbarEnabled = false,
-                myLocationButtonEnabled = false,
-                compassEnabled = false,
+        factory = { mapView },
+        update = {
+            it.renderPath(
+                lines = lines,
+                markers = markers,
+                onTap = null,
+                density = density,
+                extraOverlays = listOfNotNull(myLocationOverlay),
             )
         },
-        onMapLoaded = { mapLoaded = true },
-    ) {
-        if (plannedRoute.size >= 2) {
-            Polyline(points = plannedRoute, color = MaterialTheme.colorScheme.outline, width = 10f)
-        }
-        if (trace.size >= 2) {
-            Polyline(points = trace, color = MaterialTheme.colorScheme.primary, width = 14f)
-        }
-        current?.let {
-            Marker(rememberMarkerState(key = "$it", position = it), title = "Vị trí hiện tại")
-        }
-    }
+    )
 }
 
 @SuppressLint("MissingPermission")
-private suspend fun fetchLastLocation(context: android.content.Context): LatLng? {
+private suspend fun fetchLastLocation(context: Context): GeoPoint? {
     if (!context.hasLocationPermission()) return null
     val client = LocationServices.getFusedLocationProviderClient(context)
-    return kotlinx.coroutines.suspendCancellableCoroutine { cont ->
+    return suspendCancellableCoroutine { cont ->
         client.lastLocation
             .addOnSuccessListener { loc ->
-                cont.resume(loc?.let { LatLng(it.latitude, it.longitude) })
+                cont.resume(loc?.let { GeoPoint(it.latitude, it.longitude) })
             }
             .addOnFailureListener { cont.resume(null) }
     }

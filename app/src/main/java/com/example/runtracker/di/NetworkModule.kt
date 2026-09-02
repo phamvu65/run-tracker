@@ -37,6 +37,7 @@ object NetworkModule {
         )
         .build()
 
+    // baseUrl là OpenRouteService; WeatherApi dùng URL tuyệt đối nên không bị ảnh hưởng.
     @Provides
     @Singleton
     fun provideRetrofit(client: OkHttpClient, json: Json): Retrofit = Retrofit.Builder()

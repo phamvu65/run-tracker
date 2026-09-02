@@ -34,10 +34,10 @@ import com.example.runtracker.core.formatClock
 import com.example.runtracker.core.formatDistanceKm
 import com.example.runtracker.domain.model.BeaconSnapshot
 import com.example.runtracker.domain.model.BeaconStatus
+import com.example.runtracker.domain.model.GeoPoint
 import com.example.runtracker.ui.common.PathMap
 import com.example.runtracker.ui.components.LabeledValue
 import com.example.runtracker.ui.theme.Spacing
-import com.google.android.gms.maps.model.LatLng
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -125,10 +125,10 @@ private fun Following(
 ) {
     Column(Modifier.fillMaxSize()) {
         val trail = remember(snapshot?.trail) {
-            snapshot?.trail?.map { LatLng(it.latitude, it.longitude) }.orEmpty()
+            snapshot?.trail?.map { GeoPoint(it.latitude, it.longitude) }.orEmpty()
         }
         if (trail.isNotEmpty()) {
-            PathMap(latLngs = trail, modifier = Modifier.fillMaxWidth().height(280.dp))
+            PathMap(points = trail, modifier = Modifier.fillMaxWidth().height(280.dp))
         } else {
             Box(Modifier.fillMaxWidth().height(280.dp)) {
                 Text(

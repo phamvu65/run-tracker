@@ -32,18 +32,13 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.formatDistanceKm
 import com.example.runtracker.domain.model.GeoPoint
-import com.example.runtracker.ui.theme.Spacing
 import com.example.runtracker.domain.model.TravelMode
-import com.google.android.gms.maps.model.CameraPosition
-import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.compose.GoogleMap
-import com.google.maps.android.compose.MapUiSettings
-import com.google.maps.android.compose.Marker
-import com.google.maps.android.compose.Polyline
-import com.google.maps.android.compose.rememberCameraPositionState
-import com.google.maps.android.compose.rememberMarkerState
+import com.example.runtracker.ui.common.MapLine
+import com.example.runtracker.ui.common.MapMarker
+import com.example.runtracker.ui.common.OsmMap
+import com.example.runtracker.ui.theme.Spacing
 
-private val DEFAULT_CAMERA = LatLng(10.7769, 106.7009) // TP.HCM
+private val DEFAULT_CAMERA = GeoPoint(10.7769, 106.7009) // TP.HCM
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,15 +56,11 @@ fun RouteBuilderScreen(
     }
 
     var showNameDialog by remember { mutableStateOf(false) }
-    val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(DEFAULT_CAMERA, 13f)
-    }
 
     val tapped = viewModel.tappedPoints
     val planned = viewModel.planned
-    val previewLine = remember(tapped, planned) {
-        (planned?.polyline ?: tapped).map { LatLng(it.latitude, it.longitude) }
-    }
+    val previewLine = planned?.polyline ?: tapped
+    val lineColor = MaterialTheme.colorScheme.primary
 
     Scaffold(
         modifier = modifier,
@@ -85,22 +76,19 @@ fun RouteBuilderScreen(
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            GoogleMap(
+            OsmMap(
                 modifier = Modifier.fillMaxWidth().weight(1f),
-                cameraPositionState = cameraPositionState,
-                uiSettings = remember { MapUiSettings(zoomControlsEnabled = false, mapToolbarEnabled = false) },
-                onMapClick = { viewModel.addPoint(GeoPoint(it.latitude, it.longitude)) },
-            ) {
-                tapped.forEachIndexed { i, p ->
-                    Marker(
-                        state = rememberMarkerState(key = "wp$i", position = LatLng(p.latitude, p.longitude)),
-                        title = "Điểm ${i + 1}",
-                    )
-                }
-                if (previewLine.size >= 2) {
-                    Polyline(points = previewLine, color = MaterialTheme.colorScheme.primary, width = 10f)
-                }
-            }
+                lines = if (previewLine.size >= 2) {
+                    listOf(MapLine(previewLine, lineColor, widthDp = 3.5f))
+                } else {
+                    emptyList()
+                },
+                markers = tapped.mapIndexed { i, p -> MapMarker(p, "Điểm ${i + 1}") },
+                onTap = { viewModel.addPoint(it) },
+                fitToLines = false,
+                initialCenter = DEFAULT_CAMERA,
+                initialZoom = 13.0,
+            )
 
             Column(Modifier.fillMaxWidth().padding(Spacing.screen), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 Text(

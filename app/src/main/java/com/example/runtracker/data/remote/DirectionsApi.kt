@@ -1,20 +1,24 @@
 package com.example.runtracker.data.remote
 
-import retrofit2.http.GET
-import retrofit2.http.Query
+import retrofit2.http.Body
+import retrofit2.http.Header
+import retrofit2.http.POST
+import retrofit2.http.Path
 
+/**
+ * OpenRouteService Directions API — miễn phí, chỉ cần API key (đăng ký bằng email,
+ * không cần thẻ). Trả về geometry mã hoá polyline (độ chính xác 1e-5, giống Google).
+ */
 interface DirectionsApi {
 
-    @GET("maps/api/directions/json")
+    @POST("v2/directions/{profile}")
     suspend fun directions(
-        @Query("origin") origin: String,
-        @Query("destination") destination: String,
-        @Query("waypoints") waypoints: String?,
-        @Query("mode") mode: String,
-        @Query("key") key: String,
+        @Path("profile") profile: String,
+        @Header("Authorization") apiKey: String,
+        @Body body: DirectionsRequest,
     ): DirectionsResponse
 
     companion object {
-        const val BASE_URL = "https://maps.googleapis.com/"
+        const val BASE_URL = "https://api.openrouteservice.org/"
     }
 }

@@ -26,15 +26,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.formatDistanceKm
+import com.example.runtracker.ui.common.MapLine
+import com.example.runtracker.ui.common.OsmMap
 import com.example.runtracker.ui.theme.Spacing
-import com.google.android.gms.maps.model.CameraPosition
-import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.LatLngBounds
-import com.google.maps.android.compose.GoogleMap
-import com.google.maps.android.compose.MapUiSettings
-import com.google.maps.android.compose.Polyline
-import com.google.maps.android.compose.rememberCameraPositionState
-import com.google.android.gms.maps.CameraUpdateFactory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,22 +49,12 @@ fun SegmentCreateScreen(
     var range by remember(total) { mutableStateOf(0f..total) }
     var name by remember { mutableStateOf("") }
 
-    val fullLine = remember(viewModel.routePoints) {
-        viewModel.routePoints.map { LatLng(it.latitude, it.longitude) }
-    }
+    val fullLine = viewModel.routePoints
     val subLine = remember(range, viewModel.routePoints) {
-        viewModel.subRange(range.start, range.endInclusive).map { LatLng(it.latitude, it.longitude) }
+        viewModel.subRange(range.start, range.endInclusive)
     }
-    val cameraPositionState = rememberCameraPositionState()
-
-    LaunchedEffect(fullLine) {
-        if (fullLine.size >= 2) {
-            val bounds = LatLngBounds.builder().apply { fullLine.forEach(::include) }.build()
-            runCatching { cameraPositionState.move(CameraUpdateFactory.newLatLngBounds(bounds, 96)) }
-        } else if (fullLine.size == 1) {
-            cameraPositionState.position = CameraPosition.fromLatLngZoom(fullLine.first(), 15f)
-        }
-    }
+    val outlineColor = MaterialTheme.colorScheme.outline
+    val primaryColor = MaterialTheme.colorScheme.primary
 
     Scaffold(
         modifier = modifier,
@@ -86,18 +70,14 @@ fun SegmentCreateScreen(
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            GoogleMap(
+            OsmMap(
                 modifier = Modifier.fillMaxWidth().weight(1f),
-                cameraPositionState = cameraPositionState,
-                uiSettings = remember { MapUiSettings(zoomControlsEnabled = false, mapToolbarEnabled = false) },
-            ) {
-                if (fullLine.size >= 2) {
-                    Polyline(points = fullLine, color = MaterialTheme.colorScheme.outline, width = 8f)
-                }
-                if (subLine.size >= 2) {
-                    Polyline(points = subLine, color = MaterialTheme.colorScheme.primary, width = 14f)
-                }
-            }
+                lines = buildList {
+                    if (fullLine.size >= 2) add(MapLine(fullLine, outlineColor, widthDp = 3f))
+                    if (subLine.size >= 2) add(MapLine(subLine, primaryColor, widthDp = 4.5f))
+                },
+                fitToLines = true,
+            )
 
             Column(
                 Modifier.fillMaxWidth().padding(Spacing.screen),

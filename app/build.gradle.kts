@@ -9,12 +9,14 @@ plugins {
     alias(libs.plugins.hilt)
 }
 
-// Google Maps API key: đặt `MAPS_API_KEY=...` trong local.properties (đã gitignore).
-// Thiếu key thì app vẫn build, chỉ là map hiện trống.
-val mapsApiKey: String = Properties().apply {
+// Bản đồ dùng OpenStreetMap (osmdroid) — KHÔNG cần API key.
+// OpenRouteService key (bám đường cho Route Builder): đặt `ORS_API_KEY=...` trong
+// local.properties (đã gitignore). Đăng ký miễn phí ở openrouteservice.org, không cần thẻ.
+// Thiếu key thì Route Builder vẫn chạy, chỉ fallback đường thẳng.
+val orsApiKey: String = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use { load(it) }
-}.getProperty("MAPS_API_KEY", "")
+}.getProperty("ORS_API_KEY", "")
 
 android {
     namespace = "com.example.runtracker"
@@ -31,8 +33,7 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
-        buildConfigField("String", "MAPS_API_KEY", "\"$mapsApiKey\"")
+        buildConfigField("String", "ORS_API_KEY", "\"$orsApiKey\"")
     }
 
     buildTypes {
@@ -66,6 +67,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
@@ -94,14 +96,14 @@ dependencies {
     // Navigation
     implementation(libs.androidx.navigation.compose)
 
-    // Location & Maps
+    // Location & Maps (OpenStreetMap — không cần API key)
     implementation(libs.play.services.location)
-    implementation(libs.maps.compose)
+    implementation(libs.osmdroid.android)
 
     // Wearable data
     implementation(libs.androidx.health.connect.client)
 
-    // Network — Google Directions API
+    // Network — OpenRouteService Directions API
     implementation(libs.retrofit)
     implementation(libs.retrofitSerializationConverter)
     implementation(libs.okhttpLoggingInterceptor)

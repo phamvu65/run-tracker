@@ -1,8 +1,8 @@
 package com.example.runtracker.data.repository
 
-import androidx.core.text.HtmlCompat
 import com.example.runtracker.BuildConfig
 import com.example.runtracker.data.remote.DirectionsApi
+import com.example.runtracker.data.remote.DirectionsRequest
 import com.example.runtracker.domain.geo.PolylineCodec
 import com.example.runtracker.domain.model.GeoPoint
 import com.example.runtracker.domain.model.PlannedRoute
@@ -27,30 +27,30 @@ class DirectionsRepositoryImpl @Inject constructor(
     ): Result<PlannedRoute> = withContext(io) {
         runCatching {
             require(waypoints.size >= 2) { "cần ít nhất 2 điểm" }
-            require(BuildConfig.MAPS_API_KEY.isNotBlank()) { "thiếu MAPS_API_KEY" }
+            require(BuildConfig.ORS_API_KEY.isNotBlank()) { "thiếu ORS_API_KEY" }
 
             val response = api.directions(
-                origin = waypoints.first().toParam(),
-                destination = waypoints.last().toParam(),
-                waypoints = waypoints.drop(1).dropLast(1)
-                    .takeIf { it.isNotEmpty() }
-                    ?.joinToString("|") { it.toParam() },
-                mode = mode.apiValue,
-                key = BuildConfig.MAPS_API_KEY,
+                profile = mode.orsProfile,
+                apiKey = BuildConfig.ORS_API_KEY,
+                body = DirectionsRequest(
+                    coordinates = waypoints.map { listOf(it.longitude, it.latitude) },
+                ),
             )
 
-            val route = response.routes.firstOrNull()
-                ?: error("Directions status=${response.status}")
+            val route = response.routes.firstOrNull() ?: error("không có route trả về")
+            val polyline = PolylineCodec.decode(route.geometry)
+            require(polyline.size >= 2) { "geometry rỗng" }
 
             PlannedRoute(
-                polyline = PolylineCodec.decode(route.overviewPolyline.points),
-                distanceMeters = route.legs.sumOf { it.distance.value },
-                steps = route.legs.flatMap { leg ->
-                    leg.steps.map { step ->
+                polyline = polyline,
+                distanceMeters = route.summary.distance,
+                steps = route.segments.flatMap { segment ->
+                    segment.steps.map { step ->
+                        val at = step.wayPoints.firstOrNull()?.coerceIn(polyline.indices) ?: 0
                         RouteStep(
-                            instruction = step.htmlInstructions.stripHtml(),
-                            location = GeoPoint(step.startLocation.lat, step.startLocation.lng),
-                            distanceMeters = step.distance.value,
+                            instruction = step.instruction.trim(),
+                            location = polyline[at],
+                            distanceMeters = step.distance,
                         )
                     }
                 },
@@ -58,9 +58,4 @@ class DirectionsRepositoryImpl @Inject constructor(
             )
         }
     }
-
-    private fun GeoPoint.toParam() = "$latitude,$longitude"
-
-    private fun String.stripHtml(): String =
-        HtmlCompat.fromHtml(this, HtmlCompat.FROM_HTML_MODE_LEGACY).toString().trim()
 }

@@ -24,7 +24,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -37,7 +36,6 @@ import com.example.runtracker.ui.common.PathMap
 import com.example.runtracker.ui.components.EmptyState
 import com.example.runtracker.ui.components.SectionHeader
 import com.example.runtracker.ui.theme.Spacing
-import com.google.android.gms.maps.model.LatLng
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -67,8 +65,7 @@ fun SegmentDetailScreen(
         val s = segment
         Column(Modifier.fillMaxSize().padding(padding)) {
             if (s != null && s.points.size >= 2) {
-                val latLngs = remember(s) { s.points.map { LatLng(it.latitude, it.longitude) } }
-                PathMap(latLngs = latLngs, modifier = Modifier.fillMaxWidth().height(240.dp))
+                PathMap(points = s.points, modifier = Modifier.fillMaxWidth().height(240.dp))
             }
 
             if (s != null) {

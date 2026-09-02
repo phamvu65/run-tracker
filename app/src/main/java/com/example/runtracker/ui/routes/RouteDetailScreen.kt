@@ -22,7 +22,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -30,7 +29,6 @@ import com.example.runtracker.core.formatDistanceKm
 import com.example.runtracker.ui.common.PathMap
 import com.example.runtracker.ui.components.SectionHeader
 import com.example.runtracker.ui.theme.Spacing
-import com.google.android.gms.maps.model.LatLng
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,8 +64,7 @@ fun RouteDetailScreen(
         val r = route ?: return@Scaffold
         Column(Modifier.fillMaxSize().padding(padding)) {
             if (r.polyline.size >= 2) {
-                val latLngs = remember(r) { r.polyline.map { LatLng(it.latitude, it.longitude) } }
-                PathMap(latLngs = latLngs, modifier = Modifier.fillMaxWidth().height(260.dp))
+                PathMap(points = r.polyline, modifier = Modifier.fillMaxWidth().height(260.dp))
             }
 
             Column(

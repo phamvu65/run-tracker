@@ -1,9 +1,9 @@
 package com.example.runtracker.domain.model
 
-/** Chế độ di chuyển cho Directions API. */
-enum class TravelMode(val apiValue: String) {
-    WALKING("walking"),
-    CYCLING("bicycling"),
+/** Chế độ di chuyển cho Directions API (profile của OpenRouteService). */
+enum class TravelMode(val orsProfile: String) {
+    WALKING("foot-walking"),
+    CYCLING("cycling-regular"),
 }
 
 /** Một bước rẽ trong route. */
