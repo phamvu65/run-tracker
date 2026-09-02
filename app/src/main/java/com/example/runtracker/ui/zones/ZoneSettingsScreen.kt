@@ -13,7 +13,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -37,6 +36,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.domain.training.HeartRateZone
+import com.example.runtracker.ui.components.FlatCard
 import com.example.runtracker.ui.components.SectionHeader
 import com.example.runtracker.ui.theme.Spacing
 
@@ -87,11 +87,8 @@ fun ZoneSettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            ElevatedCard(Modifier.fillMaxWidth()) {
-                Column(
-                    Modifier.fillMaxWidth().padding(Spacing.lg),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.md),
-                ) {
+            FlatCard {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     SectionHeader("Ngưỡng từng vùng (bpm)")
                     loaded.zones.forEachIndexed { i, _ ->
                         Row(

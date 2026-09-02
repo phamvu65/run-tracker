@@ -12,7 +12,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -33,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.domain.model.Sex
+import com.example.runtracker.ui.components.FlatCard
 import com.example.runtracker.ui.components.NavGroup
 import com.example.runtracker.ui.components.SectionHeader
 import com.example.runtracker.ui.theme.Spacing
@@ -92,11 +92,8 @@ fun ProfileScreen(
                 .padding(Spacing.screen),
             verticalArrangement = Arrangement.spacedBy(Spacing.lg),
         ) {
-            ElevatedCard(Modifier.fillMaxWidth()) {
-                Column(
-                    Modifier.fillMaxWidth().padding(Spacing.lg),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.md),
-                ) {
+            FlatCard {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     SectionHeader("Thông tin cá nhân", subtitle = "Dùng cho công thức TRIMP và tính calo")
 
                     OutlinedTextField(

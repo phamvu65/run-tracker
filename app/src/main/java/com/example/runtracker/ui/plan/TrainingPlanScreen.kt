@@ -16,7 +16,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -43,6 +42,7 @@ import com.example.runtracker.domain.model.PlanWeek
 import com.example.runtracker.domain.model.PlannedSession
 import com.example.runtracker.domain.model.TrainingPlan
 import com.example.runtracker.domain.training.RaceDistance
+import com.example.runtracker.ui.components.FlatCard
 import com.example.runtracker.ui.theme.Spacing
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -138,8 +138,8 @@ private fun PlanContent(plan: TrainingPlan, onEdit: () -> Unit, onClear: () -> U
 
 @Composable
 private fun WeekCard(week: PlanWeek) {
-    ElevatedCard(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+    FlatCard {
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(
                     "Tuần ${week.index} · ${week.phase.label()}",

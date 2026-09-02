@@ -13,7 +13,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
-import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -29,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.ui.components.AppListCard
@@ -88,11 +90,12 @@ fun HrSensorScreen(
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
             viewModel.savedAddress?.let { address ->
-                ElevatedCard(
+                Card(
                     Modifier.fillMaxWidth(),
-                    colors = androidx.compose.material3.CardDefaults.elevatedCardColors(
+                    colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer,
                     ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                 ) {
                     Column(
                         Modifier.fillMaxWidth().padding(Spacing.lg),
