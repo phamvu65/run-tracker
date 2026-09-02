@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.example.runtracker.core.hasLocationPermission
+import kotlin.coroutines.resume
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.LatLng
@@ -107,8 +108,8 @@ private suspend fun fetchLastLocation(context: android.content.Context): LatLng?
     return kotlinx.coroutines.suspendCancellableCoroutine { cont ->
         client.lastLocation
             .addOnSuccessListener { loc ->
-                cont.resume(loc?.let { LatLng(it.latitude, it.longitude) }, null)
+                cont.resume(loc?.let { LatLng(it.latitude, it.longitude) })
             }
-            .addOnFailureListener { cont.resume(null, null) }
+            .addOnFailureListener { cont.resume(null) }
     }
 }
