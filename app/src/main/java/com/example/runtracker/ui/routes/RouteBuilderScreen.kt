@@ -83,6 +83,7 @@ fun RouteBuilderScreen(
             )
         },
     ) { padding ->
+        val drawMode = viewModel.drawMode
         Box(Modifier.fillMaxSize().padding(padding)) {
             OsmMap(
                 modifier = Modifier.fillMaxSize(),
@@ -91,15 +92,37 @@ fun RouteBuilderScreen(
                 } else {
                     emptyList()
                 },
-                markers = tapped.mapIndexed { i, p -> MapMarker(p, "Điểm ${i + 1}") },
-                onTap = { viewModel.addPoint(it) },
+                markers = if (drawMode) {
+                    emptyList()
+                } else {
+                    tapped.mapIndexed { i, p -> MapMarker(p, "Điểm ${i + 1}") }
+                },
+                onTap = if (drawMode) null else ({ viewModel.addPoint(it) }),
                 fitToLines = false,
                 initialCenter = DEFAULT_CAMERA,
                 initialZoom = 13.0,
                 showMyLocation = true,
+                drawMode = drawMode,
+                onSketch = viewModel::applySketch,
                 // chừa lề dưới cho panel điều khiển
                 controlsPadding = PaddingValues(end = 12.dp, bottom = 220.dp, top = 12.dp),
             )
+
+            if (drawMode) {
+                Surface(
+                    modifier = Modifier.align(Alignment.TopCenter).padding(Spacing.sm),
+                    shape = RoundedCornerShape(50),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shadowElevation = 4.dp,
+                ) {
+                    Text(
+                        "Vẽ tay: khoanh quanh khu vực muốn chạy rồi thả tay",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm),
+                    )
+                }
+            }
 
             Surface(
                 modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
@@ -117,13 +140,28 @@ fun RouteBuilderScreen(
                 ) {
                     Text(
                         when {
+                            viewModel.loading -> "Đang bám đường…"
                             planned != null -> "${formatDistanceKm(planned.distanceMeters)}" +
                                 if (planned.snappedToRoads) " (bám đường)" else " (đường thẳng)"
+                            drawMode -> "Khoanh một vòng quanh khu vực — app tự bám đường"
                             tapped.size >= 2 -> "${tapped.size} điểm — bấm \"Tính đường\""
-                            else -> "Chạm vào bản đồ để thêm điểm"
+                            else -> "Chạm bản đồ để thêm điểm, hoặc bật \"Vẽ tay\""
                         },
                         style = MaterialTheme.typography.titleSmall,
                     )
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        FilterChip(
+                            selected = !drawMode,
+                            onClick = { if (drawMode) viewModel.toggleDrawMode() },
+                            label = { Text("Chạm điểm") },
+                        )
+                        FilterChip(
+                            selected = drawMode,
+                            onClick = { if (!drawMode) viewModel.toggleDrawMode() },
+                            label = { Text("Vẽ tay") },
+                        )
+                    }
 
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         FilterChip(
@@ -139,12 +177,14 @@ fun RouteBuilderScreen(
                     }
 
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        OutlinedButton(onClick = viewModel::undo, enabled = tapped.isNotEmpty()) { Text("Lùi") }
                         OutlinedButton(onClick = viewModel::clear, enabled = tapped.isNotEmpty()) { Text("Xoá hết") }
-                        Button(
-                            onClick = viewModel::computeRoute,
-                            enabled = tapped.size >= 2 && !viewModel.loading,
-                        ) { Text(if (viewModel.loading) "Đang tính…" else "Tính đường") }
+                        if (!drawMode) {
+                            OutlinedButton(onClick = viewModel::undo, enabled = tapped.isNotEmpty()) { Text("Lùi") }
+                            Button(
+                                onClick = viewModel::computeRoute,
+                                enabled = tapped.size >= 2 && !viewModel.loading,
+                            ) { Text(if (viewModel.loading) "Đang tính…" else "Tính đường") }
+                        }
                     }
 
                     Button(

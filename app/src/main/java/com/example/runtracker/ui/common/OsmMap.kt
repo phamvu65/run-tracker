@@ -2,6 +2,8 @@ package com.example.runtracker.ui.common
 
 import android.annotation.SuppressLint
 import android.content.Context
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,8 +30,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -266,6 +274,8 @@ private fun MapControlButton(onClick: () -> Unit, content: @Composable () -> Uni
  * Truyền [initialCenter] để đặt camera ban đầu thay vì fit (dùng khi màn cho phép chấm điểm).
  * [showMyLocation] = true: hiện chấm vị trí + nút "về vị trí của tôi" (cần quyền vị trí).
  * [controlsPadding]: chừa lề cho cụm nút khi bản đồ bị panel khác che một phần.
+ * [drawMode] = true: khoá pan/zoom, cho vẽ tay một đường; thả tay -> [onSketch] nhận
+ * danh sách điểm địa lý của nét vẽ (dùng cho dựng route "vẽ vòng").
  */
 @Composable
 fun OsmMap(
@@ -279,6 +289,8 @@ fun OsmMap(
     showMyLocation: Boolean = false,
     showControls: Boolean = true,
     controlsPadding: PaddingValues = PaddingValues(12.dp),
+    drawMode: Boolean = false,
+    onSketch: ((List<GeoPoint>) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current.density
@@ -339,6 +351,10 @@ fun OsmMap(
         else -> null
     }
 
+    val latestOnSketch by rememberUpdatedState(onSketch)
+    var sketchPx by remember { mutableStateOf<List<Offset>>(emptyList()) }
+    val sketchColor = MaterialTheme.colorScheme.primary
+
     Box(modifier) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
@@ -350,6 +366,45 @@ fun OsmMap(
                 )
             },
         )
+
+        if (drawMode) {
+            Canvas(
+                modifier = Modifier
+                    .matchParentSize()
+                    .pointerInput(drawMode) {
+                        detectDragGestures(
+                            onDragStart = { sketchPx = listOf(it) },
+                            onDrag = { change, _ ->
+                                change.consume()
+                                sketchPx = sketchPx + change.position
+                            },
+                            onDragEnd = {
+                                val proj = mapView.projection
+                                val geo = sketchPx.map {
+                                    val p = proj.fromPixels(it.x.toInt(), it.y.toInt())
+                                    GeoPoint(p.latitude, p.longitude)
+                                }
+                                sketchPx = emptyList()
+                                if (geo.size >= 3) latestOnSketch?.invoke(geo)
+                            },
+                            onDragCancel = { sketchPx = emptyList() },
+                        )
+                    },
+            ) {
+                if (sketchPx.size >= 2) {
+                    val path = Path().apply {
+                        moveTo(sketchPx.first().x, sketchPx.first().y)
+                        sketchPx.drop(1).forEach { lineTo(it.x, it.y) }
+                    }
+                    drawPath(
+                        path,
+                        color = sketchColor,
+                        style = Stroke(width = 5f * density, cap = StrokeCap.Round, join = StrokeJoin.Round),
+                    )
+                }
+            }
+        }
+
         if (showControls) {
             MapControls(
                 style = style,
