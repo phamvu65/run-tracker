@@ -12,12 +12,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -31,9 +31,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.domain.model.Sex
+import com.example.runtracker.ui.components.NavGroup
+import com.example.runtracker.ui.components.SectionHeader
+import com.example.runtracker.ui.theme.Spacing
 import java.time.Year
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -87,71 +89,77 @@ fun ProfileScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(Spacing.screen),
+            verticalArrangement = Arrangement.spacedBy(Spacing.lg),
         ) {
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("Tên hiển thị") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            ElevatedCard(Modifier.fillMaxWidth()) {
+                Column(
+                    Modifier.fillMaxWidth().padding(Spacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.md),
+                ) {
+                    SectionHeader("Thông tin cá nhân", subtitle = "Dùng cho công thức TRIMP và tính calo")
 
-            Text("Giới tính (cho công thức TRIMP)", style = MaterialTheme.typography.bodyMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    selected = sex == Sex.MALE,
-                    onClick = { sex = Sex.MALE.takeIf { sex != Sex.MALE } },
-                    label = { Text("Nam") },
-                )
-                FilterChip(
-                    selected = sex == Sex.FEMALE,
-                    onClick = { sex = Sex.FEMALE.takeIf { sex != Sex.FEMALE } },
-                    label = { Text("Nữ") },
-                )
-            }
-
-            NumberField(birthYear, { birthYear = it }, "Năm sinh")
-            NumberField(weight, { weight = it }, "Cân nặng (kg)", decimal = true)
-            NumberField(restingHr, { restingHr = it }, "Nhịp tim nghỉ (bpm)")
-            NumberField(
-                maxHr,
-                { maxHr = it },
-                "Nhịp tim tối đa (bpm)",
-                supporting = when {
-                    maxHr.isNotBlank() -> "Dùng giá trị đo thực tế này"
-                    estimatedMaxHr != null -> "Bỏ trống → ước tính $estimatedMaxHr (220 - tuổi)"
-                    else -> "Bỏ trống → cần năm sinh để ước tính"
-                },
-            )
-
-            Button(
-                onClick = {
-                    viewModel.save(
-                        displayName = name,
-                        sex = sex,
-                        birthYear = birthYear.trim().toIntOrNull(),
-                        weightKg = weight.trim().replace(',', '.').toDoubleOrNull(),
-                        restingHeartRate = restingHr.trim().toIntOrNull(),
-                        maxHeartRate = maxHr.trim().toIntOrNull(),
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text("Tên hiển thị") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
                     )
-                },
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text("Lưu") }
 
-            OutlinedButton(onClick = onOpenZones, modifier = Modifier.fillMaxWidth()) {
-                Text("Vùng nhịp tim")
+                    Text("Giới tính", style = MaterialTheme.typography.bodyMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        FilterChip(
+                            selected = sex == Sex.MALE,
+                            onClick = { sex = Sex.MALE.takeIf { sex != Sex.MALE } },
+                            label = { Text("Nam") },
+                        )
+                        FilterChip(
+                            selected = sex == Sex.FEMALE,
+                            onClick = { sex = Sex.FEMALE.takeIf { sex != Sex.FEMALE } },
+                            label = { Text("Nữ") },
+                        )
+                    }
+
+                    NumberField(birthYear, { birthYear = it }, "Năm sinh")
+                    NumberField(weight, { weight = it }, "Cân nặng (kg)", decimal = true)
+                    NumberField(restingHr, { restingHr = it }, "Nhịp tim nghỉ (bpm)")
+                    NumberField(
+                        maxHr,
+                        { maxHr = it },
+                        "Nhịp tim tối đa (bpm)",
+                        supporting = when {
+                            maxHr.isNotBlank() -> "Dùng giá trị đo thực tế này"
+                            estimatedMaxHr != null -> "Bỏ trống → ước tính $estimatedMaxHr (220 - tuổi)"
+                            else -> "Bỏ trống → cần năm sinh để ước tính"
+                        },
+                    )
+
+                    Button(
+                        onClick = {
+                            viewModel.save(
+                                displayName = name,
+                                sex = sex,
+                                birthYear = birthYear.trim().toIntOrNull(),
+                                weightKg = weight.trim().replace(',', '.').toDoubleOrNull(),
+                                restingHeartRate = restingHr.trim().toIntOrNull(),
+                                maxHeartRate = maxHr.trim().toIntOrNull(),
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("Lưu") }
+                }
             }
-            OutlinedButton(onClick = onOpenRoutes, modifier = Modifier.fillMaxWidth()) {
-                Text("Routes đã lưu")
-            }
-            OutlinedButton(onClick = onOpenHrSensor, modifier = Modifier.fillMaxWidth()) {
-                Text("Đai nhịp tim (BLE)")
-            }
-            OutlinedButton(onClick = onOpenBeacon, modifier = Modifier.fillMaxWidth()) {
-                Text("Theo dõi trực tiếp (Beacon)")
-            }
+
+            SectionHeader("Công cụ")
+            NavGroup(
+                items = listOf(
+                    "Vùng nhịp tim" to onOpenZones,
+                    "Routes đã lưu" to onOpenRoutes,
+                    "Đai nhịp tim (BLE)" to onOpenHrSensor,
+                    "Theo dõi trực tiếp (Beacon)" to onOpenBeacon,
+                ),
+            )
         }
     }
 }

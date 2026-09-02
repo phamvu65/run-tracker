@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -32,11 +33,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.LOCAL_USER_ID
 import com.example.runtracker.domain.model.Challenge
 import com.example.runtracker.domain.model.ChallengeParticipant
+import com.example.runtracker.ui.components.SectionHeader
+import com.example.runtracker.ui.theme.Spacing
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
@@ -90,36 +92,46 @@ fun ChallengeDetailScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(Spacing.screen),
+            verticalArrangement = Arrangement.spacedBy(Spacing.lg),
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    "${c.goalType.label()} · ${c.goalType.formatAmount(c.goalValue)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(
-                    "${c.startDate.format(DATE_FORMAT)} – ${c.endDate.format(DATE_FORMAT)} · " +
-                        c.statusOn(today).label(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            Text(
+                "${c.goalType.label()} · ${c.goalType.formatAmount(c.goalValue)}  ·  " +
+                    "${c.startDate.format(DATE_FORMAT)} – ${c.endDate.format(DATE_FORMAT)}  ·  " +
+                    c.statusOn(today).label(),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            ElevatedCard(
+                Modifier.fillMaxWidth(),
+                colors = androidx.compose.material3.CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                ),
+            ) {
+                Column(
+                    Modifier.fillMaxWidth().padding(Spacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                ) {
+                    Text(
+                        "${c.goalType.formatAmount(myProgress)} / ${c.goalType.formatAmount(c.goalValue)}",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                    LinearProgressIndicator(
+                        progress = { fraction },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Text(
+                        "${(fraction * 100).roundToInt()}% hoàn thành",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                }
             }
 
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    "${c.goalType.formatAmount(myProgress)} / ${c.goalType.formatAmount(c.goalValue)}" +
-                        "  (${(fraction * 100).roundToInt()}%)",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                LinearProgressIndicator(
-                    progress = { fraction },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-
-            Text("Bảng xếp hạng (${participants.size})", style = MaterialTheme.typography.titleSmall)
+            SectionHeader("Bảng xếp hạng", subtitle = "${participants.size} người tham gia")
             if (participants.isEmpty()) {
                 Text(
                     "Chưa có người tham gia.",
@@ -129,7 +141,9 @@ fun ChallengeDetailScreen(
             } else {
                 participants.forEachIndexed { index, participant ->
                     ParticipantRow(index + 1, participant, c)
-                    HorizontalDivider()
+                    if (index < participants.lastIndex) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    }
                 }
             }
 
@@ -161,10 +175,10 @@ fun ChallengeDetailScreen(
 @Composable
 private fun ParticipantRow(rank: Int, participant: ChallengeParticipant, challenge: Challenge) {
     Row(
-        Modifier.fillMaxWidth().padding(vertical = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        Modifier.fillMaxWidth().padding(vertical = Spacing.md),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
-        Text("$rank", style = MaterialTheme.typography.bodyMedium)
+        Text("$rank", style = MaterialTheme.typography.titleSmall)
         Text(
             if (participant.userId == LOCAL_USER_ID) "Bạn" else participant.userId,
             Modifier.weight(1f),
