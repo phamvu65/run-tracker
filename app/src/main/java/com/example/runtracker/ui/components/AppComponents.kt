@@ -1,6 +1,8 @@
 package com.example.runtracker.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,8 +14,10 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Card
@@ -29,10 +33,18 @@ import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.runtracker.domain.model.GeoPoint
 import com.example.runtracker.ui.theme.Spacing
 
 /** Nhãn nhỏ IN HOA, giãn chữ, màu phụ — dùng cho mọi tiêu đề khối kiểu Strava. */
@@ -286,6 +298,164 @@ fun AppListCard(
                 )
             }
         }
+    }
+}
+
+/** Avatar tròn: chữ cái đầu của tên trên nền xám than. */
+@Composable
+fun AthleteAvatar(name: String, modifier: Modifier = Modifier, size: androidx.compose.ui.unit.Dp = 40.dp) {
+    val initial = name.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+    Box(
+        modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            initial,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+/**
+ * Hình thu nhỏ đường chạy — vẽ polyline bằng Canvas (nhẹ, hợp danh sách cuộn,
+ * không dùng MapView). Chuẩn hoá điểm về khung, giữ tỉ lệ.
+ */
+@Composable
+fun RouteThumbnail(
+    points: List<GeoPoint>,
+    modifier: Modifier = Modifier,
+) {
+    val line = MaterialTheme.colorScheme.primary
+    val bg = MaterialTheme.colorScheme.surfaceContainerHigh
+    Box(modifier.background(bg)) {
+        if (points.size >= 2) {
+            Canvas(Modifier.fillMaxWidth().fillMaxHeight().padding(Spacing.lg)) {
+                val lats = points.map { it.latitude }
+                val lngs = points.map { it.longitude }
+                val minLat = lats.min(); val maxLat = lats.max()
+                val minLng = lngs.min(); val maxLng = lngs.max()
+                val spanLat = (maxLat - minLat).takeIf { it > 1e-9 } ?: 1e-9
+                val spanLng = (maxLng - minLng).takeIf { it > 1e-9 } ?: 1e-9
+                // giữ tỉ lệ: scale theo trục hẹp hơn
+                val scale = minOf(size.width / spanLng, size.height / spanLat).toDouble()
+                val drawW = spanLng * scale
+                val drawH = spanLat * scale
+                val offX = (size.width - drawW) / 2.0
+                val offY = (size.height - drawH) / 2.0
+                val path = Path()
+                points.forEachIndexed { i, p ->
+                    val x = (offX + (p.longitude - minLng) * scale).toFloat()
+                    val y = (offY + (maxLat - p.latitude) * scale).toFloat()
+                    if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                }
+                drawPath(
+                    path,
+                    color = line,
+                    style = Stroke(width = 6f, cap = StrokeCap.Round, join = StrokeJoin.Round),
+                )
+                points.firstOrNull()?.let {
+                    val x = (offX + (it.longitude - minLng) * scale).toFloat()
+                    val y = (offY + (maxLat - it.latitude) * scale).toFloat()
+                    drawCircle(line, radius = 7f, center = Offset(x, y))
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Thẻ feed một buổi tập kiểu trang chủ Strava: avatar + tên + thời gian, tiêu đề lớn,
+ * dải số liệu, (huy hiệu thành tích), bản đồ tràn viền, rồi kẻ ngăn mảnh.
+ */
+@Composable
+fun FeedActivityCard(
+    athleteName: String,
+    timeText: String,
+    title: String,
+    stats: List<StatCell>,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    achievementText: String? = null,
+    routePoints: List<GeoPoint> = emptyList(),
+) {
+    Column(
+        modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(top = Spacing.lg),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = Spacing.screen),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AthleteAvatar(athleteName)
+            Spacer(Modifier.width(Spacing.md))
+            Column(Modifier.weight(1f)) {
+                Text(athleteName, style = MaterialTheme.typography.titleSmall)
+                Text(
+                    timeText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (subtitle != null) {
+                    Text(
+                        subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+
+        Text(
+            title,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.screen)
+                .padding(top = Spacing.md),
+        )
+
+        Box(Modifier.padding(horizontal = Spacing.screen, vertical = Spacing.md)) {
+            StatStrip(stats)
+        }
+
+        if (achievementText != null) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.screen)
+                    .padding(bottom = Spacing.md)
+                    .clip(MaterialTheme.shapes.small)
+                    .background(MaterialTheme.colorScheme.tertiaryContainer)
+                    .padding(Spacing.md),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("🏅", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.width(Spacing.md))
+                Text(
+                    achievementText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                )
+            }
+        }
+
+        if (routePoints.size >= 2) {
+            RouteThumbnail(
+                points = routePoints,
+                modifier = Modifier.fillMaxWidth().height(180.dp),
+            )
+        }
+
+        Spacer(Modifier.height(Spacing.lg))
+        HorizontalDivider(thickness = 8.dp, color = MaterialTheme.colorScheme.surfaceContainerLow)
     }
 }
 

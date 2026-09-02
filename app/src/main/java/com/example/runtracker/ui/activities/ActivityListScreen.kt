@@ -1,6 +1,5 @@
 package com.example.runtracker.ui.activities
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,19 +21,21 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.formatClock
 import com.example.runtracker.core.formatDistanceKm
 import com.example.runtracker.core.formatPace
 import com.example.runtracker.domain.model.Activity
-import com.example.runtracker.ui.components.ActivityCard
 import com.example.runtracker.ui.components.EmptyState
+import com.example.runtracker.ui.components.FeedActivityCard
 import com.example.runtracker.ui.components.StatCell
-import com.example.runtracker.ui.theme.Spacing
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
-private val CARD_DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE, dd/MM · HH:mm")
+private val FEED_TIME: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("d 'thg' M, yyyy 'lúc' HH:mm", Locale.forLanguageTag("vi"))
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,7 +45,8 @@ fun ActivityListScreen(
     modifier: Modifier = Modifier,
     viewModel: ActivityListViewModel = hiltViewModel(),
 ) {
-    val activities by viewModel.activities.collectAsState()
+    val feed by viewModel.feed.collectAsState()
+    val athleteName by viewModel.athleteName.collectAsState()
 
     Scaffold(
         modifier = modifier,
@@ -60,12 +62,12 @@ fun ActivityListScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
+                    containerColor = MaterialTheme.colorScheme.background,
                 ),
             )
         },
     ) { padding ->
-        if (activities.isEmpty()) {
+        if (feed.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 EmptyState(
                     title = "Chưa có buổi tập nào",
@@ -75,19 +77,21 @@ fun ActivityListScreen(
         } else {
             LazyColumn(
                 Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(Spacing.screen),
-                verticalArrangement = Arrangement.spacedBy(Spacing.md),
+                contentPadding = PaddingValues(bottom = 24.dp),
             ) {
-                items(activities, key = { it.id }) { activity ->
-                    ActivityCard(
-                        title = activityTitle(activity),
-                        subtitle = activity.startTime.atZone(ZoneId.systemDefault()).format(CARD_DATE),
+                items(feed, key = { it.activity.id }) { item ->
+                    val a = item.activity
+                    FeedActivityCard(
+                        athleteName = athleteName,
+                        timeText = a.startTime.atZone(ZoneId.systemDefault()).format(FEED_TIME),
+                        title = activityTitle(a),
                         stats = listOf(
-                            StatCell("Quãng đường", formatDistanceKm(activity.distanceMeters)),
-                            StatCell("Pace", formatPace(activity.avgPaceSecPerKm)),
-                            StatCell("Thời gian", formatClock(activity.movingTime.inWholeSeconds)),
+                            StatCell("Quãng đường", formatDistanceKm(a.distanceMeters)),
+                            StatCell("Nhịp độ", formatPace(a.avgPaceSecPerKm)),
+                            StatCell("Thời gian", formatClock(a.movingTime.inWholeSeconds)),
                         ),
-                        onClick = { onActivityClick(activity.id) },
+                        routePoints = item.routePoints,
+                        onClick = { onActivityClick(a.id) },
                     )
                 }
             }
@@ -97,12 +101,17 @@ fun ActivityListScreen(
 
 private fun activityTitle(activity: Activity): String {
     val hour = activity.startTime.atZone(ZoneId.systemDefault()).hour
-    val part = when (hour) {
-        in 5..10 -> "Chạy buổi sáng"
-        in 11..13 -> "Chạy buổi trưa"
-        in 14..17 -> "Chạy buổi chiều"
-        in 18..21 -> "Chạy buổi tối"
-        else -> "Chạy đêm"
+    val verb = when (activity.type) {
+        com.example.runtracker.domain.model.ActivityType.CYCLING -> "Đạp xe"
+        com.example.runtracker.domain.model.ActivityType.WALKING -> "Đi bộ"
+        else -> "Chạy bộ"
     }
-    return "${activity.type} · $part"
+    val part = when (hour) {
+        in 5..10 -> "buổi sáng"
+        in 11..13 -> "buổi trưa"
+        in 14..17 -> "buổi chiều"
+        in 18..21 -> "buổi tối"
+        else -> "buổi đêm"
+    }
+    return "$verb $part"
 }
