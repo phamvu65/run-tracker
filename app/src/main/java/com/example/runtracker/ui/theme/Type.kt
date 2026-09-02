@@ -9,56 +9,69 @@ import androidx.compose.ui.unit.sp
 private val Sans = FontFamily.Default
 
 /**
- * Thang chữ tinh chỉnh: heading chặt chữ (letterSpacing âm nhẹ) + đậm hơn để "chuyên nghiệp",
- * body giữ dễ đọc. Dùng font hệ thống (chưa nhúng font riêng).
+ * Kiểu Strava: số liệu rất đậm & chặt chữ, nhãn nhỏ IN HOA giãn chữ, body vừa phải.
+ * `tnum` để các chữ số thẳng hàng khi đồng hồ chạy.
  */
 val Typography = Typography(
+    displayLarge = TextStyle(
+        fontFamily = Sans, fontWeight = FontWeight.Black,
+        fontSize = 56.sp, lineHeight = 60.sp, letterSpacing = (-1.5).sp,
+        fontFeatureSettings = "tnum",
+    ),
+    displayMedium = TextStyle(
+        fontFamily = Sans, fontWeight = FontWeight.Black,
+        fontSize = 44.sp, lineHeight = 48.sp, letterSpacing = (-1).sp,
+        fontFeatureSettings = "tnum",
+    ),
     displaySmall = TextStyle(
-        fontFamily = Sans, fontWeight = FontWeight.Bold,
-        fontSize = 34.sp, lineHeight = 40.sp, letterSpacing = (-0.5).sp,
+        fontFamily = Sans, fontWeight = FontWeight.Black,
+        fontSize = 32.sp, lineHeight = 36.sp, letterSpacing = (-0.5).sp,
+        fontFeatureSettings = "tnum",
     ),
     headlineMedium = TextStyle(
-        fontFamily = Sans, fontWeight = FontWeight.Bold,
-        fontSize = 26.sp, lineHeight = 32.sp, letterSpacing = (-0.25).sp,
+        fontFamily = Sans, fontWeight = FontWeight.ExtraBold,
+        fontSize = 26.sp, lineHeight = 30.sp, letterSpacing = (-0.4).sp,
+        fontFeatureSettings = "tnum",
     ),
     headlineSmall = TextStyle(
-        fontFamily = Sans, fontWeight = FontWeight.SemiBold,
-        fontSize = 22.sp, lineHeight = 28.sp, letterSpacing = 0.sp,
+        fontFamily = Sans, fontWeight = FontWeight.Bold,
+        fontSize = 21.sp, lineHeight = 26.sp, letterSpacing = (-0.2).sp,
+        fontFeatureSettings = "tnum",
     ),
     titleLarge = TextStyle(
-        fontFamily = Sans, fontWeight = FontWeight.SemiBold,
-        fontSize = 20.sp, lineHeight = 26.sp, letterSpacing = 0.sp,
+        fontFamily = Sans, fontWeight = FontWeight.Bold,
+        fontSize = 20.sp, lineHeight = 25.sp, letterSpacing = (-0.2).sp,
     ),
     titleMedium = TextStyle(
-        fontFamily = Sans, fontWeight = FontWeight.SemiBold,
-        fontSize = 16.sp, lineHeight = 22.sp, letterSpacing = 0.1.sp,
+        fontFamily = Sans, fontWeight = FontWeight.Bold,
+        fontSize = 16.sp, lineHeight = 21.sp, letterSpacing = 0.sp,
     ),
     titleSmall = TextStyle(
         fontFamily = Sans, fontWeight = FontWeight.SemiBold,
-        fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.1.sp,
+        fontSize = 14.sp, lineHeight = 19.sp, letterSpacing = 0.sp,
     ),
     bodyLarge = TextStyle(
         fontFamily = Sans, fontWeight = FontWeight.Normal,
-        fontSize = 16.sp, lineHeight = 24.sp, letterSpacing = 0.15.sp,
+        fontSize = 15.sp, lineHeight = 22.sp, letterSpacing = 0.sp,
     ),
     bodyMedium = TextStyle(
         fontFamily = Sans, fontWeight = FontWeight.Normal,
-        fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.2.sp,
+        fontSize = 13.sp, lineHeight = 19.sp, letterSpacing = 0.1.sp,
     ),
     bodySmall = TextStyle(
         fontFamily = Sans, fontWeight = FontWeight.Normal,
-        fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.3.sp,
+        fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.2.sp,
     ),
     labelLarge = TextStyle(
-        fontFamily = Sans, fontWeight = FontWeight.SemiBold,
-        fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.1.sp,
+        fontFamily = Sans, fontWeight = FontWeight.Bold,
+        fontSize = 14.sp, lineHeight = 18.sp, letterSpacing = 0.3.sp,
     ),
     labelMedium = TextStyle(
-        fontFamily = Sans, fontWeight = FontWeight.Medium,
-        fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.5.sp,
+        fontFamily = Sans, fontWeight = FontWeight.Bold,
+        fontSize = 11.sp, lineHeight = 14.sp, letterSpacing = 0.8.sp,
     ),
     labelSmall = TextStyle(
-        fontFamily = Sans, fontWeight = FontWeight.Medium,
-        fontSize = 11.sp, lineHeight = 16.sp, letterSpacing = 0.5.sp,
+        fontFamily = Sans, fontWeight = FontWeight.Bold,
+        fontSize = 10.sp, lineHeight = 13.sp, letterSpacing = 1.0.sp,
     ),
 )

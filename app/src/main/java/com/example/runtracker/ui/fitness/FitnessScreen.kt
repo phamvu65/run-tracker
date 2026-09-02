@@ -3,14 +3,15 @@ package com.example.runtracker.ui.fitness
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
@@ -20,11 +21,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.formatClock
 import com.example.runtracker.core.formatPace
@@ -32,8 +35,11 @@ import com.example.runtracker.domain.model.DailySuggestion
 import com.example.runtracker.domain.model.PerformancePrediction
 import com.example.runtracker.domain.training.RaceDistance
 import com.example.runtracker.ui.components.EmptyState
+import com.example.runtracker.ui.components.FlatCard
 import com.example.runtracker.ui.components.SectionHeader
-import com.example.runtracker.ui.components.StatTile
+import com.example.runtracker.ui.components.StatCell
+import com.example.runtracker.ui.components.StatStrip
+import com.example.runtracker.ui.components.StravaLabel
 import com.example.runtracker.ui.theme.Spacing
 import kotlin.math.roundToInt
 import kotlin.math.roundToLong
@@ -53,9 +59,13 @@ fun FitnessScreen(
 
     Scaffold(
         modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { Text("Fitness & Freshness") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                ),
                 navigationIcon = {
                     if (onBack != null) {
                         IconButton(onClick = onBack) {
@@ -74,7 +84,7 @@ fun FitnessScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
                 .padding(Spacing.screen),
-            verticalArrangement = Arrangement.spacedBy(Spacing.xl),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
             suggestion?.let { SuggestionCard(it) }
 
@@ -83,24 +93,34 @@ fun FitnessScreen(
             }
 
             if (latest != null) {
-                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        StatTile("Fitness", latest.ctl.roundToInt().toString(), Modifier.weight(1f), accent = true)
-                        StatTile("Fatigue", latest.atl.roundToInt().toString(), Modifier.weight(1f))
-                        StatTile("Form", latest.tsb.roundToInt().toString(), Modifier.weight(1f))
-                    }
+                FlatCard {
+                    SectionHeader("Thể trạng hôm nay")
+                    Spacer(Modifier.height(Spacing.xs))
+                    StatStrip(
+                        listOf(
+                            StatCell("Fitness", latest.ctl.roundToInt().toString()),
+                            StatCell("Fatigue", latest.atl.roundToInt().toString()),
+                            StatCell("Form", latest.tsb.roundToInt().toString()),
+                        ),
+                    )
                     Text(
                         formInterpretation(latest.tsb),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = Spacing.sm),
                     )
                 }
-                FitnessChart(snapshots = snapshots, modifier = Modifier.fillMaxWidth())
+                FlatCard {
+                    SectionHeader("90 ngày qua")
+                    FitnessChart(snapshots = snapshots, modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm))
+                }
             } else {
-                EmptyState(
-                    title = "Chưa có dữ liệu Fitness",
-                    message = "Ghi một buổi tập (nhập RPE hoặc có nhịp tim) để bắt đầu theo dõi CTL/ATL/TSB.",
-                )
+                FlatCard {
+                    EmptyState(
+                        title = "Chưa có dữ liệu Fitness",
+                        message = "Ghi một buổi tập (nhập RPE hoặc có nhịp tim) để bắt đầu theo dõi CTL/ATL/TSB.",
+                    )
+                }
             }
 
             if (predictions.isNotEmpty()) {
@@ -112,21 +132,27 @@ fun FitnessScreen(
 
 @Composable
 private fun SuggestionCard(suggestion: DailySuggestion) {
-    ElevatedCard(Modifier.fillMaxWidth()) {
+    androidx.compose.material3.Card(
+        Modifier.fillMaxWidth(),
+        colors = androidx.compose.material3.CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+        ),
+        elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
         Column(
             Modifier.padding(Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(Spacing.xs),
         ) {
+            StravaLabel("Gợi ý hôm nay", color = MaterialTheme.colorScheme.onPrimaryContainer)
             Text(
-                "GỢI Ý HÔM NAY",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary,
+                suggestion.headline,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
             )
-            Text(suggestion.headline, style = MaterialTheme.typography.titleMedium)
             Text(
                 suggestion.rationale,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
             )
         }
     }
@@ -135,18 +161,19 @@ private fun SuggestionCard(suggestion: DailySuggestion) {
 @Composable
 private fun PredictionSection(predictions: List<PerformancePrediction>) {
     val byLabel = predictions.associateBy { it.distanceLabel }
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+    FlatCard {
         SectionHeader(
             title = "Dự đoán thành tích",
-            subtitle = "Riegel, dựa trên buổi chạy nhanh nhất 90 ngày gần đây.",
+            subtitle = "Riegel · buổi chạy nhanh nhất 90 ngày gần đây",
         )
+        Spacer(Modifier.height(Spacing.xs))
         RaceDistance.entries.forEach { race ->
             val p = byLabel[race.label] ?: return@forEach
-            Row(Modifier.fillMaxWidth().padding(vertical = Spacing.xs)) {
+            Row(Modifier.fillMaxWidth().padding(vertical = Spacing.sm)) {
                 Text(race.label, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                 Text(
                     formatClock(p.predictedSeconds.roundToLong()),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.titleSmall,
                     textAlign = TextAlign.End,
                     modifier = Modifier.weight(1f),
                 )
@@ -158,7 +185,9 @@ private fun PredictionSection(predictions: List<PerformancePrediction>) {
                     modifier = Modifier.weight(1f),
                 )
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            if (race != RaceDistance.entries.last()) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
         }
     }
 }

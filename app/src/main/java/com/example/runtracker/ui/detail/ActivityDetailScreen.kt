@@ -4,8 +4,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -16,7 +16,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -26,6 +25,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -43,11 +43,17 @@ import com.example.runtracker.core.formatDistanceKm
 import com.example.runtracker.core.formatPace
 import com.example.runtracker.domain.model.ActivityWeather
 import com.example.runtracker.domain.training.ZoneTime
+import com.example.runtracker.ui.components.FlatCard
 import com.example.runtracker.ui.components.LabeledValue
 import com.example.runtracker.ui.components.SectionHeader
-import com.example.runtracker.ui.components.StatTile
+import com.example.runtracker.ui.components.StatCell
+import com.example.runtracker.ui.components.StatStrip
 import com.example.runtracker.ui.theme.Spacing
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
+
+private val HEADER_DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("EEEE, dd/MM/yyyy · HH:mm")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,9 +78,13 @@ fun ActivityDetailScreen(
 
     Scaffold(
         modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { Text("Chi tiết buổi tập") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                ),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
@@ -125,10 +135,15 @@ private fun LoadedContent(
     onRefreshWeather: () -> Unit,
     onCreateSegment: () -> Unit,
 ) {
-    Column(Modifier.fillMaxSize()) {
+    val activity = state.activity
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+    ) {
         if (state.routePoints.isEmpty()) {
             Box(
-                Modifier.fillMaxWidth().height(200.dp),
+                Modifier.fillMaxWidth().height(180.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text("Không có dữ liệu GPS", style = MaterialTheme.typography.bodyMedium)
@@ -136,36 +151,36 @@ private fun LoadedContent(
         } else {
             RouteMap(
                 points = state.routePoints,
-                modifier = Modifier.fillMaxWidth().height(260.dp),
+                modifier = Modifier.fillMaxWidth().height(240.dp),
             )
         }
 
         Column(
-            Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(Spacing.screen),
-            verticalArrangement = Arrangement.spacedBy(Spacing.xl),
+            Modifier.fillMaxWidth().padding(Spacing.screen),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            val activity = state.activity
             Text(
-                "${activity.type} · ${activity.startTime}",
+                "${activity.type} · ${activity.startTime.atZone(ZoneId.systemDefault()).format(HEADER_DATE)}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                StatTile("Quãng đường", formatDistanceKm(activity.distanceMeters), Modifier.weight(1f), accent = true)
-                StatTile("Thời gian", formatClock(activity.movingTime.inWholeSeconds), Modifier.weight(1f))
-                StatTile("Pace", formatPace(activity.avgPaceSecPerKm), Modifier.weight(1f))
-            }
 
-            DetailCard {
-                SectionHeader("Số liệu")
+            FlatCard {
+                StatStrip(
+                    listOf(
+                        StatCell("Quãng đường", formatDistanceKm(activity.distanceMeters)),
+                        StatCell("Pace", formatPace(activity.avgPaceSecPerKm)),
+                        StatCell("Thời gian", formatClock(activity.movingTime.inWholeSeconds)),
+                    ),
+                )
+                androidx.compose.material3.HorizontalDivider(
+                    Modifier.padding(vertical = Spacing.md),
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                )
                 LabeledValue("Thời gian tổng", formatClock(activity.duration.inWholeSeconds))
                 LabeledValue("Tốc độ TB", "%.1f km/h".format(activity.avgSpeedKmh))
                 LabeledValue(
-                    "Độ cao +/-",
+                    "Độ cao lên / xuống",
                     "${activity.elevationGainMeters.roundToInt()} / ${activity.elevationLossMeters.roundToInt()} m",
                 )
                 LabeledValue("Relative Effort (TRIMP)", state.trimp?.roundToInt()?.toString() ?: "—")
@@ -176,7 +191,7 @@ private fun LoadedContent(
             }
 
             if (state.canEnterRpe) {
-                DetailCard {
+                FlatCard {
                     NoHeartRateSection(
                         rpe = activity.perceivedExertion,
                         heartRateAvailable = heartRateAvailable,
@@ -187,7 +202,7 @@ private fun LoadedContent(
                 }
             }
 
-            DetailCard {
+            FlatCard {
                 WeatherSection(
                     weather = activity.weather,
                     message = weatherMessage,
@@ -196,27 +211,34 @@ private fun LoadedContent(
                 )
             }
 
-            ElevationChart(points = state.routePoints, modifier = Modifier.fillMaxWidth())
-            ZoneDistributionList(distribution = zoneDistribution, modifier = Modifier.fillMaxWidth())
-            LapList(laps = state.laps, modifier = Modifier.fillMaxWidth())
+            FlatCard {
+                SectionHeader("Độ cao")
+                Spacer(Modifier.height(Spacing.sm))
+                ElevationChart(points = state.routePoints, modifier = Modifier.fillMaxWidth())
+            }
+
+            if (zoneDistribution.isNotEmpty()) {
+                FlatCard {
+                    SectionHeader("Thời gian theo vùng nhịp tim")
+                    Spacer(Modifier.height(Spacing.sm))
+                    ZoneDistributionList(distribution = zoneDistribution, modifier = Modifier.fillMaxWidth())
+                }
+            }
+
+            if (state.laps.isNotEmpty()) {
+                FlatCard {
+                    SectionHeader("Chặng (mỗi km)")
+                    Spacer(Modifier.height(Spacing.sm))
+                    LapList(laps = state.laps, modifier = Modifier.fillMaxWidth())
+                }
+            }
 
             if (state.routePoints.size >= 2) {
-                DetailCard {
+                FlatCard {
                     SegmentSection(efforts = segmentEfforts, onCreateSegment = onCreateSegment)
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun DetailCard(content: @Composable ColumnScope.() -> Unit) {
-    ElevatedCard(Modifier.fillMaxWidth()) {
-        Column(
-            Modifier.fillMaxWidth().padding(Spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
-            content = content,
-        )
     }
 }
 
@@ -229,21 +251,24 @@ private fun NoHeartRateSection(
     onSetRpe: (Int) -> Unit,
 ) {
     SectionHeader("Chưa có nhịp tim")
+    Spacer(Modifier.height(Spacing.sm))
     if (heartRateAvailable) {
         Text(
             "Đồng bộ nhịp tim từ Health Connect (đồng hồ / vòng đeo), hoặc nhập RPE.",
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        Spacer(Modifier.height(Spacing.sm))
         OutlinedButton(onClick = onSyncHeartRate) { Text("Đồng bộ nhịp tim") }
         importMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
     } else {
         Text(
             "Health Connect không khả dụng — nhập RPE (1 rất nhẹ … 10 kiệt sức) để tính TRIMP.",
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+    Spacer(Modifier.height(Spacing.sm))
     RpeEditor(current = rpe, onSave = onSetRpe)
 }
 
@@ -272,6 +297,7 @@ private fun WeatherSection(
     onRefreshWeather: () -> Unit,
 ) {
     SectionHeader("Thời tiết")
+    Spacer(Modifier.height(Spacing.xs))
     if (weather != null) {
         LabeledValue("Điều kiện", weatherCodeDescription(weather.weatherCode))
         LabeledValue("Nhiệt độ", "%.0f°C".format(weather.temperatureC))
@@ -281,6 +307,7 @@ private fun WeatherSection(
             val dir = windCompass(weather.windDirectionDeg)
             LabeledValue("Gió", "%.0f km/h".format(mps * 3.6) + if (dir.isNotEmpty()) " $dir" else "")
         }
+        Spacer(Modifier.height(Spacing.xs))
         OutlinedButton(onClick = onRefreshWeather) { Text("Cập nhật lại") }
     } else {
         Text(
@@ -289,14 +316,15 @@ private fun WeatherSection(
             } else {
                 "Buổi tập không có GPS nên không tra được thời tiết."
             },
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (hasGps) {
+            Spacer(Modifier.height(Spacing.sm))
             OutlinedButton(onClick = onRefreshWeather) { Text("Lấy thời tiết") }
         }
     }
-    message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+    message?.let { Text(it, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = Spacing.xs)) }
 }
 
 @Composable
@@ -305,6 +333,7 @@ private fun SegmentSection(
     onCreateSegment: () -> Unit,
 ) {
     SectionHeader("Segments")
+    Spacer(Modifier.height(Spacing.sm))
     efforts.forEach { effort ->
         Row(Modifier.fillMaxWidth().padding(vertical = Spacing.xs)) {
             Text(
@@ -314,10 +343,11 @@ private fun SegmentSection(
             )
             Text(
                 formatClock(effort.elapsedSeconds.toLong()),
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.titleSmall,
                 textAlign = TextAlign.End,
             )
         }
     }
+    Spacer(Modifier.height(Spacing.xs))
     OutlinedButton(onClick = onCreateSegment) { Text("Tạo segment từ buổi này") }
 }

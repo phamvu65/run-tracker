@@ -1,18 +1,23 @@
 package com.example.runtracker.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -20,6 +25,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,47 +35,18 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.runtracker.ui.theme.Spacing
 
-/** Dòng danh sách bấm được, kiểu thẻ — tiêu đề + phụ đề + nội dung bên phải tuỳ chọn. */
-@OptIn(ExperimentalMaterial3Api::class)
+/** Nhãn nhỏ IN HOA, giãn chữ, màu phụ — dùng cho mọi tiêu đề khối kiểu Strava. */
 @Composable
-fun AppListCard(
-    title: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    subtitle: String? = null,
-    trailing: (@Composable () -> Unit)? = null,
-) {
-    ElevatedCard(onClick = onClick, modifier = modifier.fillMaxWidth()) {
-        Row(
-            Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    title,
-                    style = MaterialTheme.typography.titleSmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (subtitle != null) {
-                    Text(
-                        subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-            if (trailing != null) {
-                Spacer(Modifier.width(Spacing.md))
-                trailing()
-            }
-        }
-    }
+fun StravaLabel(text: String, modifier: Modifier = Modifier, color: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
+    Text(
+        text.uppercase(),
+        modifier = modifier,
+        style = MaterialTheme.typography.labelMedium,
+        color = color,
+    )
 }
 
-/** Tiêu đề một khối nội dung, kèm hành động phụ tuỳ chọn ở bên phải. */
+/** Tiêu đề một khối: nhãn IN HOA + hành động phụ tuỳ chọn bên phải. */
 @Composable
 fun SectionHeader(
     title: String,
@@ -83,7 +60,7 @@ fun SectionHeader(
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
+            StravaLabel(title)
             if (subtitle != null) {
                 Text(
                     subtitle,
@@ -96,51 +73,57 @@ fun SectionHeader(
     }
 }
 
-/** Ô số liệu nổi bật (quãng đường, thời gian, pace...). */
+/** Một ô số liệu: số rất đậm + nhãn IN HOA phía dưới. */
+data class StatCell(val label: String, val value: String)
+
+/** Cột số liệu đơn (số đậm trên, nhãn dưới). */
 @Composable
-fun StatTile(
-    label: String,
-    value: String,
+fun StatColumn(
+    cell: StatCell,
     modifier: Modifier = Modifier,
-    accent: Boolean = false,
+    big: Boolean = false,
+    alignEnd: Boolean = false,
 ) {
-    ElevatedCard(
-        modifier = modifier,
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = if (accent) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceContainerHigh
-            },
-        ),
+    Column(
+        modifier,
+        horizontalAlignment = if (alignEnd) Alignment.End else Alignment.Start,
     ) {
-        Column(Modifier.padding(horizontal = Spacing.md, vertical = Spacing.md)) {
-            Text(
-                label.uppercase(),
-                style = MaterialTheme.typography.labelSmall,
-                color = if (accent) {
-                    MaterialTheme.colorScheme.onPrimaryContainer
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                value,
-                style = MaterialTheme.typography.headlineSmall,
-                color = if (accent) {
-                    MaterialTheme.colorScheme.onPrimaryContainer
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                },
-                maxLines = 1,
-            )
+        Text(
+            cell.value,
+            style = if (big) MaterialTheme.typography.displaySmall else MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+        )
+        Spacer(Modifier.height(2.dp))
+        StravaLabel(cell.label)
+    }
+}
+
+/** Hàng 2–4 ô số liệu, ngăn nhau bằng đường kẻ dọc mảnh — chữ ký giao diện Strava. */
+@Composable
+fun StatStrip(
+    cells: List<StatCell>,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        cells.forEachIndexed { index, cell ->
+            StatColumn(cell, Modifier.weight(1f).padding(vertical = Spacing.xs))
+            if (index < cells.lastIndex) {
+                VerticalDivider(
+                    Modifier.fillMaxHeight().padding(horizontal = Spacing.sm),
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                )
+            }
         }
     }
 }
 
-/** Hàng "nhãn ⟷ giá trị" — dùng trong panel số liệu. */
+/** Hàng "nhãn ⟷ giá trị". */
 @Composable
 fun LabeledValue(
     label: String,
@@ -151,7 +134,7 @@ fun LabeledValue(
     Row(
         modifier
             .fillMaxWidth()
-            .padding(vertical = Spacing.xs),
+            .padding(vertical = Spacing.xs + 2.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(
@@ -161,41 +144,152 @@ fun LabeledValue(
         )
         Text(
             value,
-            style = if (emphasize) {
-                MaterialTheme.typography.titleMedium
-            } else {
-                MaterialTheme.typography.bodyMedium
-            },
+            style = if (emphasize) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleSmall,
             textAlign = TextAlign.End,
         )
     }
 }
 
-/** Nhóm các mục điều hướng trong một thẻ, có gạch ngăn giữa các mục. */
+/** Thẻ phẳng (trắng trên nền xám) — không đổ bóng, viền tóc. */
+@Composable
+fun FlatCard(
+    modifier: Modifier = Modifier,
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
+) {
+    Card(
+        modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Column(Modifier.fillMaxWidth().padding(Spacing.lg), content = content)
+    }
+}
+
+/** Thẻ hoạt động kiểu feed Strava: tiêu đề, phụ đề, dải số liệu, (map tuỳ chọn). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ActivityCard(
+    title: String,
+    subtitle: String,
+    stats: List<StatCell>,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    map: (@Composable () -> Unit)? = null,
+) {
+    Card(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Column {
+            Column(Modifier.fillMaxWidth().padding(Spacing.lg)) {
+                Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(Spacing.md))
+                StatStrip(stats)
+            }
+            if (map != null) {
+                Box(Modifier.fillMaxWidth().height(150.dp)) { map() }
+            }
+        }
+    }
+}
+
+/** Nhóm mục điều hướng trong một thẻ phẳng, có gạch ngăn. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NavGroup(
     items: List<Pair<String, () -> Unit>>,
     modifier: Modifier = Modifier,
 ) {
-    ElevatedCard(modifier.fillMaxWidth()) {
+    Card(
+        modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
         items.forEachIndexed { index, (label, onClick) ->
             ListItem(
                 headlineContent = { Text(label, style = MaterialTheme.typography.bodyLarge) },
                 trailingContent = {
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                    Icon(
+                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 },
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                 modifier = Modifier.clickable(onClick = onClick),
             )
             if (index < items.lastIndex) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                HorizontalDivider(
+                    Modifier.padding(start = Spacing.lg),
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                )
             }
         }
     }
 }
 
-/** Trạng thái rỗng chuẩn — canh giữa, một câu hướng dẫn. */
+/** Dòng danh sách bấm được, kiểu thẻ phẳng. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppListCard(
+    title: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    Card(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Row(
+            Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (subtitle != null) {
+                    Text(
+                        subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            if (trailing != null) {
+                Spacer(Modifier.width(Spacing.md))
+                trailing()
+            } else {
+                Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+/** Trạng thái rỗng — canh giữa, một câu hướng dẫn. */
 @Composable
 fun EmptyState(
     title: String,
@@ -210,11 +304,7 @@ fun EmptyState(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
-        Text(
-            title,
-            style = MaterialTheme.typography.titleMedium,
-            textAlign = TextAlign.Center,
-        )
+        Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
         if (message != null) {
             Text(
                 message,

@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -88,9 +89,10 @@ fun RunTrackerNavHost(modifier: Modifier = Modifier) {
 
     Scaffold(
         modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             if (TopLevelDest.entries.any { it.route == currentDest }) {
-                NavigationBar {
+                NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                     TopLevelDest.entries.forEach { dest ->
                         NavigationBarItem(
                             selected = currentDest == dest.route,
