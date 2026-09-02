@@ -1,9 +1,9 @@
 package com.example.runtracker.ui
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
@@ -79,7 +79,7 @@ private object Routes {
 
 private enum class TopLevelDest(val route: String, val label: String, val icon: ImageVector) {
     TRACKING(Routes.TRACKING, "Ghi", Icons.Filled.PlayArrow),
-    ACTIVITIES(Routes.ACTIVITIES, "Hoạt động", Icons.AutoMirrored.Filled.List),
+    ACTIVITIES(Routes.ACTIVITIES, "Hoạt động", Icons.Filled.Home),
     FITNESS(Routes.FITNESS, "Fitness", Icons.Filled.Favorite),
     CHALLENGES(Routes.CHALLENGES, "Thử thách", Icons.Filled.DateRange),
     PROFILE(Routes.PROFILE, "Hồ sơ", Icons.Filled.Person),
@@ -123,7 +123,14 @@ fun RunTrackerNavHost(modifier: Modifier = Modifier) {
                                 }
                             },
                             icon = { Icon(dest.icon, contentDescription = dest.label) },
-                            label = { Text(dest.label) },
+                            label = {
+                                Text(
+                                    dest.label,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                            },
                         )
                     }
                 }
