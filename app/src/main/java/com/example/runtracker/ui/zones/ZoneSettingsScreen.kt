@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -36,6 +37,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.domain.training.HeartRateZone
+import com.example.runtracker.ui.components.SectionHeader
+import com.example.runtracker.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,8 +77,8 @@ fun ZoneSettingsScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(Spacing.screen),
+            verticalArrangement = Arrangement.spacedBy(Spacing.lg),
         ) {
             Text(
                 estimatedMaxHr?.let { "Nhịp tim tối đa: $it bpm (từ hồ sơ)" }
@@ -84,23 +87,33 @@ fun ZoneSettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            loaded.zones.forEachIndexed { i, _ ->
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Z${i + 1}", Modifier.width(32.dp), style = MaterialTheme.typography.titleSmall)
-                    BpmField(mins[i], { mins[i] = it }, "Min", Modifier.weight(1f))
-                    BpmField(maxs[i], { maxs[i] = it }, "Max", Modifier.weight(1f))
+            ElevatedCard(Modifier.fillMaxWidth()) {
+                Column(
+                    Modifier.fillMaxWidth().padding(Spacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.md),
+                ) {
+                    SectionHeader("Ngưỡng từng vùng (bpm)")
+                    loaded.zones.forEachIndexed { i, _ ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                        ) {
+                            Text("Z${i + 1}", Modifier.width(32.dp), style = MaterialTheme.typography.titleSmall)
+                            BpmField(mins[i], { mins[i] = it }, "Min", Modifier.weight(1f))
+                            BpmField(maxs[i], { maxs[i] = it }, "Max", Modifier.weight(1f))
+                        }
+                    }
+                    OutlinedTextField(
+                        value = thresholdPace,
+                        onValueChange = { thresholdPace = it },
+                        label = { Text("Pace ngưỡng (m:ss/km, tuỳ chọn)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
             }
 
-            OutlinedTextField(
-                value = thresholdPace,
-                onValueChange = { thresholdPace = it },
-                label = { Text("Pace ngưỡng (m:ss/km, tuỳ chọn)") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 OutlinedButton(
                     onClick = {
                         viewModel.defaultZones().forEachIndexed { i, z ->

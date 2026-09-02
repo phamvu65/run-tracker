@@ -2,7 +2,6 @@ package com.example.runtracker.ui.hrsensor
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,8 +13,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -30,9 +29,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.runtracker.ui.components.AppListCard
+import com.example.runtracker.ui.components.SectionHeader
+import com.example.runtracker.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,27 +84,45 @@ fun HrSensorScreen(
         }
 
         Column(
-            Modifier.fillMaxSize().padding(padding).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            Modifier.fillMaxSize().padding(padding).padding(Spacing.screen),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
             viewModel.savedAddress?.let { address ->
-                Column {
-                    Text("Đã ghép", style = MaterialTheme.typography.labelMedium)
-                    Text(
-                        viewModel.savedName ?: address,
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                    Text(
-                        viewModel.previewBpm?.let { "$it bpm" } ?: "Đang chờ tín hiệu…",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
+                ElevatedCard(
+                    Modifier.fillMaxWidth(),
+                    colors = androidx.compose.material3.CardDefaults.elevatedCardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    ),
+                ) {
+                    Column(
+                        Modifier.fillMaxWidth().padding(Spacing.lg),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+                    ) {
+                        Text(
+                            "ĐÃ GHÉP",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                        Text(
+                            viewModel.savedName ?: address,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                        Text(
+                            viewModel.previewBpm?.let { "$it bpm" } ?: "Đang chờ tín hiệu…",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                        OutlinedButton(onClick = viewModel::forget) { Text("Bỏ ghép") }
+                    }
                 }
-                OutlinedButton(onClick = viewModel::forget) { Text("Bỏ ghép") }
-                HorizontalDivider()
             }
 
-            Button(onClick = ::scanWithPermission, enabled = !viewModel.scanning) {
+            Button(
+                onClick = ::scanWithPermission,
+                enabled = !viewModel.scanning,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
                 Text(if (viewModel.scanning) "Đang quét…" else "Quét thiết bị")
             }
 
@@ -111,22 +130,19 @@ fun HrSensorScreen(
                 Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
             }
 
-            LazyColumn(Modifier.fillMaxWidth()) {
+            if (devices.isNotEmpty()) {
+                SectionHeader("Thiết bị tìm thấy")
+            }
+            LazyColumn(
+                Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+            ) {
                 items(devices, key = { it.address }) { device ->
-                    Column(
-                        Modifier
-                            .fillMaxWidth()
-                            .clickable { viewModel.select(device) }
-                            .padding(vertical = 12.dp),
-                    ) {
-                        Text(device.name ?: "(không tên)", style = MaterialTheme.typography.bodyLarge)
-                        Text(
-                            device.address,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    HorizontalDivider()
+                    AppListCard(
+                        title = device.name ?: "(không tên)",
+                        subtitle = device.address,
+                        onClick = { viewModel.select(device) },
+                    )
                 }
             }
         }

@@ -28,6 +28,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.formatDistanceKm
 import com.example.runtracker.ui.common.PathMap
+import com.example.runtracker.ui.components.SectionHeader
+import com.example.runtracker.ui.theme.Spacing
 import com.google.android.gms.maps.model.LatLng
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,14 +71,14 @@ fun RouteDetailScreen(
             }
 
             Column(
-                Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(Spacing.screen),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
             ) {
-                Text(formatDistanceKm(r.distanceMeters), style = MaterialTheme.typography.titleMedium)
+                Text(formatDistanceKm(r.distanceMeters), style = MaterialTheme.typography.titleLarge)
 
                 val steps = r.waypoints.filter { !it.instruction.isNullOrBlank() }
                 if (steps.isNotEmpty()) {
-                    Text("Chỉ đường", style = MaterialTheme.typography.titleSmall)
+                    SectionHeader("Chỉ đường")
                     steps.forEach { wp ->
                         Text("${wp.orderIndex + 1}. ${wp.instruction}", style = MaterialTheme.typography.bodyMedium)
                     }

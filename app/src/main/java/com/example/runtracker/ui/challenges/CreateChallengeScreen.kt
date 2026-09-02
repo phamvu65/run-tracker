@@ -31,9 +31,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.domain.model.ChallengeGoalType
+import com.example.runtracker.ui.theme.Spacing
 import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -78,8 +78,8 @@ fun CreateChallengeScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(Spacing.screen),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
             OutlinedTextField(
                 value = name,
@@ -89,8 +89,8 @@ fun CreateChallengeScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            Text("Mục tiêu", style = MaterialTheme.typography.bodyMedium)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Loại mục tiêu", style = MaterialTheme.typography.bodyMedium)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 ChallengeGoalType.entries.forEach { type ->
                     FilterChip(
                         selected = goalType == type,
@@ -125,7 +125,7 @@ fun CreateChallengeScreen(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 listOf(7L, 30L, 90L).forEach { days ->
                     AssistChip(
                         onClick = {

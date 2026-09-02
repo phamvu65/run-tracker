@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.formatDistanceKm
 import com.example.runtracker.domain.model.GeoPoint
+import com.example.runtracker.ui.theme.Spacing
 import com.example.runtracker.domain.model.TravelMode
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
@@ -101,7 +102,7 @@ fun RouteBuilderScreen(
                 }
             }
 
-            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.fillMaxWidth().padding(Spacing.screen), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 Text(
                     when {
                         planned != null -> "${formatDistanceKm(planned.distanceMeters)}" +
@@ -109,10 +110,10 @@ fun RouteBuilderScreen(
                         tapped.size >= 2 -> "${tapped.size} điểm — bấm \"Tính đường\""
                         else -> "Chạm vào bản đồ để thêm điểm"
                     },
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.titleSmall,
                 )
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     FilterChip(
                         selected = viewModel.mode == TravelMode.WALKING,
                         onClick = { viewModel.selectMode(TravelMode.WALKING) },
@@ -125,7 +126,7 @@ fun RouteBuilderScreen(
                     )
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     OutlinedButton(onClick = viewModel::undo, enabled = tapped.isNotEmpty()) { Text("Lùi") }
                     OutlinedButton(onClick = viewModel::clear, enabled = tapped.isNotEmpty()) { Text("Xoá hết") }
                     Button(

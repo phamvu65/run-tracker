@@ -24,10 +24,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.formatDistanceKm
+import com.example.runtracker.ui.theme.Spacing
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
@@ -93,7 +92,7 @@ fun SegmentCreateScreen(
                 uiSettings = remember { MapUiSettings(zoomControlsEnabled = false, mapToolbarEnabled = false) },
             ) {
                 if (fullLine.size >= 2) {
-                    Polyline(points = fullLine, color = Color.Gray, width = 8f)
+                    Polyline(points = fullLine, color = MaterialTheme.colorScheme.outline, width = 8f)
                 }
                 if (subLine.size >= 2) {
                     Polyline(points = subLine, color = MaterialTheme.colorScheme.primary, width = 14f)
@@ -101,8 +100,8 @@ fun SegmentCreateScreen(
             }
 
             Column(
-                Modifier.fillMaxWidth().padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                Modifier.fillMaxWidth().padding(Spacing.screen),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
             ) {
                 Text(
                     "Đoạn: ${formatDistanceKm(range.start.toDouble())} → " +
