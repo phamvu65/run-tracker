@@ -24,6 +24,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.runtracker.ui.beacon.BeaconViewerScreen
 import com.example.runtracker.ui.challenges.ARG_CHALLENGE_ID
 import com.example.runtracker.ui.challenges.ChallengeDetailScreen
 import com.example.runtracker.ui.challenges.ChallengeListScreen
@@ -52,6 +53,7 @@ private object Routes {
     const val TRAINING_PLAN = "training_plan"
     const val ZONES = "zones"
     const val HR_SENSOR = "hr_sensor"
+    const val BEACON_VIEWER = "beacon_viewer"
     const val SEGMENTS = "segments"
     const val SEGMENT_DETAIL = "segment/{$ARG_SEGMENT_ID}"
     const val SEGMENT_CREATE = "segment_create/{$ARG_ACTIVITY_ID}"
@@ -127,10 +129,14 @@ fun RunTrackerNavHost(modifier: Modifier = Modifier) {
                     onOpenZones = { navController.navigate(Routes.ZONES) },
                     onOpenRoutes = { navController.navigate(Routes.ROUTES) },
                     onOpenHrSensor = { navController.navigate(Routes.HR_SENSOR) },
+                    onOpenBeacon = { navController.navigate(Routes.BEACON_VIEWER) },
                 )
             }
             composable(Routes.HR_SENSOR) {
                 HrSensorScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Routes.BEACON_VIEWER) {
+                BeaconViewerScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.FITNESS) {
                 FitnessScreen(

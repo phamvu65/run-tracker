@@ -367,6 +367,10 @@ Training plan gợi ý (việc 24) **không có bảng DB**: chỉ lưu mục ti
 SharedPreferences (`data/training/TrainingGoalStore`), kế hoạch chi tiết sinh lại mỗi lần từ CTL +
 quãng đường gần đây (`TrainingPlanGenerator`).
 
+Live tracking / Beacon (việc 25) **không có bảng DB** ở giai đoạn client: vị trí trực tiếp đi qua
+interface `domain/beacon/LiveLocationTransport` (hiện là bản loopback trong bộ nhớ). Khi có backend,
+thêm 1 impl mạng — không đụng schema local.
+
 ---
 
 ## 5. Lưu ý khi triển khai

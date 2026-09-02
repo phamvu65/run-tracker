@@ -19,11 +19,13 @@ import com.example.runtracker.MainActivity
 import com.example.runtracker.core.LOCAL_USER_ID
 import com.example.runtracker.core.formatClock
 import com.example.runtracker.data.health.BleHeartRateStore
+import com.example.runtracker.domain.beacon.LiveLocationTransport
 import com.example.runtracker.domain.health.LiveHeartRateSource
 import com.example.runtracker.domain.model.Activity
 import com.example.runtracker.domain.model.ActivityType
 import com.example.runtracker.domain.model.GeoPoint
 import com.example.runtracker.domain.model.HeartRateSample
+import com.example.runtracker.domain.model.LiveLocationUpdate
 import com.example.runtracker.domain.model.RoutePoint
 import com.example.runtracker.domain.model.RouteWaypoint
 import com.example.runtracker.domain.navigation.RouteNavigator
@@ -71,11 +73,15 @@ class LocationTrackingService : Service() {
     @Inject lateinit var finalizeActivityUseCase: FinalizeActivityUseCase
     @Inject lateinit var liveHeartRateSource: LiveHeartRateSource
     @Inject lateinit var bleHeartRateStore: BleHeartRateStore
+    @Inject lateinit var beaconController: BeaconController
+    @Inject lateinit var liveLocationTransport: LiveLocationTransport
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var locationJob: Job? = null
     private var tickerJob: Job? = null
     private var heartRateJob: Job? = null
+    private var beaconJob: Job? = null
+    private var broadcastingCode: String? = null
     private var wakeLock: PowerManager.WakeLock? = null
 
     private val heartRateBuffer = mutableListOf<HeartRateSample>()
@@ -114,6 +120,7 @@ class LocationTrackingService : Service() {
         locationJob?.cancel()
         tickerJob?.cancel()
         heartRateJob?.cancel()
+        beaconJob?.cancel()
         releaseWakeLock()
         scope.cancel()
         super.onDestroy()
@@ -163,6 +170,7 @@ class LocationTrackingService : Service() {
         startLocationCollection()
         startTicker()
         startHeartRateCollection(id)
+        startBeaconCollection()
     }
 
     /**
@@ -257,8 +265,60 @@ class LocationTrackingService : Service() {
             startLocationCollection()
             startTicker()
             startHeartRateCollection(id)
+            startBeaconCollection()
             updateNotification()
         }
+    }
+
+    // ---- Beacon (chia sẻ vị trí trực tiếp) ----
+
+    /** Theo dõi [BeaconController]: mở kênh khi bật, đóng khi tắt. */
+    private fun startBeaconCollection() {
+        beaconJob?.cancel()
+        beaconJob = scope.launch {
+            beaconController.state.collect { share ->
+                val code = share.code
+                when {
+                    share.sharing && code != null && broadcastingCode == null -> {
+                        broadcastingCode = code
+                        liveLocationTransport.startBroadcast(code)
+                        publishBeacon()
+                    }
+                    (!share.sharing || code == null) && broadcastingCode != null -> {
+                        val ended = broadcastingCode!!
+                        broadcastingCode = null
+                        liveLocationTransport.endBroadcast(ended)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun publishBeacon() {
+        val code = broadcastingCode ?: return
+        val s = session.state.value
+        val lat = s.lastLatitude ?: return
+        val lng = s.lastLongitude ?: return
+        scope.launch {
+            liveLocationTransport.publish(
+                code,
+                LiveLocationUpdate(
+                    latitude = lat,
+                    longitude = lng,
+                    timestamp = Instant.now(),
+                    elapsedSeconds = s.elapsedSeconds,
+                    distanceMeters = s.distanceMeters,
+                    paused = s.status == TrackingStatus.PAUSED,
+                ),
+            )
+        }
+    }
+
+    private suspend fun stopBeacon() {
+        broadcastingCode?.let { liveLocationTransport.endBroadcast(it) }
+        broadcastingCode = null
+        beaconJob?.cancel()
+        beaconJob = null
     }
 
     private fun pause() {
@@ -268,6 +328,7 @@ class LocationTrackingService : Service() {
         locationJob = null
         session.update { it.copy(status = TrackingStatus.PAUSED) }
         updateNotification()
+        publishBeacon()
     }
 
     private fun resume() {
@@ -277,6 +338,7 @@ class LocationTrackingService : Service() {
         session.update { it.copy(status = TrackingStatus.TRACKING) }
         startLocationCollection()
         updateNotification()
+        publishBeacon()
     }
 
     private fun stop() {
@@ -287,6 +349,7 @@ class LocationTrackingService : Service() {
         scope.launch {
             withContext(NonCancellable) {
                 flushHeartRate()
+                stopBeacon()
                 finalizeAndReset()
             }
             stopForeground(STOP_FOREGROUND_REMOVE)
@@ -347,6 +410,7 @@ class LocationTrackingService : Service() {
         lastAccepted = accepted
         updateNavigation(accepted)
         updateNotification()
+        publishBeacon()
     }
 
     private fun updateNavigation(point: RoutePoint) {
@@ -414,6 +478,7 @@ class LocationTrackingService : Service() {
         // Tính lại aggregate + lap từ trace đã lưu (số liệu chuẩn, không lệ thuộc state bộ nhớ).
         finalizeActivityUseCase(id, endTime = Instant.now(), pausedSeconds = pausedAccumSeconds)
         stateStore.clear()
+        beaconController.reset()
 
         session.reset()
         session.selectRoute(null)

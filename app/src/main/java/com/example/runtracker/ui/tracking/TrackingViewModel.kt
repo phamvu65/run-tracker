@@ -9,6 +9,8 @@ import com.example.runtracker.domain.model.Route
 import com.example.runtracker.domain.repository.ActivityRepository
 import com.example.runtracker.domain.repository.RouteRepository
 import com.example.runtracker.domain.usecase.FinalizeActivityUseCase
+import com.example.runtracker.tracking.BeaconController
+import com.example.runtracker.tracking.BeaconShareState
 import com.example.runtracker.tracking.TrackingSession
 import com.example.runtracker.tracking.TrackingState
 import com.example.runtracker.tracking.TrackingStateStore
@@ -34,9 +36,16 @@ class TrackingViewModel @Inject constructor(
     private val routeRepository: RouteRepository,
     private val stateStore: TrackingStateStore,
     private val finalizeActivityUseCase: FinalizeActivityUseCase,
+    private val beaconController: BeaconController,
 ) : ViewModel() {
 
     val tracking: StateFlow<TrackingState> = session.state
+
+    val beacon: StateFlow<BeaconShareState> = beaconController.state
+
+    fun setBeaconSharing(enabled: Boolean) {
+        if (enabled) beaconController.enable() else beaconController.disable()
+    }
 
     val activities: StateFlow<List<Activity>> = repository.observeActivities(LOCAL_USER_ID)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())

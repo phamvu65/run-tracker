@@ -20,6 +20,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -31,6 +32,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
@@ -60,6 +62,7 @@ fun TrackingScreen(
     val routes by viewModel.routes.collectAsState()
     val selectedRoute by viewModel.selectedRoute.collectAsState()
     val liveTrace by viewModel.liveTrace.collectAsState()
+    val beacon by viewModel.beacon.collectAsState()
     var showRoutePicker by remember { mutableStateOf(false) }
     var voiceEnabled by rememberSaveable { mutableStateOf(true) }
 
@@ -173,6 +176,13 @@ fun TrackingScreen(
             }
             Spacer(Modifier.height(12.dp))
         }
+
+        BeaconCard(
+            sharing = beacon.sharing,
+            code = beacon.code,
+            onToggle = viewModel::setBeaconSharing,
+        )
+        Spacer(Modifier.height(12.dp))
 
         StatRow("Thời gian", formatClock(state.elapsedSeconds))
         StatRow("Quãng đường", "%.2f km".format(state.distanceMeters / 1000.0))
@@ -297,6 +307,43 @@ private fun BatteryOptimizationCard(context: android.content.Context) {
                         Text("Tự khởi động")
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BeaconCard(
+    sharing: Boolean,
+    code: String?,
+    onToggle: (Boolean) -> Unit,
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.fillMaxWidth().padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Chia sẻ vị trí trực tiếp", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        if (sharing) {
+                            "Người thân có thể theo dõi buổi chạy này theo thời gian thực."
+                        } else {
+                            "Bật để cho người thân theo dõi vị trí khi bạn đang chạy."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(checked = sharing, onCheckedChange = onToggle)
+            }
+            if (sharing && code != null) {
+                Spacer(Modifier.height(8.dp))
+                Text("Mã chia sẻ", style = MaterialTheme.typography.labelMedium)
+                Text(code, style = MaterialTheme.typography.headlineSmall)
+                Text(
+                    "Người theo dõi: mở app → Hồ sơ → \"Theo dõi trực tiếp\", nhập mã này.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
