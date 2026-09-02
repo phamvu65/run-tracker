@@ -1,11 +1,17 @@
 package com.example.runtracker.ui.routes
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
@@ -18,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -27,6 +34,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -75,9 +83,9 @@ fun RouteBuilderScreen(
             )
         },
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding)) {
+        Box(Modifier.fillMaxSize().padding(padding)) {
             OsmMap(
-                modifier = Modifier.fillMaxWidth().weight(1f),
+                modifier = Modifier.fillMaxSize(),
                 lines = if (previewLine.size >= 2) {
                     listOf(MapLine(previewLine, lineColor, widthDp = 3.5f))
                 } else {
@@ -88,46 +96,63 @@ fun RouteBuilderScreen(
                 fitToLines = false,
                 initialCenter = DEFAULT_CAMERA,
                 initialZoom = 13.0,
+                showMyLocation = true,
+                // chừa lề dưới cho panel điều khiển
+                controlsPadding = PaddingValues(end = 12.dp, bottom = 220.dp, top = 12.dp),
             )
 
-            Column(Modifier.fillMaxWidth().padding(Spacing.screen), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                Text(
-                    when {
-                        planned != null -> "${formatDistanceKm(planned.distanceMeters)}" +
-                            if (planned.snappedToRoads) " (bám đường)" else " (đường thẳng)"
-                        tapped.size >= 2 -> "${tapped.size} điểm — bấm \"Tính đường\""
-                        else -> "Chạm vào bản đồ để thêm điểm"
-                    },
-                    style = MaterialTheme.typography.titleSmall,
-                )
-
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    FilterChip(
-                        selected = viewModel.mode == TravelMode.WALKING,
-                        onClick = { viewModel.selectMode(TravelMode.WALKING) },
-                        label = { Text("Đi bộ") },
+            Surface(
+                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+                shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+                color = MaterialTheme.colorScheme.surface,
+                shadowElevation = 12.dp,
+            ) {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 320.dp)
+                        .verticalScroll(rememberScrollState())
+                        .padding(Spacing.screen),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                ) {
+                    Text(
+                        when {
+                            planned != null -> "${formatDistanceKm(planned.distanceMeters)}" +
+                                if (planned.snappedToRoads) " (bám đường)" else " (đường thẳng)"
+                            tapped.size >= 2 -> "${tapped.size} điểm — bấm \"Tính đường\""
+                            else -> "Chạm vào bản đồ để thêm điểm"
+                        },
+                        style = MaterialTheme.typography.titleSmall,
                     )
-                    FilterChip(
-                        selected = viewModel.mode == TravelMode.CYCLING,
-                        onClick = { viewModel.selectMode(TravelMode.CYCLING) },
-                        label = { Text("Đạp xe") },
-                    )
-                }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    OutlinedButton(onClick = viewModel::undo, enabled = tapped.isNotEmpty()) { Text("Lùi") }
-                    OutlinedButton(onClick = viewModel::clear, enabled = tapped.isNotEmpty()) { Text("Xoá hết") }
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        FilterChip(
+                            selected = viewModel.mode == TravelMode.WALKING,
+                            onClick = { viewModel.selectMode(TravelMode.WALKING) },
+                            label = { Text("Đi bộ") },
+                        )
+                        FilterChip(
+                            selected = viewModel.mode == TravelMode.CYCLING,
+                            onClick = { viewModel.selectMode(TravelMode.CYCLING) },
+                            label = { Text("Đạp xe") },
+                        )
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        OutlinedButton(onClick = viewModel::undo, enabled = tapped.isNotEmpty()) { Text("Lùi") }
+                        OutlinedButton(onClick = viewModel::clear, enabled = tapped.isNotEmpty()) { Text("Xoá hết") }
+                        Button(
+                            onClick = viewModel::computeRoute,
+                            enabled = tapped.size >= 2 && !viewModel.loading,
+                        ) { Text(if (viewModel.loading) "Đang tính…" else "Tính đường") }
+                    }
+
                     Button(
-                        onClick = viewModel::computeRoute,
-                        enabled = tapped.size >= 2 && !viewModel.loading,
-                    ) { Text(if (viewModel.loading) "Đang tính…" else "Tính đường") }
+                        onClick = { showNameDialog = true },
+                        enabled = planned != null,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("Lưu route") }
                 }
-
-                Button(
-                    onClick = { showNameDialog = true },
-                    enabled = planned != null,
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("Lưu route") }
             }
         }
     }

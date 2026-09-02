@@ -1,25 +1,53 @@
 package com.example.runtracker.ui.common
 
+import android.annotation.SuppressLint
+import android.content.Context
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.runtracker.core.hasLocationPermission
 import com.example.runtracker.domain.model.GeoPoint
+import com.google.android.gms.location.LocationServices
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import org.osmdroid.events.MapEventsReceiver
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.tileprovider.tilesource.ITileSource
+import org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase
+import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.util.BoundingBox
+import org.osmdroid.util.MapTileIndex
 import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.CopyrightOverlay
@@ -27,6 +55,9 @@ import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Overlay
 import org.osmdroid.views.overlay.Polyline
+import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
+import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
+import kotlin.coroutines.resume
 import org.osmdroid.util.GeoPoint as OsmPoint
 
 /** Một đường vẽ trên bản đồ. `widthDp` là bề rộng nét theo dp (nhân với mật độ khi vẽ). */
@@ -37,6 +68,41 @@ data class MapMarker(val point: GeoPoint, val title: String? = null)
 
 private fun GeoPoint.toOsm() = OsmPoint(latitude, longitude)
 
+/** Kiểu hiển thị bản đồ: đường phố (OSM) hoặc ảnh vệ tinh (Esri). */
+enum class MapStyle { STREET, SATELLITE }
+
+/**
+ * Nguồn tile đường phố mặc định. KHÔNG dùng `tile.openstreetmap.org` — nhiều ISP ở VN
+ * (FPT...) đầu độc DNS domain `openstreetmap.org` về 127.0.0.1 nên tile không tải được
+ * (bản đồ chỉ hiện lưới ô). `tile.openstreetmap.de` là mirror MAPNIK, không bị chặn.
+ */
+val DefaultTileSource: ITileSource = XYTileSource(
+    "OpenStreetMap.de",
+    0, 19, 256, ".png",
+    arrayOf("https://tile.openstreetmap.de/"),
+    "© OpenStreetMap contributors",
+)
+
+/**
+ * Ảnh vệ tinh Esri World Imagery — miễn phí, không cần key, không bị chặn DNS ở VN.
+ * URL theo thứ tự z/y/x (khác chuẩn z/x/y của [XYTileSource]) nên phải override.
+ */
+private val SatelliteTileSource: ITileSource = object : OnlineTileSourceBase(
+    "Esri.WorldImagery",
+    0, 19, 256, "",
+    arrayOf("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/"),
+    "Nguồn: Esri, Maxar, Earthstar Geographics",
+) {
+    override fun getTileURLString(pMapTileIndex: Long): String =
+        baseUrl +
+            MapTileIndex.getZoom(pMapTileIndex) + "/" +
+            MapTileIndex.getY(pMapTileIndex) + "/" +
+            MapTileIndex.getX(pMapTileIndex)
+}
+
+fun tileSourceFor(style: MapStyle): ITileSource =
+    if (style == MapStyle.SATELLITE) SatelliteTileSource else DefaultTileSource
+
 /**
  * `MapView` osmdroid gắn với vòng đời Compose: onResume/onPause theo lifecycle,
  * onDetach khi rời khỏi composition.
@@ -46,7 +112,7 @@ fun rememberOsmMapView(): MapView {
     val context = LocalContext.current
     val mapView = remember {
         MapView(context).apply {
-            setTileSource(TileSourceFactory.MAPNIK)
+            setTileSource(DefaultTileSource)
             setMultiTouchControls(true)
             zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
             setUseDataConnection(true)
@@ -137,9 +203,69 @@ fun MapView.fitToPoints(points: List<GeoPoint>, paddingPx: Int) {
     }
 }
 
+/** Vị trí GPS gần nhất qua FusedLocation (null nếu chưa có quyền / chưa có fix). */
+@SuppressLint("MissingPermission")
+suspend fun lastKnownLocation(context: Context): GeoPoint? {
+    if (!context.hasLocationPermission()) return null
+    val client = LocationServices.getFusedLocationProviderClient(context)
+    return suspendCancellableCoroutine { cont ->
+        client.lastLocation
+            .addOnSuccessListener { loc -> cont.resume(loc?.let { GeoPoint(it.latitude, it.longitude) }) }
+            .addOnFailureListener { cont.resume(null) }
+    }
+}
+
+/**
+ * Cụm nút nổi góc phải bản đồ: đổi kiểu (đường phố / vệ tinh) và về vị trí của tôi.
+ * [onRecenter] null -> ẩn nút định vị.
+ */
+@Composable
+fun MapControls(
+    style: MapStyle,
+    onToggleStyle: () -> Unit,
+    onRecenter: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        MapControlButton(onClick = onToggleStyle) {
+            Text(
+                if (style == MapStyle.STREET) "🛰" else "🗺",
+                style = MaterialTheme.typography.titleMedium,
+            )
+        }
+        if (onRecenter != null) {
+            MapControlButton(onClick = onRecenter) {
+                Icon(
+                    Icons.Filled.LocationOn,
+                    contentDescription = "Về vị trí của tôi",
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MapControlButton(onClick: () -> Unit, content: @Composable () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 4.dp,
+        modifier = Modifier.size(44.dp),
+    ) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { content() }
+    }
+}
+
 /**
  * Bản đồ OpenStreetMap dùng chung. Mặc định fit bounds theo mọi điểm của [lines].
  * Truyền [initialCenter] để đặt camera ban đầu thay vì fit (dùng khi màn cho phép chấm điểm).
+ * [showMyLocation] = true: hiện chấm vị trí + nút "về vị trí của tôi" (cần quyền vị trí).
+ * [controlsPadding]: chừa lề cho cụm nút khi bản đồ bị panel khác che một phần.
  */
 @Composable
 fun OsmMap(
@@ -150,12 +276,33 @@ fun OsmMap(
     fitToLines: Boolean = true,
     initialCenter: GeoPoint? = null,
     initialZoom: Double = 15.0,
+    showMyLocation: Boolean = false,
+    showControls: Boolean = true,
+    controlsPadding: PaddingValues = PaddingValues(12.dp),
 ) {
+    val context = LocalContext.current
     val density = LocalDensity.current.density
+    val scope = rememberCoroutineScope()
     val mapView = rememberOsmMapView()
     val latestOnTap by rememberUpdatedState(onTap)
     val tapHandler: ((GeoPoint) -> Unit)? =
         if (onTap != null) { p -> latestOnTap?.invoke(p) } else null
+
+    var style by rememberSaveable { mutableStateOf(MapStyle.STREET) }
+    LaunchedEffect(mapView, style) { mapView.setTileSource(tileSourceFor(style)) }
+
+    val hasLocationPermission = remember { context.hasLocationPermission() }
+    val myLocationOverlay = remember(mapView, showMyLocation, hasLocationPermission) {
+        if (showMyLocation && hasLocationPermission) {
+            MyLocationNewOverlay(GpsMyLocationProvider(context), mapView).apply { disableFollowLocation() }
+        } else {
+            null
+        }
+    }
+    DisposableEffect(myLocationOverlay) {
+        myLocationOverlay?.enableMyLocation()
+        onDispose { myLocationOverlay?.disableMyLocation() }
+    }
 
     LaunchedEffect(mapView, initialCenter, initialZoom) {
         initialCenter?.let {
@@ -169,11 +316,51 @@ fun OsmMap(
         if (fitToLines) mapView.fitToPoints(fitPoints, (24 * density).toInt())
     }
 
-    AndroidView(
-        modifier = modifier,
-        factory = { mapView },
-        update = { it.renderPath(lines, markers, tapHandler, density) },
-    )
+    val recenter: (() -> Unit)? = when {
+        showMyLocation && hasLocationPermission -> {
+            {
+                val fix = myLocationOverlay?.myLocation
+                if (fix != null) {
+                    mapView.controller.animateTo(fix)
+                    mapView.controller.setZoom(16.0)
+                } else {
+                    scope.launch {
+                        lastKnownLocation(context)?.let {
+                            mapView.controller.animateTo(OsmPoint(it.latitude, it.longitude))
+                            mapView.controller.setZoom(16.0)
+                        }
+                    }
+                }
+            }
+        }
+        fitToLines && fitPoints.size >= 2 -> {
+            { mapView.fitToPoints(fitPoints, (24 * density).toInt()) }
+        }
+        else -> null
+    }
+
+    Box(modifier) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { mapView },
+            update = {
+                it.renderPath(
+                    lines, markers, tapHandler, density,
+                    extraOverlays = listOfNotNull(myLocationOverlay),
+                )
+            },
+        )
+        if (showControls) {
+            MapControls(
+                style = style,
+                onToggleStyle = { style = if (style == MapStyle.STREET) MapStyle.SATELLITE else MapStyle.STREET },
+                onRecenter = recenter,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(controlsPadding),
+            )
+        }
+    }
 }
 
 /** Bản đồ tĩnh vẽ một đường (route/segment/trail). Camera fit toàn bộ điểm. */
@@ -182,6 +369,7 @@ fun PathMap(
     points: List<GeoPoint>,
     modifier: Modifier = Modifier,
     markEndpoints: Boolean = true,
+    showMyLocation: Boolean = false,
 ) {
     val primary = MaterialTheme.colorScheme.primary
     val lines = remember(points, primary) {
@@ -194,5 +382,11 @@ fun PathMap(
             emptyList()
         }
     }
-    OsmMap(modifier = modifier, lines = lines, markers = markers, fitToLines = true)
+    OsmMap(
+        modifier = modifier,
+        lines = lines,
+        markers = markers,
+        fitToLines = true,
+        showMyLocation = showMyLocation,
+    )
 }
