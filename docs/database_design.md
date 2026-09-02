@@ -363,6 +363,10 @@ Weather overlay (việc 23) đã triển khai: thêm 5 cột `weather*` vào `ac
 (xem `data/local/Migrations.kt`), lấy dữ liệu từ Open-Meteo (miễn phí, không cần key) khi mở màn chi tiết
 buổi tập. DB_VERSION = 2.
 
+Training plan gợi ý (việc 24) **không có bảng DB**: chỉ lưu mục tiêu (cự ly + ngày thi đấu) trong
+SharedPreferences (`data/training/TrainingGoalStore`), kế hoạch chi tiết sinh lại mỗi lần từ CTL +
+quãng đường gần đây (`TrainingPlanGenerator`).
+
 ---
 
 ## 5. Lưu ý khi triển khai

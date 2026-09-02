@@ -1,7 +1,6 @@
 package com.example.runtracker.ui.fitness
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,7 +10,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -22,7 +23,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.formatClock
 import com.example.runtracker.core.formatPace
+import com.example.runtracker.domain.model.DailySuggestion
 import com.example.runtracker.domain.model.PerformancePrediction
 import com.example.runtracker.domain.training.RaceDistance
 import kotlin.math.roundToInt
@@ -39,11 +40,14 @@ import kotlin.math.roundToLong
 @Composable
 fun FitnessScreen(
     onBack: (() -> Unit)? = null,
+    onOpenPlan: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: FitnessViewModel = hiltViewModel(),
 ) {
     val snapshots by viewModel.snapshots.collectAsState()
     val predictions by viewModel.predictions.collectAsState()
+    val suggestion by viewModel.dailySuggestion.collectAsState()
+    val hasGoal by viewModel.hasGoal.collectAsState()
 
     Scaffold(
         modifier = modifier,
@@ -61,15 +65,6 @@ fun FitnessScreen(
         },
     ) { padding ->
         val latest = snapshots.lastOrNull()
-        if (latest == null && predictions.isEmpty()) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text(
-                    "Chưa có dữ liệu. Ghi một buổi tập (nhập RPE hoặc có nhịp tim) để bắt đầu.",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
-            return@Scaffold
-        }
 
         Column(
             Modifier
@@ -79,6 +74,12 @@ fun FitnessScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
+            suggestion?.let { SuggestionCard(it) }
+
+            FilledTonalButton(onClick = onOpenPlan, modifier = Modifier.fillMaxWidth()) {
+                Text(if (hasGoal) "Xem kế hoạch tập luyện" else "Tạo kế hoạch tập luyện")
+            }
+
             if (latest != null) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Metric("Fitness", latest.ctl, Modifier.weight(1f))
@@ -87,11 +88,31 @@ fun FitnessScreen(
                 }
                 Text(formInterpretation(latest.tsb), style = MaterialTheme.typography.bodyMedium)
                 FitnessChart(snapshots = snapshots, modifier = Modifier.fillMaxWidth())
+            } else {
+                Text(
+                    "Chưa có dữ liệu Fitness. Ghi một buổi tập (nhập RPE hoặc có nhịp tim) để bắt đầu.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
             }
 
             if (predictions.isNotEmpty()) {
                 PredictionSection(predictions)
             }
+        }
+    }
+}
+
+@Composable
+private fun SuggestionCard(suggestion: DailySuggestion) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Gợi ý hôm nay", style = MaterialTheme.typography.labelMedium)
+            Text(suggestion.headline, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(
+                suggestion.rationale,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
