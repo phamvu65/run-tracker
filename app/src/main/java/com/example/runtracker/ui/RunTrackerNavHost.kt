@@ -136,9 +136,7 @@ fun RunTrackerNavHost(modifier: Modifier = Modifier) {
             modifier = Modifier.padding(innerPadding),
         ) {
             composable(Routes.TRACKING) {
-                TrackingScreen(
-                    onActivityClick = { navController.navigate(Routes.detail(it)) },
-                )
+                TrackingScreen()
             }
             composable(Routes.ACTIVITIES) {
                 ActivityListScreen(

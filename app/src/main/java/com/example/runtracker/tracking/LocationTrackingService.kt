@@ -22,7 +22,6 @@ import com.example.runtracker.data.health.BleHeartRateStore
 import com.example.runtracker.domain.beacon.LiveLocationTransport
 import com.example.runtracker.domain.health.LiveHeartRateSource
 import com.example.runtracker.domain.model.Activity
-import com.example.runtracker.domain.model.ActivityType
 import com.example.runtracker.domain.model.GeoPoint
 import com.example.runtracker.domain.model.HeartRateSample
 import com.example.runtracker.domain.model.LiveLocationUpdate
@@ -454,7 +453,7 @@ class LocationTrackingService : Service() {
     private fun initialActivity(id: String, now: Instant) = Activity(
         id = id,
         userId = LOCAL_USER_ID,
-        type = ActivityType.RUNNING,
+        type = session.plannedType.value,
         startTime = now,
         endTime = now,
         distanceMeters = 0.0,

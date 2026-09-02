@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.runtracker.core.LOCAL_USER_ID
 import com.example.runtracker.domain.model.Activity
+import com.example.runtracker.domain.model.ActivityType
 import com.example.runtracker.domain.model.GeoPoint
 import com.example.runtracker.domain.model.Route
 import com.example.runtracker.domain.repository.ActivityRepository
@@ -54,6 +55,10 @@ class TrackingViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val selectedRoute: StateFlow<Route?> = session.selectedRoute
+
+    val plannedType: StateFlow<ActivityType> = session.plannedType
+
+    fun setPlannedType(type: ActivityType) = session.setPlannedType(type)
 
     /** Trace GPS đã ghi của buổi đang chạy, để vẽ polyline live trên map. */
     @OptIn(ExperimentalCoroutinesApi::class)

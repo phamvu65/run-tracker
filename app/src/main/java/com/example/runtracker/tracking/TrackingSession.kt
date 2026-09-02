@@ -1,5 +1,6 @@
 package com.example.runtracker.tracking
 
+import com.example.runtracker.domain.model.ActivityType
 import com.example.runtracker.domain.model.Route
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,6 +23,14 @@ class TrackingSession @Inject constructor() {
     /** Route người dùng chọn để điều hướng turn-by-turn cho buổi tập sắp tới. */
     private val _selectedRoute = MutableStateFlow<Route?>(null)
     val selectedRoute: StateFlow<Route?> = _selectedRoute.asStateFlow()
+
+    /** Loại hoạt động cho buổi tập sắp tới (Service đọc lúc START). */
+    private val _plannedType = MutableStateFlow(ActivityType.RUNNING)
+    val plannedType: StateFlow<ActivityType> = _plannedType.asStateFlow()
+
+    fun setPlannedType(type: ActivityType) {
+        _plannedType.value = type
+    }
 
     fun update(transform: (TrackingState) -> TrackingState) = _state.update(transform)
 

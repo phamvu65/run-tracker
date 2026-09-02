@@ -2,38 +2,33 @@ package com.example.runtracker.ui.tracking
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -45,8 +40,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.BatteryOptimization
@@ -55,43 +52,34 @@ import com.example.runtracker.core.formatDistanceKm
 import com.example.runtracker.core.formatPace
 import com.example.runtracker.core.hasLocationPermission
 import com.example.runtracker.core.trackingPermissions
-import com.example.runtracker.domain.model.Activity
+import com.example.runtracker.domain.model.ActivityType
 import com.example.runtracker.domain.model.GeoPoint
 import com.example.runtracker.domain.model.Route
 import com.example.runtracker.tracking.LocationTrackingService
 import com.example.runtracker.tracking.TrackingState
 import com.example.runtracker.tracking.TrackingStatus
-import com.example.runtracker.ui.components.ActivityCard
-import com.example.runtracker.ui.components.EmptyState
-import com.example.runtracker.ui.components.FlatCard
-import com.example.runtracker.ui.components.SectionHeader
 import com.example.runtracker.ui.components.StatCell
 import com.example.runtracker.ui.components.StatStrip
 import com.example.runtracker.ui.components.StravaLabel
 import com.example.runtracker.ui.theme.Spacing
 import com.google.android.gms.maps.model.LatLng
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import kotlin.math.roundToInt
 
-private val CARD_DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE, dd/MM · HH:mm")
-
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TrackingScreen(
-    onActivityClick: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: TrackingViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
     val state by viewModel.tracking.collectAsState()
-    val activities by viewModel.activities.collectAsState()
     val interruptedId by viewModel.interruptedActivityId.collectAsState()
     val routes by viewModel.routes.collectAsState()
     val selectedRoute by viewModel.selectedRoute.collectAsState()
+    val plannedType by viewModel.plannedType.collectAsState()
     val liveTrace by viewModel.liveTrace.collectAsState()
     val beacon by viewModel.beacon.collectAsState()
+
     var showRoutePicker by remember { mutableStateOf(false) }
+    var showSportPicker by remember { mutableStateOf(false) }
     var voiceEnabled by rememberSaveable { mutableStateOf(true) }
 
     val speak = rememberRouteVoice()
@@ -141,6 +129,17 @@ fun TrackingScreen(
         )
     }
 
+    if (showSportPicker) {
+        SportPickerDialog(
+            selected = plannedType,
+            onSelect = {
+                viewModel.setPlannedType(it)
+                showSportPicker = false
+            },
+            onDismiss = { showSportPicker = false },
+        )
+    }
+
     interruptedId?.let { id ->
         InterruptedRunDialog(
             onResume = {
@@ -154,299 +153,384 @@ fun TrackingScreen(
         )
     }
 
-    Scaffold(
-        modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            TopAppBar(
-                title = { Text("Ghi hoạt động") },
-                colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
-            )
-        },
-    ) { padding ->
-        if (state.status == TrackingStatus.IDLE) {
-            IdleContent(
-                padding = padding,
-                activities = activities,
-                selectedRoute = selectedRoute,
-                beaconSharing = beacon.sharing,
-                beaconCode = beacon.code,
-                hasPermission = hasPermission,
-                onPickRoute = { showRoutePicker = true },
-                onToggleBeacon = viewModel::setBeaconSharing,
-                onStart = { withPermission { LocationTrackingService.start(context) } },
-                onActivityClick = onActivityClick,
-                context = context,
-            )
-        } else {
-            ActiveContent(
-                padding = padding,
-                state = state,
-                liveTrace = liveTrace,
-                selectedRoute = selectedRoute,
-                beaconSharing = beacon.sharing,
-                beaconCode = beacon.code,
-                voiceEnabled = voiceEnabled,
-                onToggleVoice = { voiceEnabled = !voiceEnabled },
-                onToggleBeacon = viewModel::setBeaconSharing,
-                onPause = { LocationTrackingService.pause(context) },
-                onResume = { LocationTrackingService.resume(context) },
-                onStop = { LocationTrackingService.stop(context) },
-            )
+    val routeLatLngs = remember(selectedRoute) {
+        selectedRoute?.polyline?.map { LatLng(it.latitude, it.longitude) }.orEmpty()
+    }
+    val traceLatLngs = remember(liveTrace) { liveTrace.toLatLng() }
+    val current = state.lastLatitude?.let { lat ->
+        state.lastLongitude?.let { lng -> LatLng(lat, lng) }
+    }
+
+    Box(modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        TrackingMap(
+            plannedRoute = routeLatLngs,
+            trace = traceLatLngs,
+            current = current,
+            follow = state.status != TrackingStatus.IDLE,
+            modifier = Modifier.fillMaxSize(),
+        )
+
+        // ---- Lớp phủ trên ----
+        Column(
+            Modifier
+                .align(Alignment.TopCenter)
+                .padding(Spacing.screen),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
+            if (state.status == TrackingStatus.IDLE &&
+                !BatteryOptimization.isIgnoringOptimizations(context)
+            ) {
+                BatteryOptimizationBanner(context)
+            }
+            if (state.navRouteName != null) {
+                NavigationCard(
+                    routeName = state.navRouteName!!,
+                    instruction = state.navInstruction,
+                    distanceMeters = state.navDistanceMeters,
+                    offRoute = state.navOffRoute,
+                    stepIndex = state.navStepIndex,
+                    stepCount = state.navStepCount,
+                )
+                TextButton(onClick = { voiceEnabled = !voiceEnabled }) {
+                    Text(if (voiceEnabled) "🔊 Tắt đọc chỉ đường" else "🔈 Bật đọc chỉ đường")
+                }
+            }
         }
+
+        // ---- Bảng điều khiển dưới ----
+        RecordPanel(
+            state = state,
+            hasPermission = hasPermission,
+            plannedType = plannedType,
+            selectedRoute = selectedRoute,
+            beaconSharing = beacon.sharing,
+            beaconCode = beacon.code,
+            onRequestPermission = { withPermission {} },
+            onStart = { withPermission { LocationTrackingService.start(context) } },
+            onPause = { LocationTrackingService.pause(context) },
+            onResume = { LocationTrackingService.resume(context) },
+            onStop = { LocationTrackingService.stop(context) },
+            onPickSport = { showSportPicker = true },
+            onPickRoute = { showRoutePicker = true },
+            onToggleBeacon = viewModel::setBeaconSharing,
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
     }
 }
 
+private fun List<GeoPoint>.toLatLng(): List<LatLng> = map { LatLng(it.latitude, it.longitude) }
+
 @Composable
-private fun IdleContent(
-    padding: PaddingValues,
-    activities: List<Activity>,
+private fun RecordPanel(
+    state: TrackingState,
+    hasPermission: Boolean,
+    plannedType: ActivityType,
     selectedRoute: Route?,
     beaconSharing: Boolean,
     beaconCode: String?,
-    hasPermission: Boolean,
+    onRequestPermission: () -> Unit,
+    onStart: () -> Unit,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
+    onStop: () -> Unit,
+    onPickSport: () -> Unit,
     onPickRoute: () -> Unit,
     onToggleBeacon: (Boolean) -> Unit,
-    onStart: () -> Unit,
-    onActivityClick: (String) -> Unit,
-    context: android.content.Context,
+    modifier: Modifier = Modifier,
 ) {
-    LazyColumn(
-        Modifier.fillMaxSize().padding(padding),
-        contentPadding = PaddingValues(Spacing.screen),
-        verticalArrangement = Arrangement.spacedBy(Spacing.md),
+    val idle = state.status == TrackingStatus.IDLE
+    val paused = state.status == TrackingStatus.PAUSED
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 12.dp,
     ) {
-        item {
-            RecordButton(onClick = onStart)
-            if (!hasPermission) {
+        Column(
+            Modifier
+                .padding(horizontal = Spacing.lg)
+                .padding(top = Spacing.sm, bottom = Spacing.lg)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(
+                Modifier
+                    .width(36.dp)
+                    .height(4.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.outlineVariant),
+            )
+            Spacer(Modifier.height(Spacing.md))
+
+            GpsStrip(hasPermission = hasPermission, onRequestPermission = onRequestPermission)
+            Spacer(Modifier.height(Spacing.lg))
+
+            val stats = buildList {
+                add(StatCell("Thời gian", formatClock(state.elapsedSeconds)))
+                add(
+                    StatCell(
+                        if (plannedType == ActivityType.CYCLING) "Tốc độ" else "Nhịp độ",
+                        formatPace(state.avgPaceSecPerKm),
+                    ),
+                )
+                add(StatCell("Quãng đường", formatDistanceKm(state.distanceMeters)))
+                state.liveHeartRateBpm?.let { add(StatCell("Nhịp tim", "$it")) }
+            }
+            StatStrip(stats)
+            Spacer(Modifier.height(Spacing.xl))
+
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (idle) {
+                    CircleAction(
+                        label = plannedType.vi(),
+                        onClick = onPickSport,
+                        content = { Text(plannedType.glyph(), style = MaterialTheme.typography.titleLarge) },
+                    )
+                    BigButton(
+                        color = MaterialTheme.colorScheme.primary,
+                        onClick = onStart,
+                    ) {
+                        Icon(
+                            Icons.Filled.PlayArrow,
+                            contentDescription = "Bắt đầu",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(40.dp),
+                        )
+                    }
+                    CircleAction(
+                        label = selectedRoute?.name ?: "Lộ trình",
+                        onClick = onPickRoute,
+                        content = {
+                            Icon(
+                                Icons.Filled.Add,
+                                contentDescription = "Chọn lộ trình",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                            )
+                        },
+                    )
+                } else {
+                    CircleAction(
+                        label = "Kết thúc",
+                        onClick = onStop,
+                        bg = MaterialTheme.colorScheme.errorContainer,
+                        content = { StopGlyph(MaterialTheme.colorScheme.onErrorContainer) },
+                    )
+                    BigButton(
+                        color = MaterialTheme.colorScheme.primary,
+                        onClick = if (paused) onResume else onPause,
+                    ) {
+                        if (paused) {
+                            Icon(
+                                Icons.Filled.PlayArrow,
+                                contentDescription = "Tiếp tục",
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(40.dp),
+                            )
+                        } else {
+                            PauseGlyph(MaterialTheme.colorScheme.onPrimary)
+                        }
+                    }
+                    CircleAction(
+                        label = if (beaconSharing) "Đang chia sẻ" else "Chia sẻ",
+                        onClick = { onToggleBeacon(!beaconSharing) },
+                        bg = if (beaconSharing) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceContainerHighest
+                        },
+                        content = { Text("📡", style = MaterialTheme.typography.titleMedium) },
+                    )
+                }
+            }
+
+            if (beaconSharing && beaconCode != null) {
+                Spacer(Modifier.height(Spacing.md))
                 Text(
-                    "Cần quyền vị trí để ghi GPS.",
+                    "Đang chia sẻ vị trí · mã $beaconCode",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    color = MaterialTheme.colorScheme.primary,
                 )
             }
-        }
-        item {
-            FlatCard {
+
+            if (idle) {
+                Spacer(Modifier.height(Spacing.md))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        StravaLabel("Dẫn đường")
-                        Text(
-                            selectedRoute?.name ?: "Không chọn route",
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
-                    }
-                    TextButton(onClick = onPickRoute) { Text(if (selectedRoute == null) "Chọn" else "Đổi") }
-                }
-                androidx.compose.material3.HorizontalDivider(
-                    Modifier.padding(vertical = Spacing.sm),
-                    color = MaterialTheme.colorScheme.outlineVariant,
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        StravaLabel("Chia sẻ trực tiếp")
-                        Text(
-                            if (beaconSharing && beaconCode != null) "Mã $beaconCode" else "Tắt",
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
-                    }
+                    Text(
+                        "Chia sẻ vị trí trực tiếp",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.width(Spacing.sm))
                     Switch(checked = beaconSharing, onCheckedChange = onToggleBeacon)
                 }
             }
         }
-        if (!BatteryOptimization.isIgnoringOptimizations(context)) {
-            item { BatteryOptimizationCard(context = context) }
-        }
-        item {
-            SectionHeader(
-                title = "Hoạt động gần đây",
-                subtitle = if (activities.isEmpty()) null else "${activities.size} buổi",
-                modifier = Modifier.padding(top = Spacing.sm),
-            )
-        }
-        if (activities.isEmpty()) {
-            item {
-                EmptyState(
-                    title = "Chưa có buổi tập nào",
-                    message = "Nhấn nút GHI để bắt đầu buổi chạy đầu tiên.",
-                )
-            }
-        } else {
-            items(activities, key = { it.id }) { activity ->
-                ActivityCard(
-                    title = activityTitle(activity),
-                    subtitle = activity.startTime.atZone(ZoneId.systemDefault()).format(CARD_DATE),
-                    stats = listOf(
-                        StatCell("Quãng đường", formatDistanceKm(activity.distanceMeters)),
-                        StatCell("Pace", formatPace(activity.avgPaceSecPerKm)),
-                        StatCell("Thời gian", formatClock(activity.movingTime.inWholeSeconds)),
-                    ),
-                    onClick = { onActivityClick(activity.id) },
-                )
-            }
-        }
     }
 }
 
 @Composable
-private fun ActiveContent(
-    padding: PaddingValues,
-    state: TrackingState,
-    liveTrace: List<GeoPoint>,
-    selectedRoute: Route?,
-    beaconSharing: Boolean,
-    beaconCode: String?,
-    voiceEnabled: Boolean,
-    onToggleVoice: () -> Unit,
-    onToggleBeacon: (Boolean) -> Unit,
-    onPause: () -> Unit,
-    onResume: () -> Unit,
-    onStop: () -> Unit,
-) {
-    val paused = state.status == TrackingStatus.PAUSED
-    Column(
+private fun GpsStrip(hasPermission: Boolean, onRequestPermission: () -> Unit) {
+    val ok = hasPermission
+    val bg = if (ok) Color(0xFF1B3A1E) else MaterialTheme.colorScheme.errorContainer
+    val fg = if (ok) Color(0xFF9BE29E) else MaterialTheme.colorScheme.onErrorContainer
+    Row(
         Modifier
-            .fillMaxSize()
-            .padding(padding)
-            .verticalScroll(rememberScrollState())
-            .padding(Spacing.screen),
-        verticalArrangement = Arrangement.spacedBy(Spacing.md),
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.small)
+            .background(bg)
+            .clickable(enabled = !ok, onClick = onRequestPermission)
+            .padding(vertical = Spacing.sm, horizontal = Spacing.md),
+        horizontalArrangement = Arrangement.Center,
     ) {
-        // Đồng hồ lớn
-        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            StravaLabel(if (paused) "Đã tạm dừng" else "Thời gian")
-            Text(
-                formatClock(state.elapsedSeconds),
-                style = MaterialTheme.typography.displayLarge,
-                color = if (paused) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-            )
-        }
-
-        FlatCard {
-            StatStrip(
-                listOf(
-                    StatCell("Quãng đường", formatDistanceKm(state.distanceMeters)),
-                    StatCell("Pace", formatPace(state.avgPaceSecPerKm)),
-                    StatCell("Nhịp tim", state.liveHeartRateBpm?.toString() ?: "—"),
-                ),
-            )
-            androidx.compose.material3.HorizontalDivider(
-                Modifier.padding(vertical = Spacing.sm),
-                color = MaterialTheme.colorScheme.outlineVariant,
-            )
-            StatStrip(
-                listOf(
-                    StatCell("Độ cao lên", "${state.elevationGainMeters.roundToInt()} m"),
-                    StatCell("Độ cao xuống", "${state.elevationLossMeters.roundToInt()} m"),
-                    StatCell("Điểm GPS", state.pointCount.toString()),
-                ),
-            )
-        }
-
-        val traceLatLngs = remember(liveTrace) { liveTrace.map { LatLng(it.latitude, it.longitude) } }
-        val routeLatLngs = remember(selectedRoute) {
-            selectedRoute?.polyline?.map { LatLng(it.latitude, it.longitude) }.orEmpty()
-        }
-        val current = state.lastLatitude?.let { lat ->
-            state.lastLongitude?.let { lng -> LatLng(lat, lng) }
-        }
-        LiveTrackingMap(
-            trace = traceLatLngs,
-            plannedRoute = routeLatLngs,
-            current = current,
-            modifier = Modifier.fillMaxWidth().height(200.dp),
+        Text(
+            if (ok) "📶  Đã kết nối GPS" else "⚠  Cần quyền vị trí — chạm để cấp",
+            style = MaterialTheme.typography.labelLarge,
+            color = fg,
         )
+    }
+}
 
-        if (state.navRouteName != null) {
-            NavigationCard(
-                routeName = state.navRouteName!!,
-                instruction = state.navInstruction,
-                distanceMeters = state.navDistanceMeters,
-                offRoute = state.navOffRoute,
-                stepIndex = state.navStepIndex,
-                stepCount = state.navStepCount,
-            )
-            TextButton(onClick = onToggleVoice) {
-                Text(if (voiceEnabled) "🔊 Tắt đọc chỉ đường" else "🔈 Bật đọc chỉ đường")
-            }
+@Composable
+private fun BigButton(
+    color: Color,
+    onClick: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = color,
+        modifier = Modifier.size(76.dp),
+    ) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { content() }
+    }
+}
+
+@Composable
+private fun CircleAction(
+    label: String,
+    onClick: () -> Unit,
+    content: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    bg: Color = MaterialTheme.colorScheme.surfaceContainerHighest,
+) {
+    Column(
+        modifier.width(84.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+    ) {
+        Surface(onClick = onClick, shape = CircleShape, color = bg, modifier = Modifier.size(52.dp)) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { content() }
         }
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
 
-        if (beaconSharing && beaconCode != null) {
-            Text(
-                "Đang chia sẻ vị trí · mã $beaconCode",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.primary,
+@Composable
+private fun PauseGlyph(color: Color) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        repeat(2) {
+            Box(
+                Modifier
+                    .size(width = 7.dp, height = 26.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(color),
             )
-        }
-
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-        ) {
-            if (paused) {
-                Button(
-                    onClick = onResume,
-                    modifier = Modifier.weight(1f).height(56.dp),
-                ) { Icon(Icons.Filled.PlayArrow, null); Text(" Tiếp tục") }
-            } else {
-                OutlinedButton(
-                    onClick = onPause,
-                    modifier = Modifier.weight(1f).height(56.dp),
-                ) { Text("Tạm dừng") }
-            }
-            Button(
-                onClick = onStop,
-                modifier = Modifier.weight(1f).height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-            ) { Icon(Icons.Filled.Close, null); Text(" Kết thúc") }
         }
     }
 }
 
 @Composable
-private fun RecordButton(onClick: () -> Unit) {
-    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        Surface(
-            onClick = onClick,
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(132.dp).padding(vertical = Spacing.sm),
-        ) {
-            Column(
-                Modifier.fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
+private fun StopGlyph(color: Color) {
+    Box(
+        Modifier
+            .size(18.dp)
+            .clip(RoundedCornerShape(3.dp))
+            .background(color),
+    )
+}
+
+@Composable
+private fun BatteryOptimizationBanner(context: android.content.Context) {
+    Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 6.dp,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(Spacing.md)) {
+            Text(
+                "Điện thoại có thể tự tắt việc ghi GPS khi khoá màn hình.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Row(
+                Modifier.padding(top = Spacing.sm),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
             ) {
-                Icon(
-                    Icons.Filled.PlayArrow,
-                    contentDescription = "Bắt đầu",
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(40.dp),
-                )
-                Text(
-                    "GHI",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                )
+                TextButton(onClick = { BatteryOptimization.requestIgnoreOptimizations(context) }) {
+                    Text("Tắt tối ưu hoá pin")
+                }
+                if (BatteryOptimization.hasAggressiveOem()) {
+                    TextButton(onClick = { BatteryOptimization.openOemAutoStartSettings(context) }) {
+                        Text("Tự khởi động")
+                    }
+                }
             }
         }
     }
 }
 
-private fun activityTitle(activity: Activity): String {
-    val hour = activity.startTime.atZone(ZoneId.systemDefault()).hour
-    val part = when (hour) {
-        in 5..10 -> "Chạy buổi sáng"
-        in 11..13 -> "Chạy buổi trưa"
-        in 14..17 -> "Chạy buổi chiều"
-        in 18..21 -> "Chạy buổi tối"
-        else -> "Chạy đêm"
-    }
-    return "${activity.type} · $part"
+private fun ActivityType.vi(): String = when (this) {
+    ActivityType.RUNNING -> "Chạy bộ"
+    ActivityType.CYCLING -> "Đạp xe"
+    ActivityType.WALKING -> "Đi bộ"
+    ActivityType.OTHER -> "Khác"
+}
+
+private fun ActivityType.glyph(): String = when (this) {
+    ActivityType.RUNNING -> "🏃"
+    ActivityType.CYCLING -> "🚴"
+    ActivityType.WALKING -> "🚶"
+    ActivityType.OTHER -> "🏋"
+}
+
+@Composable
+private fun SportPickerDialog(
+    selected: ActivityType,
+    onSelect: (ActivityType) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Loại hoạt động") },
+        text = {
+            Column {
+                listOf(ActivityType.RUNNING, ActivityType.WALKING, ActivityType.CYCLING).forEach { t ->
+                    TextButton(
+                        onClick = { onSelect(t) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            (if (t == selected) "✓  " else "") + "${t.glyph()}  ${t.vi()}",
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Đóng") } },
+    )
 }
 
 @Composable
@@ -470,29 +554,6 @@ private fun InterruptedRunDialog(
 }
 
 @Composable
-private fun BatteryOptimizationCard(context: android.content.Context) {
-    FlatCard {
-        Text(
-            "Điện thoại có thể tự tắt việc ghi GPS khi khoá màn hình.",
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        Row(
-            Modifier.padding(top = Spacing.sm),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-        ) {
-            Button(onClick = { BatteryOptimization.requestIgnoreOptimizations(context) }) {
-                Text("Tắt tối ưu hoá pin")
-            }
-            if (BatteryOptimization.hasAggressiveOem()) {
-                OutlinedButton(onClick = { BatteryOptimization.openOemAutoStartSettings(context) }) {
-                    Text("Tự khởi động")
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun NavigationCard(
     routeName: String,
     instruction: String?,
@@ -504,12 +565,13 @@ private fun NavigationCard(
     val container = if (offRoute) {
         MaterialTheme.colorScheme.errorContainer
     } else {
-        MaterialTheme.colorScheme.tertiaryContainer
+        MaterialTheme.colorScheme.surface
     }
-    androidx.compose.material3.Card(
+    Surface(
         Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = container),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = MaterialTheme.shapes.medium,
+        color = container,
+        shadowElevation = 6.dp,
     ) {
         Column(Modifier.fillMaxWidth().padding(Spacing.md)) {
             StravaLabel(routeName)
@@ -522,7 +584,7 @@ private fun NavigationCard(
                 style = MaterialTheme.typography.titleMedium,
             )
             val meta = buildList {
-                distanceMeters?.let { add("còn ${it.roundToInt()} m") }
+                distanceMeters?.let { add("còn ${it.toInt()} m") }
                 if (stepCount > 0) add("bước ${(stepIndex + 1).coerceAtMost(stepCount)}/$stepCount")
             }
             if (meta.isNotEmpty()) {
@@ -546,15 +608,13 @@ private fun RoutePickerDialog(
             if (routes.isEmpty()) {
                 Text("Chưa có route. Dựng route ở màn Hồ sơ → Routes đã lưu.")
             } else {
-                LazyColumn {
-                    item {
-                        TextButton(onClick = { onSelect(null) }) { Text("Không dẫn đường") }
-                    }
-                    items(routes, key = { it.id }) { route ->
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    TextButton(onClick = { onSelect(null) }) { Text("Không dẫn đường") }
+                    routes.forEach { route ->
                         TextButton(onClick = { onSelect(route.id) }) {
                             Text(
                                 (if (route.id == selectedId) "✓ " else "") +
-                                    "${route.name} · ${route.distanceMeters.roundToInt() / 1000.0} km",
+                                    "${route.name} · ${route.distanceMeters.toInt() / 1000.0} km",
                             )
                         }
                     }
