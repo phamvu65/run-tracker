@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,9 +14,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -29,10 +30,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.domain.model.ChallengeStanding
+import com.example.runtracker.ui.components.EmptyState
+import com.example.runtracker.ui.theme.Spacing
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -64,61 +65,65 @@ fun ChallengeListScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onCreateChallenge) {
-                Icon(Icons.Filled.Add, contentDescription = "Tạo thử thách")
-            }
+            ExtendedFloatingActionButton(
+                onClick = onCreateChallenge,
+                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                text = { Text("Tạo thử thách") },
+            )
         },
     ) { padding ->
         if (standings.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text(
-                    "Chưa có thử thách. Bấm + để tạo mục tiêu quãng đường, số buổi hoặc thời gian.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(32.dp),
+                EmptyState(
+                    title = "Chưa có thử thách",
+                    message = "Đặt mục tiêu quãng đường, số buổi, độ cao hoặc thời gian trong một khoảng ngày — tiến độ tự cập nhật từ các buổi tập.",
                 )
             }
             return@Scaffold
         }
 
-        LazyColumn(Modifier.fillMaxSize().padding(padding)) {
+        LazyColumn(
+            Modifier.fillMaxSize().padding(padding),
+            contentPadding = PaddingValues(Spacing.screen),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
             items(standings, key = { it.challenge.id }) { standing ->
-                ChallengeRow(standing, onClick = { onChallengeClick(standing.challenge.id) })
-                HorizontalDivider()
+                ChallengeCard(standing, onClick = { onChallengeClick(standing.challenge.id) })
             }
         }
     }
 }
 
 @Composable
-private fun ChallengeRow(standing: ChallengeStanding, onClick: () -> Unit) {
+private fun ChallengeCard(standing: ChallengeStanding, onClick: () -> Unit) {
     val challenge = standing.challenge
     val today = remember { LocalDate.now() }
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(challenge.name, style = MaterialTheme.typography.bodyLarge)
+    ElevatedCard(Modifier.fillMaxWidth()) {
+        Column(
+            Modifier
+                .clickable(onClick = onClick)
+                .padding(Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(challenge.name, style = MaterialTheme.typography.titleSmall)
+                Text(
+                    challenge.statusOn(today).label(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+            LinearProgressIndicator(
+                progress = { standing.fraction },
+                modifier = Modifier.fillMaxWidth(),
+            )
             Text(
-                challenge.statusOn(today).label(),
-                style = MaterialTheme.typography.labelSmall,
+                "${challenge.goalType.formatAmount(standing.myProgress)} / " +
+                    "${challenge.goalType.formatAmount(challenge.goalValue)}  ·  " +
+                    "${challenge.startDate.format(DATE_FORMAT)}–${challenge.endDate.format(DATE_FORMAT)}",
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        LinearProgressIndicator(
-            progress = { standing.fraction },
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Text(
-            "${challenge.goalType.formatAmount(standing.myProgress)} / " +
-                "${challenge.goalType.formatAmount(challenge.goalValue)} · " +
-                "${challenge.startDate.format(DATE_FORMAT)}–${challenge.endDate.format(DATE_FORMAT)}",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }

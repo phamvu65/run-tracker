@@ -1,22 +1,19 @@
 package com.example.runtracker.ui.routes
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -25,9 +22,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.formatDistanceKm
+import com.example.runtracker.ui.components.AppListCard
+import com.example.runtracker.ui.components.EmptyState
+import com.example.runtracker.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,34 +54,34 @@ fun RouteListScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onCreateRoute) {
-                Icon(Icons.Filled.Add, contentDescription = "Dựng route")
-            }
+            ExtendedFloatingActionButton(
+                onClick = onCreateRoute,
+                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                text = { Text("Dựng route") },
+            )
         },
     ) { padding ->
         if (routes.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("Chưa có route. Bấm + để dựng.", style = MaterialTheme.typography.bodyMedium)
+                EmptyState(
+                    title = "Chưa có route",
+                    message = "Bấm \"Dựng route\" để vẽ một tuyến đường và dùng làm dẫn đường khi chạy.",
+                )
             }
             return@Scaffold
         }
 
-        LazyColumn(Modifier.fillMaxSize().padding(padding)) {
+        LazyColumn(
+            Modifier.fillMaxSize().padding(padding),
+            contentPadding = PaddingValues(Spacing.screen),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
             items(routes, key = { it.id }) { route ->
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable { onRouteClick(route.id) }
-                        .padding(16.dp),
-                ) {
-                    Text(route.name, style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        formatDistanceKm(route.distanceMeters),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                HorizontalDivider()
+                AppListCard(
+                    title = route.name,
+                    subtitle = formatDistanceKm(route.distanceMeters),
+                    onClick = { onRouteClick(route.id) },
+                )
             }
         }
     }

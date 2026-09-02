@@ -1,20 +1,17 @@
 package com.example.runtracker.ui.segments
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -23,9 +20,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.formatDistanceKm
+import com.example.runtracker.ui.components.AppListCard
+import com.example.runtracker.ui.components.EmptyState
+import com.example.runtracker.ui.theme.Spacing
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,30 +54,25 @@ fun SegmentListScreen(
     ) { padding ->
         if (segments.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text(
-                    "Chưa có segment. Mở một buổi tập và bấm \"Tạo segment\".",
-                    style = MaterialTheme.typography.bodyMedium,
+                EmptyState(
+                    title = "Chưa có segment",
+                    message = "Mở một buổi tập rồi bấm \"Tạo segment từ buổi này\" để so kè thời gian trên các đoạn quen thuộc.",
                 )
             }
             return@Scaffold
         }
 
-        LazyColumn(Modifier.fillMaxSize().padding(padding)) {
+        LazyColumn(
+            Modifier.fillMaxSize().padding(padding),
+            contentPadding = PaddingValues(Spacing.screen),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
             items(segments, key = { it.id }) { segment ->
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable { onSegmentClick(segment.id) }
-                        .padding(16.dp),
-                ) {
-                    Text(segment.name, style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        "${formatDistanceKm(segment.distanceMeters)} · ${segment.avgGrade.roundToInt()}%",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                HorizontalDivider()
+                AppListCard(
+                    title = segment.name,
+                    subtitle = "${formatDistanceKm(segment.distanceMeters)} · độ dốc ${segment.avgGrade.roundToInt()}%",
+                    onClick = { onSegmentClick(segment.id) },
+                )
             }
         }
     }

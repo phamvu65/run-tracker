@@ -10,7 +10,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Card
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
@@ -24,15 +24,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.formatClock
 import com.example.runtracker.core.formatPace
 import com.example.runtracker.domain.model.DailySuggestion
 import com.example.runtracker.domain.model.PerformancePrediction
 import com.example.runtracker.domain.training.RaceDistance
+import com.example.runtracker.ui.components.EmptyState
+import com.example.runtracker.ui.components.SectionHeader
+import com.example.runtracker.ui.components.StatTile
+import com.example.runtracker.ui.theme.Spacing
 import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 
@@ -71,8 +73,8 @@ fun FitnessScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+                .padding(Spacing.screen),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xl),
         ) {
             suggestion?.let { SuggestionCard(it) }
 
@@ -81,17 +83,23 @@ fun FitnessScreen(
             }
 
             if (latest != null) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Metric("Fitness", latest.ctl, Modifier.weight(1f))
-                    Metric("Fatigue", latest.atl, Modifier.weight(1f))
-                    Metric("Form", latest.tsb, Modifier.weight(1f))
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        StatTile("Fitness", latest.ctl.roundToInt().toString(), Modifier.weight(1f), accent = true)
+                        StatTile("Fatigue", latest.atl.roundToInt().toString(), Modifier.weight(1f))
+                        StatTile("Form", latest.tsb.roundToInt().toString(), Modifier.weight(1f))
+                    }
+                    Text(
+                        formInterpretation(latest.tsb),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
-                Text(formInterpretation(latest.tsb), style = MaterialTheme.typography.bodyMedium)
                 FitnessChart(snapshots = snapshots, modifier = Modifier.fillMaxWidth())
             } else {
-                Text(
-                    "Chưa có dữ liệu Fitness. Ghi một buổi tập (nhập RPE hoặc có nhịp tim) để bắt đầu.",
-                    style = MaterialTheme.typography.bodyMedium,
+                EmptyState(
+                    title = "Chưa có dữ liệu Fitness",
+                    message = "Ghi một buổi tập (nhập RPE hoặc có nhịp tim) để bắt đầu theo dõi CTL/ATL/TSB.",
                 )
             }
 
@@ -104,10 +112,17 @@ fun FitnessScreen(
 
 @Composable
 private fun SuggestionCard(suggestion: DailySuggestion) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Gợi ý hôm nay", style = MaterialTheme.typography.labelMedium)
-            Text(suggestion.headline, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+    ElevatedCard(Modifier.fillMaxWidth()) {
+        Column(
+            Modifier.padding(Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+        ) {
+            Text(
+                "GỢI Ý HÔM NAY",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Text(suggestion.headline, style = MaterialTheme.typography.titleMedium)
             Text(
                 suggestion.rationale,
                 style = MaterialTheme.typography.bodyMedium,
@@ -120,17 +135,15 @@ private fun SuggestionCard(suggestion: DailySuggestion) {
 @Composable
 private fun PredictionSection(predictions: List<PerformancePrediction>) {
     val byLabel = predictions.associateBy { it.distanceLabel }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text("Dự đoán thành tích", style = MaterialTheme.typography.titleSmall)
-        Text(
-            "Riegel, dựa trên buổi chạy nhanh nhất 90 ngày gần đây.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        SectionHeader(
+            title = "Dự đoán thành tích",
+            subtitle = "Riegel, dựa trên buổi chạy nhanh nhất 90 ngày gần đây.",
         )
         RaceDistance.entries.forEach { race ->
             val p = byLabel[race.label] ?: return@forEach
-            Row(Modifier.fillMaxWidth()) {
-                Text(race.label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            Row(Modifier.fillMaxWidth().padding(vertical = Spacing.xs)) {
+                Text(race.label, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                 Text(
                     formatClock(p.predictedSeconds.roundToLong()),
                     style = MaterialTheme.typography.bodyMedium,
@@ -145,20 +158,8 @@ private fun PredictionSection(predictions: List<PerformancePrediction>) {
                     modifier = Modifier.weight(1f),
                 )
             }
-            HorizontalDivider()
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
-    }
-}
-
-@Composable
-private fun Metric(label: String, value: Double, modifier: Modifier = Modifier) {
-    Column(modifier) {
-        Text(label, style = MaterialTheme.typography.labelMedium)
-        Text(
-            value.roundToInt().toString(),
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.SemiBold,
-        )
     }
 }
 
