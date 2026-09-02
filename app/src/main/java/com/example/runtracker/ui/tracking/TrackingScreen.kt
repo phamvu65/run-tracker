@@ -2,27 +2,36 @@ package com.example.runtracker.ui.tracking
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -30,25 +39,34 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.BatteryOptimization
 import com.example.runtracker.core.formatClock
+import com.example.runtracker.core.formatDistanceKm
 import com.example.runtracker.core.formatPace
 import com.example.runtracker.core.hasLocationPermission
 import com.example.runtracker.core.trackingPermissions
+import com.example.runtracker.domain.model.Activity
+import com.example.runtracker.domain.model.GeoPoint
 import com.example.runtracker.domain.model.Route
-import com.example.runtracker.tracking.LocationTrackingService
+import com.example.runtracker.tracking.TrackingState
 import com.example.runtracker.tracking.TrackingStatus
+import com.example.runtracker.tracking.LocationTrackingService
+import com.example.runtracker.ui.components.EmptyState
+import com.example.runtracker.ui.components.SectionHeader
+import com.example.runtracker.ui.components.StatTile
+import com.example.runtracker.ui.theme.Spacing
 import com.google.android.gms.maps.model.LatLng
 import kotlin.math.roundToInt
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TrackingScreen(
     onActivityClick: (String) -> Unit = {},
@@ -126,33 +144,152 @@ fun TrackingScreen(
         )
     }
 
-    Column(modifier.fillMaxSize().padding(16.dp)) {
-        Text(
-            "Ghi hoạt động",
-            style = MaterialTheme.typography.titleMedium,
-        )
-        Spacer(Modifier.height(8.dp))
-
-        if (state.status != TrackingStatus.IDLE) {
-            val traceLatLngs = remember(liveTrace) {
-                liveTrace.map { LatLng(it.latitude, it.longitude) }
-            }
-            val routeLatLngs = remember(selectedRoute) {
-                selectedRoute?.polyline?.map { LatLng(it.latitude, it.longitude) }.orEmpty()
-            }
-            val current = state.lastLatitude?.let { lat ->
-                state.lastLongitude?.let { lng -> LatLng(lat, lng) }
-            }
-            LiveTrackingMap(
-                trace = traceLatLngs,
-                plannedRoute = routeLatLngs,
-                current = current,
-                modifier = Modifier.fillMaxWidth().height(240.dp),
+    Scaffold(
+        modifier = modifier,
+        topBar = { TopAppBar(title = { Text("Ghi hoạt động") }) },
+    ) { padding ->
+        if (state.status == TrackingStatus.IDLE) {
+            IdleContent(
+                padding = padding,
+                state = state,
+                activities = activities,
+                selectedRoute = selectedRoute,
+                beaconSharing = beacon.sharing,
+                beaconCode = beacon.code,
+                hasPermission = hasPermission,
+                onPickRoute = { showRoutePicker = true },
+                onToggleBeacon = viewModel::setBeaconSharing,
+                onStart = { withPermission { LocationTrackingService.start(context) } },
+                onActivityClick = onActivityClick,
+                context = context,
             )
-            Spacer(Modifier.height(12.dp))
+        } else {
+            ActiveContent(
+                padding = padding,
+                state = state,
+                liveTrace = liveTrace,
+                selectedRoute = selectedRoute,
+                beaconSharing = beacon.sharing,
+                beaconCode = beacon.code,
+                voiceEnabled = voiceEnabled,
+                onToggleVoice = { voiceEnabled = !voiceEnabled },
+                onToggleBeacon = viewModel::setBeaconSharing,
+                onPause = { LocationTrackingService.pause(context) },
+                onResume = { LocationTrackingService.resume(context) },
+                onStop = { LocationTrackingService.stop(context) },
+            )
         }
+    }
+}
 
-        if (state.status != TrackingStatus.IDLE && state.navRouteName != null) {
+@Composable
+private fun IdleContent(
+    padding: PaddingValues,
+    state: TrackingState,
+    activities: List<Activity>,
+    selectedRoute: Route?,
+    beaconSharing: Boolean,
+    beaconCode: String?,
+    hasPermission: Boolean,
+    onPickRoute: () -> Unit,
+    onToggleBeacon: (Boolean) -> Unit,
+    onStart: () -> Unit,
+    onActivityClick: (String) -> Unit,
+    context: android.content.Context,
+) {
+    LazyColumn(
+        Modifier.fillMaxSize().padding(padding),
+        contentPadding = PaddingValues(Spacing.screen),
+        verticalArrangement = Arrangement.spacedBy(Spacing.md),
+    ) {
+        item {
+            OutlinedButton(onClick = onPickRoute, modifier = Modifier.fillMaxWidth()) {
+                Text(selectedRoute?.let { "Route: ${it.name}" } ?: "Chọn route để dẫn đường")
+            }
+        }
+        item {
+            BeaconCard(sharing = beaconSharing, code = beaconCode, onToggle = onToggleBeacon)
+        }
+        item {
+            Button(
+                onClick = onStart,
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+            ) {
+                Icon(Icons.Filled.PlayArrow, contentDescription = null)
+                Text("  Bắt đầu chạy", style = MaterialTheme.typography.titleMedium)
+            }
+            if (!hasPermission) {
+                Text(
+                    "Cần quyền vị trí để ghi GPS.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(top = Spacing.xs),
+                )
+            }
+        }
+        if (!BatteryOptimization.isIgnoringOptimizations(context)) {
+            item { BatteryOptimizationCard(context = context) }
+        }
+        item {
+            SectionHeader(
+                title = "Lịch sử",
+                subtitle = if (activities.isEmpty()) null else "${activities.size} buổi",
+                modifier = Modifier.padding(top = Spacing.sm),
+            )
+        }
+        if (activities.isEmpty()) {
+            item {
+                EmptyState(
+                    title = "Chưa có buổi tập nào",
+                    message = "Bấm \"Bắt đầu chạy\" để ghi buổi đầu tiên.",
+                )
+            }
+        } else {
+            items(activities, key = { it.id }) { activity ->
+                HistoryCard(activity = activity, onClick = { onActivityClick(activity.id) })
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActiveContent(
+    padding: PaddingValues,
+    state: TrackingState,
+    liveTrace: List<GeoPoint>,
+    selectedRoute: Route?,
+    beaconSharing: Boolean,
+    beaconCode: String?,
+    voiceEnabled: Boolean,
+    onToggleVoice: () -> Unit,
+    onToggleBeacon: (Boolean) -> Unit,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
+    onStop: () -> Unit,
+) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .padding(padding)
+            .verticalScroll(rememberScrollState())
+            .padding(Spacing.screen),
+        verticalArrangement = Arrangement.spacedBy(Spacing.md),
+    ) {
+        val traceLatLngs = remember(liveTrace) { liveTrace.map { LatLng(it.latitude, it.longitude) } }
+        val routeLatLngs = remember(selectedRoute) {
+            selectedRoute?.polyline?.map { LatLng(it.latitude, it.longitude) }.orEmpty()
+        }
+        val current = state.lastLatitude?.let { lat ->
+            state.lastLongitude?.let { lng -> LatLng(lat, lng) }
+        }
+        LiveTrackingMap(
+            trace = traceLatLngs,
+            plannedRoute = routeLatLngs,
+            current = current,
+            modifier = Modifier.fillMaxWidth().height(220.dp),
+        )
+
+        if (state.navRouteName != null) {
             NavigationCard(
                 routeName = state.navRouteName!!,
                 instruction = state.navInstruction,
@@ -161,104 +298,102 @@ fun TrackingScreen(
                 stepIndex = state.navStepIndex,
                 stepCount = state.navStepCount,
             )
-            TextButton(onClick = { voiceEnabled = !voiceEnabled }) {
+            TextButton(onClick = onToggleVoice) {
                 Text(if (voiceEnabled) "🔊 Tắt đọc chỉ đường" else "🔈 Bật đọc chỉ đường")
             }
-            Spacer(Modifier.height(12.dp))
         }
 
-        if (state.status == TrackingStatus.IDLE) {
-            OutlinedButton(
-                onClick = { showRoutePicker = true },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(selectedRoute?.let { "Route: ${it.name}" } ?: "Chọn route để dẫn đường")
-            }
-            Spacer(Modifier.height(12.dp))
-        }
-
-        BeaconCard(
-            sharing = beacon.sharing,
-            code = beacon.code,
-            onToggle = viewModel::setBeaconSharing,
+        HeroMetric(
+            label = if (state.status == TrackingStatus.PAUSED) "ĐÃ TẠM DỪNG · QUÃNG ĐƯỜNG" else "QUÃNG ĐƯỜNG",
+            value = formatDistanceKm(state.distanceMeters),
         )
-        Spacer(Modifier.height(12.dp))
-
-        StatRow("Thời gian", formatClock(state.elapsedSeconds))
-        StatRow("Quãng đường", "%.2f km".format(state.distanceMeters / 1000.0))
-        StatRow("Pace", formatPace(state.avgPaceSecPerKm))
-        state.liveHeartRateBpm?.let { StatRow("Nhịp tim", "$it bpm") }
-        StatRow(
-            "Độ cao +/-",
-            "${state.elevationGainMeters.roundToInt()} / ${state.elevationLossMeters.roundToInt()} m",
-        )
-        StatRow("Điểm GPS", state.pointCount.toString())
-
-        Spacer(Modifier.height(16.dp))
-
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            when (state.status) {
-                TrackingStatus.IDLE -> Button(
-                    onClick = { withPermission { LocationTrackingService.start(context) } },
-                ) { Text("Bắt đầu") }
-
-                TrackingStatus.TRACKING -> {
-                    OutlinedButton(onClick = { LocationTrackingService.pause(context) }) {
-                        Text("Tạm dừng")
-                    }
-                    Button(onClick = { LocationTrackingService.stop(context) }) { Text("Kết thúc") }
-                }
-
-                TrackingStatus.PAUSED -> {
-                    OutlinedButton(onClick = { LocationTrackingService.resume(context) }) {
-                        Text("Tiếp tục")
-                    }
-                    Button(onClick = { LocationTrackingService.stop(context) }) { Text("Kết thúc") }
-                }
-            }
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            StatTile("Thời gian", formatClock(state.elapsedSeconds), Modifier.weight(1f))
+            StatTile("Pace", formatPace(state.avgPaceSecPerKm), Modifier.weight(1f))
         }
-
-        if (!hasPermission && state.status == TrackingStatus.IDLE) {
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "Cần quyền vị trí để ghi GPS.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            StatTile(
+                "Nhịp tim",
+                state.liveHeartRateBpm?.let { "$it" } ?: "—",
+                Modifier.weight(1f),
+            )
+            StatTile(
+                "Độ cao +/-",
+                "${state.elevationGainMeters.roundToInt()}/${state.elevationLossMeters.roundToInt()}",
+                Modifier.weight(1f),
             )
         }
 
-        if (state.status == TrackingStatus.IDLE && !BatteryOptimization.isIgnoringOptimizations(context)) {
-            Spacer(Modifier.height(12.dp))
-            BatteryOptimizationCard(context = context)
-        }
+        BeaconCard(sharing = beaconSharing, code = beaconCode, onToggle = onToggleBeacon)
 
-        if (state.status == TrackingStatus.IDLE) {
-            Spacer(Modifier.height(24.dp))
-            Text("Lịch sử (${activities.size})", style = MaterialTheme.typography.titleSmall)
-            Spacer(Modifier.height(4.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
+            when (state.status) {
+                TrackingStatus.TRACKING -> OutlinedButton(
+                    onClick = onPause,
+                    modifier = Modifier.weight(1f).height(52.dp),
+                ) { Text("Tạm dừng") }
 
-            LazyColumn(Modifier.fillMaxSize()) {
-                items(activities, key = { it.id }) { activity ->
-                    Column(
-                        Modifier
-                            .fillMaxWidth()
-                            .clickable { onActivityClick(activity.id) }
-                            .padding(vertical = 8.dp),
-                    ) {
-                        Text(
-                            "%.2f km · %s".format(
-                                activity.distanceMeters / 1000.0,
-                                formatClock(activity.movingTime.inWholeSeconds),
-                            ),
-                        )
-                        Text(
-                            "${activity.type} · ${activity.startTime}",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                    HorizontalDivider()
-                }
+                else -> FilledTonalButton(
+                    onClick = onResume,
+                    modifier = Modifier.weight(1f).height(52.dp),
+                ) { Text("Tiếp tục") }
             }
+            Button(
+                onClick = onStop,
+                modifier = Modifier.weight(1f).height(52.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+            ) { Text("Kết thúc") }
+        }
+    }
+}
+
+@Composable
+private fun HeroMetric(label: String, value: String) {
+    ElevatedCard(
+        Modifier.fillMaxWidth(),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+        ),
+    ) {
+        Column(Modifier.fillMaxWidth().padding(Spacing.lg)) {
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+            Text(
+                value,
+                style = MaterialTheme.typography.displaySmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HistoryCard(
+    activity: Activity,
+    onClick: () -> Unit,
+) {
+    ElevatedCard(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth().padding(Spacing.lg)) {
+            Text(
+                "%s · %s".format(
+                    formatDistanceKm(activity.distanceMeters),
+                    formatClock(activity.movingTime.inWholeSeconds),
+                ),
+                style = MaterialTheme.typography.titleSmall,
+            )
+            Text(
+                "${activity.type} · ${activity.startTime}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -272,16 +407,10 @@ private fun InterruptedRunDialog(
     AlertDialog(
         onDismissRequest = {},
         title = { Text("Buổi tập bị gián đoạn") },
-        text = {
-            Text(
-                "Ứng dụng bị dừng khi đang ghi. Bạn muốn làm gì với dữ liệu đã lưu?",
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = onResume) { Text("Tiếp tục ghi") }
-        },
+        text = { Text("Ứng dụng bị dừng khi đang ghi. Bạn muốn làm gì với dữ liệu đã lưu?") },
+        confirmButton = { TextButton(onClick = onResume) { Text("Tiếp tục ghi") } },
         dismissButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                 TextButton(onClick = onFinalize) { Text("Kết thúc") }
                 TextButton(onClick = onDiscard) { Text("Xoá") }
             }
@@ -292,13 +421,12 @@ private fun InterruptedRunDialog(
 @Composable
 private fun BatteryOptimizationCard(context: android.content.Context) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(Modifier.padding(12.dp)) {
+        Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             Text(
                 "Điện thoại có thể tự tắt việc ghi GPS khi khoá màn hình.",
                 style = MaterialTheme.typography.bodyMedium,
             )
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 Button(onClick = { BatteryOptimization.requestIgnoreOptimizations(context) }) {
                     Text("Tắt tối ưu hoá pin")
                 }
@@ -319,7 +447,7 @@ private fun BeaconCard(
     onToggle: (Boolean) -> Unit,
 ) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(Modifier.fillMaxWidth().padding(12.dp)) {
+        Column(Modifier.fillMaxWidth().padding(Spacing.md)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Chia sẻ vị trí trực tiếp", style = MaterialTheme.typography.titleSmall)
@@ -336,8 +464,11 @@ private fun BeaconCard(
                 Switch(checked = sharing, onCheckedChange = onToggle)
             }
             if (sharing && code != null) {
-                Spacer(Modifier.height(8.dp))
-                Text("Mã chia sẻ", style = MaterialTheme.typography.labelMedium)
+                Text(
+                    "Mã chia sẻ",
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.padding(top = Spacing.sm),
+                )
                 Text(code, style = MaterialTheme.typography.headlineSmall)
                 Text(
                     "Người theo dõi: mở app → Hồ sơ → \"Theo dõi trực tiếp\", nhập mã này.",
@@ -361,12 +492,11 @@ private fun NavigationCard(
     val container = if (offRoute) {
         MaterialTheme.colorScheme.errorContainer
     } else {
-        MaterialTheme.colorScheme.primaryContainer
+        MaterialTheme.colorScheme.tertiaryContainer
     }
     Card(colors = CardDefaults.cardColors(containerColor = container)) {
-        Column(Modifier.fillMaxWidth().padding(12.dp)) {
+        Column(Modifier.fillMaxWidth().padding(Spacing.md)) {
             Text(routeName, style = MaterialTheme.typography.labelMedium)
-            Spacer(Modifier.height(4.dp))
             Text(
                 when {
                     offRoute -> "⚠ Đã đi chệch route"
@@ -417,16 +547,4 @@ private fun RoutePickerDialog(
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Đóng") } },
     )
-}
-
-@Composable
-private fun StatRow(label: String, value: String) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-        Text(
-            value,
-            style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.End,
-        )
-    }
 }

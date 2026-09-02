@@ -1,20 +1,22 @@
 package com.example.runtracker.ui.detail
 
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -41,6 +43,10 @@ import com.example.runtracker.core.formatDistanceKm
 import com.example.runtracker.core.formatPace
 import com.example.runtracker.domain.model.ActivityWeather
 import com.example.runtracker.domain.training.ZoneTime
+import com.example.runtracker.ui.components.LabeledValue
+import com.example.runtracker.ui.components.SectionHeader
+import com.example.runtracker.ui.components.StatTile
+import com.example.runtracker.ui.theme.Spacing
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -122,7 +128,7 @@ private fun LoadedContent(
     Column(Modifier.fillMaxSize()) {
         if (state.routePoints.isEmpty()) {
             Box(
-                Modifier.fillMaxWidth().height(220.dp),
+                Modifier.fillMaxWidth().height(200.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text("Không có dữ liệu GPS", style = MaterialTheme.typography.bodyMedium)
@@ -139,57 +145,78 @@ private fun LoadedContent(
                 .fillMaxWidth()
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+                .padding(Spacing.screen),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xl),
         ) {
-            StatsPanel(state = state)
+            val activity = state.activity
+            Text(
+                "${activity.type} · ${activity.startTime}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                StatTile("Quãng đường", formatDistanceKm(activity.distanceMeters), Modifier.weight(1f), accent = true)
+                StatTile("Thời gian", formatClock(activity.movingTime.inWholeSeconds), Modifier.weight(1f))
+                StatTile("Pace", formatPace(activity.avgPaceSecPerKm), Modifier.weight(1f))
+            }
+
+            DetailCard {
+                SectionHeader("Số liệu")
+                LabeledValue("Thời gian tổng", formatClock(activity.duration.inWholeSeconds))
+                LabeledValue("Tốc độ TB", "%.1f km/h".format(activity.avgSpeedKmh))
+                LabeledValue(
+                    "Độ cao +/-",
+                    "${activity.elevationGainMeters.roundToInt()} / ${activity.elevationLossMeters.roundToInt()} m",
+                )
+                LabeledValue("Relative Effort (TRIMP)", state.trimp?.roundToInt()?.toString() ?: "—")
+                activity.avgHeartRate?.let { LabeledValue("Nhịp tim TB", "$it bpm") }
+                activity.maxHeartRate?.let { LabeledValue("Nhịp tim tối đa", "$it bpm") }
+                activity.calories?.let { LabeledValue("Calo", "$it kcal") }
+                LabeledValue("Điểm GPS", state.routePoints.size.toString())
+            }
+
             if (state.canEnterRpe) {
-                NoHeartRateSection(
-                    rpe = state.activity.perceivedExertion,
-                    heartRateAvailable = heartRateAvailable,
-                    importMessage = importMessage,
-                    onSyncHeartRate = onSyncHeartRate,
-                    onSetRpe = onSetRpe,
+                DetailCard {
+                    NoHeartRateSection(
+                        rpe = activity.perceivedExertion,
+                        heartRateAvailable = heartRateAvailable,
+                        importMessage = importMessage,
+                        onSyncHeartRate = onSyncHeartRate,
+                        onSetRpe = onSetRpe,
+                    )
+                }
+            }
+
+            DetailCard {
+                WeatherSection(
+                    weather = activity.weather,
+                    message = weatherMessage,
+                    hasGps = state.routePoints.isNotEmpty(),
+                    onRefreshWeather = onRefreshWeather,
                 )
             }
-            WeatherSection(
-                weather = state.activity.weather,
-                message = weatherMessage,
-                hasGps = state.routePoints.isNotEmpty(),
-                onRefreshWeather = onRefreshWeather,
-            )
+
             ElevationChart(points = state.routePoints, modifier = Modifier.fillMaxWidth())
             ZoneDistributionList(distribution = zoneDistribution, modifier = Modifier.fillMaxWidth())
             LapList(laps = state.laps, modifier = Modifier.fillMaxWidth())
+
             if (state.routePoints.size >= 2) {
-                SegmentSection(efforts = segmentEfforts, onCreateSegment = onCreateSegment)
+                DetailCard {
+                    SegmentSection(efforts = segmentEfforts, onCreateSegment = onCreateSegment)
+                }
             }
         }
     }
 }
 
 @Composable
-private fun StatsPanel(state: ActivityDetailUiState.Loaded, modifier: Modifier = Modifier) {
-    val activity = state.activity
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(
-            "${activity.type} · ${activity.startTime}",
-            style = MaterialTheme.typography.titleSmall,
+private fun DetailCard(content: @Composable ColumnScope.() -> Unit) {
+    ElevatedCard(Modifier.fillMaxWidth()) {
+        Column(
+            Modifier.fillMaxWidth().padding(Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+            content = content,
         )
-        Stat("Quãng đường", formatDistanceKm(activity.distanceMeters))
-        Stat("Thời gian", formatClock(activity.duration.inWholeSeconds))
-        Stat("Thời gian di chuyển", formatClock(activity.movingTime.inWholeSeconds))
-        Stat("Pace", formatPace(activity.avgPaceSecPerKm))
-        Stat("Tốc độ TB", "%.1f km/h".format(activity.avgSpeedKmh))
-        Stat(
-            "Độ cao +/-",
-            "${activity.elevationGainMeters.roundToInt()} / ${activity.elevationLossMeters.roundToInt()} m",
-        )
-        Stat("Relative Effort (TRIMP)", state.trimp?.roundToInt()?.toString() ?: "—")
-        activity.avgHeartRate?.let { Stat("Nhịp tim TB", "$it bpm") }
-        activity.maxHeartRate?.let { Stat("Nhịp tim tối đa", "$it bpm") }
-        activity.calories?.let { Stat("Calo", "$it kcal") }
-        Stat("Điểm GPS", state.routePoints.size.toString())
     }
 }
 
@@ -201,33 +228,29 @@ private fun NoHeartRateSection(
     onSyncHeartRate: () -> Unit,
     onSetRpe: (Int) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Chưa có nhịp tim", style = MaterialTheme.typography.titleSmall)
-
-        if (heartRateAvailable) {
-            Text(
-                "Đồng bộ nhịp tim từ Health Connect (đồng hồ / vòng đeo), hoặc nhập RPE.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            OutlinedButton(onClick = onSyncHeartRate) { Text("Đồng bộ nhịp tim") }
-            importMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-        } else {
-            Text(
-                "Health Connect không khả dụng — nhập RPE (1 rất nhẹ … 10 kiệt sức) để tính TRIMP.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
-        RpeEditor(current = rpe, onSave = onSetRpe)
+    SectionHeader("Chưa có nhịp tim")
+    if (heartRateAvailable) {
+        Text(
+            "Đồng bộ nhịp tim từ Health Connect (đồng hồ / vòng đeo), hoặc nhập RPE.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        OutlinedButton(onClick = onSyncHeartRate) { Text("Đồng bộ nhịp tim") }
+        importMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+    } else {
+        Text(
+            "Health Connect không khả dụng — nhập RPE (1 rất nhẹ … 10 kiệt sức) để tính TRIMP.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
+    RpeEditor(current = rpe, onSave = onSetRpe)
 }
 
 @Composable
 private fun RpeEditor(current: Int?, onSave: (Int) -> Unit) {
     var rpe by remember(current) { mutableIntStateOf(current ?: 5) }
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         Text("Cảm giác gắng sức (RPE): $rpe", style = MaterialTheme.typography.bodyMedium)
         Slider(
             value = rpe.toFloat(),
@@ -248,44 +271,32 @@ private fun WeatherSection(
     hasGps: Boolean,
     onRefreshWeather: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("Thời tiết", style = MaterialTheme.typography.titleSmall)
-
-        if (weather != null) {
-            Stat("Điều kiện", weatherCodeDescription(weather.weatherCode))
-            Stat("Nhiệt độ", "%.0f°C".format(weather.temperatureC))
-            weather.apparentTemperatureC?.let { Stat("Cảm giác như", "%.0f°C".format(it)) }
-            weather.humidityPct?.let { Stat("Độ ẩm", "$it%") }
-            weather.windSpeedMps?.let { mps ->
-                val dir = windCompass(weather.windDirectionDeg)
-                Stat("Gió", "%.0f km/h".format(mps * 3.6) + if (dir.isNotEmpty()) " $dir" else "")
-            }
-            OutlinedButton(onClick = onRefreshWeather) { Text("Cập nhật lại") }
-        } else {
-            Text(
-                if (hasGps) {
-                    "Chưa có dữ liệu thời tiết cho buổi tập này."
-                } else {
-                    "Buổi tập không có GPS nên không tra được thời tiết."
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            if (hasGps) {
-                OutlinedButton(onClick = onRefreshWeather) { Text("Lấy thời tiết") }
-            }
+    SectionHeader("Thời tiết")
+    if (weather != null) {
+        LabeledValue("Điều kiện", weatherCodeDescription(weather.weatherCode))
+        LabeledValue("Nhiệt độ", "%.0f°C".format(weather.temperatureC))
+        weather.apparentTemperatureC?.let { LabeledValue("Cảm giác như", "%.0f°C".format(it)) }
+        weather.humidityPct?.let { LabeledValue("Độ ẩm", "$it%") }
+        weather.windSpeedMps?.let { mps ->
+            val dir = windCompass(weather.windDirectionDeg)
+            LabeledValue("Gió", "%.0f km/h".format(mps * 3.6) + if (dir.isNotEmpty()) " $dir" else "")
         }
-
-        message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+        OutlinedButton(onClick = onRefreshWeather) { Text("Cập nhật lại") }
+    } else {
+        Text(
+            if (hasGps) {
+                "Chưa có dữ liệu thời tiết cho buổi tập này."
+            } else {
+                "Buổi tập không có GPS nên không tra được thời tiết."
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (hasGps) {
+            OutlinedButton(onClick = onRefreshWeather) { Text("Lấy thời tiết") }
+        }
     }
-}
-
-@Composable
-private fun Stat(label: String, value: String) {
-    Row(Modifier.fillMaxWidth()) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-        Text(value, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.End)
-    }
+    message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
 }
 
 @Composable
@@ -293,22 +304,20 @@ private fun SegmentSection(
     efforts: List<SegmentEffortRow>,
     onCreateSegment: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("Segments", style = MaterialTheme.typography.titleSmall)
-        efforts.forEach { effort ->
-            Row(Modifier.fillMaxWidth()) {
-                Text(
-                    effort.segmentName,
-                    Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(
-                    formatClock(effort.elapsedSeconds.toLong()),
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.End,
-                )
-            }
+    SectionHeader("Segments")
+    efforts.forEach { effort ->
+        Row(Modifier.fillMaxWidth().padding(vertical = Spacing.xs)) {
+            Text(
+                effort.segmentName,
+                Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Text(
+                formatClock(effort.elapsedSeconds.toLong()),
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.End,
+            )
         }
-        OutlinedButton(onClick = onCreateSegment) { Text("Tạo segment từ buổi này") }
     }
+    OutlinedButton(onClick = onCreateSegment) { Text("Tạo segment từ buổi này") }
 }
