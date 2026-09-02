@@ -1,12 +1,11 @@
 package com.example.runtracker.ui
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -25,6 +24,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.runtracker.ui.activities.ActivityListScreen
 import com.example.runtracker.ui.beacon.BeaconViewerScreen
 import com.example.runtracker.ui.challenges.ARG_CHALLENGE_ID
 import com.example.runtracker.ui.challenges.ChallengeDetailScreen
@@ -35,6 +35,7 @@ import com.example.runtracker.ui.detail.ActivityDetailScreen
 import com.example.runtracker.ui.fitness.FitnessScreen
 import com.example.runtracker.ui.hrsensor.HrSensorScreen
 import com.example.runtracker.ui.plan.TrainingPlanScreen
+import com.example.runtracker.ui.profile.ProfileInfoScreen
 import com.example.runtracker.ui.profile.ProfileScreen
 import com.example.runtracker.ui.routes.ARG_ROUTE_ID
 import com.example.runtracker.ui.routes.RouteBuilderScreen
@@ -49,7 +50,9 @@ import com.example.runtracker.ui.zones.ZoneSettingsScreen
 
 private object Routes {
     const val TRACKING = "tracking"
+    const val ACTIVITIES = "activities"
     const val PROFILE = "profile"
+    const val PROFILE_INFO = "profile_info"
     const val FITNESS = "fitness"
     const val TRAINING_PLAN = "training_plan"
     const val ZONES = "zones"
@@ -74,10 +77,9 @@ private object Routes {
 
 private enum class TopLevelDest(val route: String, val label: String, val icon: ImageVector) {
     TRACKING(Routes.TRACKING, "Ghi", Icons.Filled.PlayArrow),
+    ACTIVITIES(Routes.ACTIVITIES, "Hoạt động", Icons.AutoMirrored.Filled.List),
     FITNESS(Routes.FITNESS, "Fitness", Icons.Filled.Favorite),
-    SEGMENTS(Routes.SEGMENTS, "Segments", Icons.Filled.Star),
     CHALLENGES(Routes.CHALLENGES, "Thử thách", Icons.Filled.DateRange),
-    ROUTES(Routes.ROUTES, "Routes", Icons.Filled.LocationOn),
     PROFILE(Routes.PROFILE, "Hồ sơ", Icons.Filled.Person),
 }
 
@@ -125,14 +127,25 @@ fun RunTrackerNavHost(modifier: Modifier = Modifier) {
                     onActivityClick = { navController.navigate(Routes.detail(it)) },
                 )
             }
+            composable(Routes.ACTIVITIES) {
+                ActivityListScreen(
+                    onActivityClick = { navController.navigate(Routes.detail(it)) },
+                    onBack = null,
+                )
+            }
             composable(Routes.PROFILE) {
                 ProfileScreen(
-                    onBack = null,
+                    onOpenInfo = { navController.navigate(Routes.PROFILE_INFO) },
+                    onOpenSegments = { navController.navigate(Routes.SEGMENTS) },
+                    onOpenPlan = { navController.navigate(Routes.TRAINING_PLAN) },
                     onOpenZones = { navController.navigate(Routes.ZONES) },
                     onOpenRoutes = { navController.navigate(Routes.ROUTES) },
                     onOpenHrSensor = { navController.navigate(Routes.HR_SENSOR) },
                     onOpenBeacon = { navController.navigate(Routes.BEACON_VIEWER) },
                 )
+            }
+            composable(Routes.PROFILE_INFO) {
+                ProfileInfoScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.HR_SENSOR) {
                 HrSensorScreen(onBack = { navController.popBackStack() })
@@ -154,7 +167,7 @@ fun RunTrackerNavHost(modifier: Modifier = Modifier) {
             }
             composable(Routes.SEGMENTS) {
                 SegmentListScreen(
-                    onBack = null,
+                    onBack = { navController.popBackStack() },
                     onSegmentClick = { navController.navigate(Routes.segment(it)) },
                 )
             }
@@ -166,7 +179,7 @@ fun RunTrackerNavHost(modifier: Modifier = Modifier) {
             }
             composable(Routes.ROUTES) {
                 RouteListScreen(
-                    onBack = null,
+                    onBack = { navController.popBackStack() },
                     onRouteClick = { navController.navigate(Routes.route(it)) },
                     onCreateRoute = { navController.navigate(Routes.ROUTE_BUILDER) },
                 )
