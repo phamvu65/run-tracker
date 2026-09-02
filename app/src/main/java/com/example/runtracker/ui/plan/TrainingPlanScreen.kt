@@ -15,8 +15,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -43,6 +43,7 @@ import com.example.runtracker.domain.model.PlanWeek
 import com.example.runtracker.domain.model.PlannedSession
 import com.example.runtracker.domain.model.TrainingPlan
 import com.example.runtracker.domain.training.RaceDistance
+import com.example.runtracker.ui.theme.Spacing
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -109,21 +110,21 @@ fun TrainingPlanScreen(
 @Composable
 private fun PlanContent(plan: TrainingPlan, onEdit: () -> Unit, onClear: () -> Unit) {
     LazyColumn(
-        Modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        Modifier.fillMaxSize().padding(Spacing.screen),
+        verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 Text(
                     "${plan.goal.raceDistance.label} · ${plan.goal.raceDate.format(FULL_DATE)}",
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleLarge,
                 )
                 Text(
                     "${plan.totalWeeks} tuần · khối lượng tăng dần rồi giảm tải trước giải",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     OutlinedButton(onClick = onEdit) { Text("Đổi mục tiêu") }
                     TextButton(onClick = onClear) { Text("Xoá mục tiêu") }
                 }
@@ -137,16 +138,17 @@ private fun PlanContent(plan: TrainingPlan, onEdit: () -> Unit, onClear: () -> U
 
 @Composable
 private fun WeekCard(week: PlanWeek) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    ElevatedCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(
                     "Tuần ${week.index} · ${week.phase.label()}",
                     style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
                 )
                 Text(
                     "${trimZero(week.targetDistanceKm)} km",
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }

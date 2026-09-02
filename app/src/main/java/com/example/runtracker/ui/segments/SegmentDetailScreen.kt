@@ -34,6 +34,9 @@ import com.example.runtracker.core.formatClock
 import com.example.runtracker.core.formatDistanceKm
 import com.example.runtracker.domain.model.SegmentEffort
 import com.example.runtracker.ui.common.PathMap
+import com.example.runtracker.ui.components.EmptyState
+import com.example.runtracker.ui.components.SectionHeader
+import com.example.runtracker.ui.theme.Spacing
 import com.google.android.gms.maps.model.LatLng
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -72,28 +75,29 @@ fun SegmentDetailScreen(
                 Text(
                     "${formatDistanceKm(s.distanceMeters)} · độ dốc TB ${"%.1f".format(s.avgGrade)}%",
                     style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(16.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(Spacing.screen),
                 )
             }
 
-            Text(
-                "Bảng xếp hạng (${leaderboard.size})",
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.padding(horizontal = 16.dp),
+            SectionHeader(
+                "Bảng xếp hạng",
+                subtitle = "${leaderboard.size} lượt · PR cá nhân theo thời gian",
+                modifier = Modifier.padding(horizontal = Spacing.screen),
             )
 
             if (leaderboard.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        "Chưa có lượt nào. Chạy qua đoạn này để ghi thành tích.",
-                        style = MaterialTheme.typography.bodySmall,
+                    EmptyState(
+                        title = "Chưa có lượt nào",
+                        message = "Chạy qua đoạn này để ghi thành tích đầu tiên.",
                     )
                 }
             } else {
                 LazyColumn(Modifier.fillMaxSize()) {
                     items(leaderboard, key = { it.id }) { effort ->
                         LeaderboardRow(effort)
-                        HorizontalDivider()
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     }
                 }
             }

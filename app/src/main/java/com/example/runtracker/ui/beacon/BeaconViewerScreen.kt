@@ -35,6 +35,8 @@ import com.example.runtracker.core.formatDistanceKm
 import com.example.runtracker.domain.model.BeaconSnapshot
 import com.example.runtracker.domain.model.BeaconStatus
 import com.example.runtracker.ui.common.PathMap
+import com.example.runtracker.ui.components.LabeledValue
+import com.example.runtracker.ui.theme.Spacing
 import com.google.android.gms.maps.model.LatLng
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -93,12 +95,13 @@ private fun CodeEntry(
     onFollow: () -> Unit,
 ) {
     Column(
-        Modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        Modifier.fillMaxSize().padding(Spacing.screen),
+        verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         Text(
             "Nhập mã beacon mà người chạy chia sẻ để xem vị trí của họ theo thời gian thực.",
             style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         OutlinedTextField(
             value = input,
@@ -137,8 +140,8 @@ private fun Following(
         }
 
         Column(
-            Modifier.fillMaxWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            Modifier.fillMaxWidth().padding(Spacing.screen),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Mã $code", style = MaterialTheme.typography.titleMedium)
@@ -147,9 +150,9 @@ private fun Following(
 
             val latest = snapshot?.latest
             if (latest != null) {
-                StatRow("Quãng đường", formatDistanceKm(latest.distanceMeters))
-                StatRow("Thời gian", formatClock(latest.elapsedSeconds))
-                StatRow(
+                LabeledValue("Quãng đường", formatDistanceKm(latest.distanceMeters))
+                LabeledValue("Thời gian", formatClock(latest.elapsedSeconds))
+                LabeledValue(
                     "Cập nhật lúc",
                     latest.timestamp.atZone(ZoneId.systemDefault()).toLocalTime().format(TIME_FORMAT),
                 )
@@ -178,12 +181,4 @@ private fun StatusChip(status: BeaconStatus) {
         label = { Text(label) },
         colors = AssistChipDefaults.assistChipColors(labelColor = color),
     )
-}
-
-@Composable
-private fun StatRow(label: String, value: String) {
-    Row(Modifier.fillMaxWidth()) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-        Text(value, style = MaterialTheme.typography.bodyMedium)
-    }
 }
