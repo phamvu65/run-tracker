@@ -1,6 +1,7 @@
 package com.example.runtracker.ui
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
@@ -23,6 +24,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.runtracker.ui.challenges.ARG_CHALLENGE_ID
+import com.example.runtracker.ui.challenges.ChallengeDetailScreen
+import com.example.runtracker.ui.challenges.ChallengeListScreen
+import com.example.runtracker.ui.challenges.CreateChallengeScreen
 import com.example.runtracker.ui.detail.ARG_ACTIVITY_ID
 import com.example.runtracker.ui.detail.ActivityDetailScreen
 import com.example.runtracker.ui.fitness.FitnessScreen
@@ -52,16 +57,21 @@ private object Routes {
     const val ROUTES = "routes"
     const val ROUTE_BUILDER = "route_builder"
     const val ROUTE_DETAIL = "route/{$ARG_ROUTE_ID}"
+    const val CHALLENGES = "challenges"
+    const val CHALLENGE_CREATE = "challenge_create"
+    const val CHALLENGE_DETAIL = "challenge/{$ARG_CHALLENGE_ID}"
     const val DETAIL = "detail/{$ARG_ACTIVITY_ID}"
     fun detail(activityId: String) = "detail/$activityId"
     fun segment(segmentId: String) = "segment/$segmentId"
     fun route(routeId: String) = "route/$routeId"
+    fun challenge(challengeId: String) = "challenge/$challengeId"
 }
 
 private enum class TopLevelDest(val route: String, val label: String, val icon: ImageVector) {
     TRACKING(Routes.TRACKING, "Ghi", Icons.Filled.PlayArrow),
     FITNESS(Routes.FITNESS, "Fitness", Icons.Filled.Favorite),
     SEGMENTS(Routes.SEGMENTS, "Segments", Icons.Filled.Star),
+    CHALLENGES(Routes.CHALLENGES, "Thử thách", Icons.Filled.DateRange),
     ROUTES(Routes.ROUTES, "Routes", Icons.Filled.LocationOn),
     PROFILE(Routes.PROFILE, "Hồ sơ", Icons.Filled.Person),
 }
@@ -159,6 +169,28 @@ fun RunTrackerNavHost(modifier: Modifier = Modifier) {
                 arguments = listOf(navArgument(ARG_ROUTE_ID) { type = NavType.StringType }),
             ) {
                 RouteDetailScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Routes.CHALLENGES) {
+                ChallengeListScreen(
+                    onBack = null,
+                    onChallengeClick = { navController.navigate(Routes.challenge(it)) },
+                    onCreateChallenge = { navController.navigate(Routes.CHALLENGE_CREATE) },
+                )
+            }
+            composable(Routes.CHALLENGE_CREATE) {
+                CreateChallengeScreen(
+                    onBack = { navController.popBackStack() },
+                    onCreated = { challengeId ->
+                        navController.popBackStack()
+                        navController.navigate(Routes.challenge(challengeId))
+                    },
+                )
+            }
+            composable(
+                route = Routes.CHALLENGE_DETAIL,
+                arguments = listOf(navArgument(ARG_CHALLENGE_ID) { type = NavType.StringType }),
+            ) {
+                ChallengeDetailScreen(onBack = { navController.popBackStack() })
             }
             composable(
                 route = Routes.DETAIL,

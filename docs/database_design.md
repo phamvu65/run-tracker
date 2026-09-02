@@ -322,7 +322,13 @@ data class DeviceConnectionEntity(
 
 ---
 
-## 4. Phase 3 — Mở rộng (đặt sẵn khung, chưa cần code logic ngay)
+## 4. Phase 3 — Mở rộng
+
+> **Group Challenges đã triển khai** (việc 22): local-first, người tạo tự tham gia, tiến độ tính lại từ
+> activity của người dùng trong `[startDate, endDate]` theo `goalType` (`TOTAL_DISTANCE` mét /
+> `TOTAL_ACTIVITIES` số buổi / `TOTAL_ELEVATION` mét / `TOTAL_DURATION` giây). `ChallengeParticipant`
+> có cấu trúc leaderboard nhiều người nhưng chờ backend mới có người tham gia khác. Không đổi schema
+> hai bảng dưới.
 
 ```kotlin
 @Entity(tableName = "challenges")
