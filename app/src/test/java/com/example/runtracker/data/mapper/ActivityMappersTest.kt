@@ -2,6 +2,7 @@ package com.example.runtracker.data.mapper
 
 import com.example.runtracker.domain.model.Activity
 import com.example.runtracker.domain.model.ActivityType
+import com.example.runtracker.domain.model.ActivityWeather
 import com.example.runtracker.domain.model.RoutePoint
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -31,13 +32,34 @@ class ActivityMappersTest {
             calories = 320,
             avgCadence = 168,
             perceivedExertion = 6,
-            weatherTempC = null,
+            weather = ActivityWeather(
+                temperatureC = 27.5,
+                apparentTemperatureC = 30.1,
+                humidityPct = 78,
+                windSpeedMps = 3.4,
+                windDirectionDeg = 210,
+                weatherCode = 2,
+            ),
             gpxRawPath = null,
         )
 
         val restored = activity.toEntity(updatedAt = 1_000L).toDomain()
 
         assertEquals(activity, restored)
+    }
+
+    @Test
+    fun `null weather round trips as null`() {
+        val activity = Activity(
+            id = "x", userId = "u", type = ActivityType.RUNNING,
+            startTime = Instant.EPOCH, endTime = Instant.EPOCH,
+            distanceMeters = 0.0, duration = 0.seconds, movingTime = 0.seconds,
+            avgPaceSecPerKm = 0.0, avgSpeedKmh = 0.0,
+            elevationGainMeters = 0.0, elevationLossMeters = 0.0,
+            avgHeartRate = null, maxHeartRate = null, calories = null, avgCadence = null,
+            perceivedExertion = null, weather = null, gpxRawPath = null,
+        )
+        assertEquals(null, activity.toEntity(updatedAt = 0L).toDomain().weather)
     }
 
     @Test
@@ -49,7 +71,7 @@ class ActivityMappersTest {
             avgPaceSecPerKm = 0.0, avgSpeedKmh = 0.0,
             elevationGainMeters = 0.0, elevationLossMeters = 0.0,
             avgHeartRate = null, maxHeartRate = null, calories = null, avgCadence = null,
-            perceivedExertion = null, weatherTempC = null, gpxRawPath = null,
+            perceivedExertion = null, weather = null, gpxRawPath = null,
         ).toEntity(updatedAt = 0L).copy(type = "SWIMMING")
 
         assertEquals(ActivityType.OTHER, entity.toDomain().type)

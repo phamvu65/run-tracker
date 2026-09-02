@@ -7,6 +7,7 @@ import com.example.runtracker.data.local.entity.RoutePointEntity
 import com.example.runtracker.domain.model.Activity
 import com.example.runtracker.domain.model.ActivityLap
 import com.example.runtracker.domain.model.ActivityType
+import com.example.runtracker.domain.model.ActivityWeather
 import com.example.runtracker.domain.model.HeartRateSample
 import com.example.runtracker.domain.model.RoutePoint
 import java.time.Instant
@@ -32,7 +33,16 @@ fun ActivityEntity.toDomain(): Activity = Activity(
     calories = calories,
     avgCadence = avgCadence,
     perceivedExertion = perceivedExertion,
-    weatherTempC = weatherTempC,
+    weather = weatherTempC?.let {
+        ActivityWeather(
+            temperatureC = it,
+            apparentTemperatureC = weatherApparentTempC,
+            humidityPct = weatherHumidityPct,
+            windSpeedMps = weatherWindMps,
+            windDirectionDeg = weatherWindDirDeg,
+            weatherCode = weatherCode,
+        )
+    },
     gpxRawPath = gpxRawPath,
 )
 
@@ -57,7 +67,12 @@ fun Activity.toEntity(updatedAt: Long, isSynced: Boolean = false): ActivityEntit
     maxHeartRate = maxHeartRate,
     calories = calories,
     avgCadence = avgCadence,
-    weatherTempC = weatherTempC,
+    weatherTempC = weather?.temperatureC,
+    weatherApparentTempC = weather?.apparentTemperatureC,
+    weatherHumidityPct = weather?.humidityPct,
+    weatherWindMps = weather?.windSpeedMps,
+    weatherWindDirDeg = weather?.windDirectionDeg,
+    weatherCode = weather?.weatherCode,
     perceivedExertion = perceivedExertion,
     gpxRawPath = gpxRawPath,
     isSynced = isSynced,

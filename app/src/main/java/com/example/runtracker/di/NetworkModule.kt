@@ -2,6 +2,7 @@ package com.example.runtracker.di
 
 import com.example.runtracker.BuildConfig
 import com.example.runtracker.data.remote.DirectionsApi
+import com.example.runtracker.data.remote.WeatherApi
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -47,4 +48,8 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideDirectionsApi(retrofit: Retrofit): DirectionsApi = retrofit.create(DirectionsApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideWeatherApi(retrofit: Retrofit): WeatherApi = retrofit.create(WeatherApi::class.java)
 }

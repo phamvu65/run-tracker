@@ -18,6 +18,7 @@ import com.example.runtracker.domain.repository.ZoneSettingsRepository
 import com.example.runtracker.domain.training.TrimpCalculator
 import com.example.runtracker.domain.training.ZoneDistribution
 import com.example.runtracker.domain.training.ZoneTime
+import com.example.runtracker.domain.usecase.FetchActivityWeatherUseCase
 import com.example.runtracker.domain.usecase.ImportHeartRateUseCase
 import com.example.runtracker.domain.usecase.RefreshTrainingMetricsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -27,8 +28,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.Instant
 import java.time.Year
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 
 const val ARG_ACTIVITY_ID = "activityId"
@@ -43,6 +46,7 @@ class ActivityDetailViewModel @Inject constructor(
     private val refreshTrainingMetrics: RefreshTrainingMetricsUseCase,
     private val heartRateSource: HeartRateSource,
     private val importHeartRate: ImportHeartRateUseCase,
+    private val fetchActivityWeather: FetchActivityWeatherUseCase,
 ) : ViewModel() {
 
     private val activityId: String = checkNotNull(savedStateHandle[ARG_ACTIVITY_ID])
@@ -53,6 +57,9 @@ class ActivityDetailViewModel @Inject constructor(
     val heartRateAvailable: StateFlow<Boolean> = _heartRateAvailable
 
     var importMessage by mutableStateOf<String?>(null)
+        private set
+
+    var weatherMessage by mutableStateOf<String?>(null)
         private set
 
     val state: StateFlow<ActivityDetailUiState> = combine(
@@ -97,6 +104,29 @@ class ActivityDetailViewModel @Inject constructor(
 
     init {
         viewModelScope.launch { _heartRateAvailable.value = heartRateSource.isAvailable() }
+        viewModelScope.launch { autoFetchWeather() }
+    }
+
+    /** Tự lấy thời tiết khi mở chi tiết nếu chưa có + buổi tập trong ~90 ngày (im lặng khi thất bại). */
+    private suspend fun autoFetchWeather() {
+        val activity = repository.getActivity(activityId) ?: return
+        if (activity.weather != null) return
+        if (activity.startTime.isBefore(Instant.now().minus(90, ChronoUnit.DAYS))) return
+        fetchActivityWeather(activityId)
+    }
+
+    fun refreshWeather() {
+        viewModelScope.launch {
+            weatherMessage = "Đang lấy thời tiết…"
+            weatherMessage = when (fetchActivityWeather(activityId, force = true)) {
+                FetchActivityWeatherUseCase.Outcome.FETCHED -> "Đã cập nhật thời tiết."
+                FetchActivityWeatherUseCase.Outcome.ALREADY_PRESENT -> null
+                FetchActivityWeatherUseCase.Outcome.NO_LOCATION ->
+                    "Buổi tập không có dữ liệu GPS để tra thời tiết."
+                FetchActivityWeatherUseCase.Outcome.FAILED ->
+                    "Không lấy được thời tiết (chỉ hỗ trợ khoảng 90 ngày gần đây)."
+            }
+        }
     }
 
     fun setPerceivedExertion(rpe: Int) {

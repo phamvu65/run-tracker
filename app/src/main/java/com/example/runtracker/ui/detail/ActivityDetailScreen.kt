@@ -39,6 +39,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.formatClock
 import com.example.runtracker.core.formatDistanceKm
 import com.example.runtracker.core.formatPace
+import com.example.runtracker.domain.model.ActivityWeather
 import com.example.runtracker.domain.training.ZoneTime
 import kotlin.math.roundToInt
 
@@ -88,6 +89,7 @@ fun ActivityDetailScreen(
                     state = s,
                     heartRateAvailable = heartRateAvailable,
                     importMessage = viewModel.importMessage,
+                    weatherMessage = viewModel.weatherMessage,
                     zoneDistribution = zoneDistribution,
                     segmentEfforts = segmentEfforts,
                     onSyncHeartRate = {
@@ -96,6 +98,7 @@ fun ActivityDetailScreen(
                         }
                     },
                     onSetRpe = viewModel::setPerceivedExertion,
+                    onRefreshWeather = viewModel::refreshWeather,
                     onCreateSegment = onCreateSegment,
                 )
             }
@@ -108,10 +111,12 @@ private fun LoadedContent(
     state: ActivityDetailUiState.Loaded,
     heartRateAvailable: Boolean,
     importMessage: String?,
+    weatherMessage: String?,
     zoneDistribution: List<ZoneTime>,
     segmentEfforts: List<SegmentEffortRow>,
     onSyncHeartRate: () -> Unit,
     onSetRpe: (Int) -> Unit,
+    onRefreshWeather: () -> Unit,
     onCreateSegment: () -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
@@ -147,6 +152,12 @@ private fun LoadedContent(
                     onSetRpe = onSetRpe,
                 )
             }
+            WeatherSection(
+                weather = state.activity.weather,
+                message = weatherMessage,
+                hasGps = state.routePoints.isNotEmpty(),
+                onRefreshWeather = onRefreshWeather,
+            )
             ElevationChart(points = state.routePoints, modifier = Modifier.fillMaxWidth())
             ZoneDistributionList(distribution = zoneDistribution, modifier = Modifier.fillMaxWidth())
             LapList(laps = state.laps, modifier = Modifier.fillMaxWidth())
@@ -227,6 +238,45 @@ private fun RpeEditor(current: Int?, onSave: (Int) -> Unit) {
         Button(onClick = { onSave(rpe) }) {
             Text(if (current == null) "Lưu RPE" else "Cập nhật RPE")
         }
+    }
+}
+
+@Composable
+private fun WeatherSection(
+    weather: ActivityWeather?,
+    message: String?,
+    hasGps: Boolean,
+    onRefreshWeather: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("Thời tiết", style = MaterialTheme.typography.titleSmall)
+
+        if (weather != null) {
+            Stat("Điều kiện", weatherCodeDescription(weather.weatherCode))
+            Stat("Nhiệt độ", "%.0f°C".format(weather.temperatureC))
+            weather.apparentTemperatureC?.let { Stat("Cảm giác như", "%.0f°C".format(it)) }
+            weather.humidityPct?.let { Stat("Độ ẩm", "$it%") }
+            weather.windSpeedMps?.let { mps ->
+                val dir = windCompass(weather.windDirectionDeg)
+                Stat("Gió", "%.0f km/h".format(mps * 3.6) + if (dir.isNotEmpty()) " $dir" else "")
+            }
+            OutlinedButton(onClick = onRefreshWeather) { Text("Cập nhật lại") }
+        } else {
+            Text(
+                if (hasGps) {
+                    "Chưa có dữ liệu thời tiết cho buổi tập này."
+                } else {
+                    "Buổi tập không có GPS nên không tra được thời tiết."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (hasGps) {
+                OutlinedButton(onClick = onRefreshWeather) { Text("Lấy thời tiết") }
+            }
+        }
+
+        message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
     }
 }
 

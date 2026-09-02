@@ -24,8 +24,22 @@ data class Activity(
     val calories: Int?,
     val avgCadence: Int?,
     val perceivedExertion: Int?,   // RPE 1-10, fallback cho TRIMP khi thiếu HR
-    val weatherTempC: Double?,
+    val weather: ActivityWeather?,
     val gpxRawPath: String?,
+)
+
+/**
+ * Thời tiết tại điểm xuất phát, thời điểm bắt đầu buổi tập (Phase 3 — weather overlay).
+ * Lấy từ Open-Meteo lúc xem chi tiết; null nếu chưa lấy được.
+ */
+data class ActivityWeather(
+    val temperatureC: Double,
+    val apparentTemperatureC: Double?,
+    val humidityPct: Int?,
+    val windSpeedMps: Double?,
+    val windDirectionDeg: Int?,
+    /** Mã thời tiết WMO (0 = quang, 1-3 = mây, 45/48 = sương mù, 51-67 = mưa, 71-77 = tuyết, 80-99 = mưa rào/dông). */
+    val weatherCode: Int?,
 )
 
 enum class ActivityType(val raw: String) {

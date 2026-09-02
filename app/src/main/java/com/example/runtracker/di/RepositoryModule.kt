@@ -8,6 +8,7 @@ import com.example.runtracker.data.repository.RouteRepositoryImpl
 import com.example.runtracker.data.repository.SegmentRepositoryImpl
 import com.example.runtracker.data.repository.TrainingLoadRepositoryImpl
 import com.example.runtracker.data.repository.UserRepositoryImpl
+import com.example.runtracker.data.repository.WeatherRepositoryImpl
 import com.example.runtracker.data.repository.ZoneSettingsRepositoryImpl
 import com.example.runtracker.domain.repository.ActivityRepository
 import com.example.runtracker.domain.repository.ChallengeRepository
@@ -17,6 +18,7 @@ import com.example.runtracker.domain.repository.RouteRepository
 import com.example.runtracker.domain.repository.SegmentRepository
 import com.example.runtracker.domain.repository.TrainingLoadRepository
 import com.example.runtracker.domain.repository.UserRepository
+import com.example.runtracker.domain.repository.WeatherRepository
 import com.example.runtracker.domain.repository.ZoneSettingsRepository
 import dagger.Binds
 import dagger.Module
@@ -65,4 +67,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindChallengeRepository(impl: ChallengeRepositoryImpl): ChallengeRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindWeatherRepository(impl: WeatherRepositoryImpl): WeatherRepository
 }

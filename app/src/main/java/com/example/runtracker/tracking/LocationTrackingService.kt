@@ -405,7 +405,7 @@ class LocationTrackingService : Service() {
         calories = null,
         avgCadence = null,
         perceivedExertion = null,
-        weatherTempC = null,
+        weather = null,
         gpxRawPath = null,
     )
 

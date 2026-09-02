@@ -2,6 +2,7 @@ package com.example.runtracker.di
 
 import android.content.Context
 import androidx.room.Room
+import com.example.runtracker.data.local.ALL_MIGRATIONS
 import com.example.runtracker.data.local.RunTrackerDatabase
 import com.example.runtracker.data.local.dao.ActivityDao
 import com.example.runtracker.data.local.dao.ChallengeDao
@@ -29,6 +30,7 @@ object DatabaseModule {
         Room.databaseBuilder(context, RunTrackerDatabase::class.java, RunTrackerDatabase.DB_NAME)
             // Room tự bật PRAGMA foreign_keys = ON, nên CASCADE delete (RoutePoint/HeartRateSample
             // -> Activity, RouteWaypoint -> Route) hoạt động sẵn.
+            .addMigrations(*ALL_MIGRATIONS)
             .build()
 
     @Provides fun provideUserDao(db: RunTrackerDatabase): UserDao = db.userDao()

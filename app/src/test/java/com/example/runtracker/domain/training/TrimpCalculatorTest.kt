@@ -83,6 +83,6 @@ class TrimpCalculatorTest {
         avgPaceSecPerKm = 0.0, avgSpeedKmh = 0.0,
         elevationGainMeters = 0.0, elevationLossMeters = 0.0,
         avgHeartRate = avgHr, maxHeartRate = null, calories = null, avgCadence = null,
-        perceivedExertion = rpe, weatherTempC = null, gpxRawPath = null,
+        perceivedExertion = rpe, weather = null, gpxRawPath = null,
     )
 }

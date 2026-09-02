@@ -70,7 +70,12 @@ data class ActivityEntity(
     val maxHeartRate: Int?,
     val calories: Int?,
     val avgCadence: Int?,
-    val weatherTempC: Double?,     // Phase 3 nhưng để sẵn cột, null nếu chưa dùng
+    val weatherTempC: Double?,          // Phase 3 — weather overlay (Open-Meteo), null nếu chưa lấy
+    val weatherApparentTempC: Double? = null,  // thêm ở DB v2 (Migration 1→2)
+    val weatherHumidityPct: Int? = null,       // %
+    val weatherWindMps: Double? = null,        // m/s
+    val weatherWindDirDeg: Int? = null,        // độ
+    val weatherCode: Int? = null,              // mã WMO
     val perceivedExertion: Int?,   // RPE 1-10, người dùng tự nhập (dùng cho TRIMP nếu ko có HR)
     val gpxRawPath: String?,       // đường dẫn file gốc nếu cần export/backup
     val isSynced: Boolean = false,
@@ -354,7 +359,9 @@ data class ChallengeParticipantEntity(
 )
 ```
 
-Cột `weatherTempC` cho weather overlay đã có sẵn ở `ActivityEntity` (mục 2.2) nên không cần đổi schema khi làm tới Phase 3.
+Weather overlay (việc 23) đã triển khai: thêm 5 cột `weather*` vào `activities` qua **Migration 1→2**
+(xem `data/local/Migrations.kt`), lấy dữ liệu từ Open-Meteo (miễn phí, không cần key) khi mở màn chi tiết
+buổi tập. DB_VERSION = 2.
 
 ---
 

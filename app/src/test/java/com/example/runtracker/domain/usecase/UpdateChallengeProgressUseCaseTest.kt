@@ -73,7 +73,7 @@ class UpdateChallengeProgressUseCaseTest {
         avgPaceSecPerKm = 0.0, avgSpeedKmh = 0.0,
         elevationGainMeters = 0.0, elevationLossMeters = 0.0,
         avgHeartRate = null, maxHeartRate = null, calories = null, avgCadence = null,
-        perceivedExertion = null, weatherTempC = null, gpxRawPath = null,
+        perceivedExertion = null, weather = null, gpxRawPath = null,
     )
 
     private class FakeChallengeRepository(
