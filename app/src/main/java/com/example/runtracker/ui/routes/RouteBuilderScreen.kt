@@ -48,7 +48,6 @@ import com.example.runtracker.core.formatDistanceKm
 import com.example.runtracker.core.hasLocationPermission
 import com.example.runtracker.domain.model.GeoPoint
 import com.example.runtracker.domain.model.TravelMode
-import com.example.runtracker.ui.common.MapGuideLineColor
 import com.example.runtracker.ui.common.MapLine
 import com.example.runtracker.ui.common.MapMarker
 import com.example.runtracker.ui.common.OsmMap
@@ -96,7 +95,6 @@ fun RouteBuilderScreen(
     val planned = viewModel.planned
     val previewLine = planned?.polyline ?: tapped
     val lineColor = MaterialTheme.colorScheme.primary
-    val guideColor = MapGuideLineColor
 
     Scaffold(
         modifier = modifier,
@@ -113,14 +111,9 @@ fun RouteBuilderScreen(
     ) { padding ->
         val drawMode = viewModel.drawMode
         Box(Modifier.fillMaxSize().padding(padding)) {
-            val sketch = viewModel.lastSketch
             OsmMap(
                 modifier = Modifier.fillMaxSize(),
                 lines = buildList {
-                    // Nét vẽ tay làm đường dẫn mờ để đối chiếu với route đã bám đường.
-                    if (planned?.snappedToRoads == true && sketch.size >= 2) {
-                        add(MapLine(sketch, guideColor, widthDp = 2f))
-                    }
                     if (previewLine.size >= 2) {
                         add(MapLine(previewLine, lineColor, widthDp = 4.5f, showDirection = true))
                     }
