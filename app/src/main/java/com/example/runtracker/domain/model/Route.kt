@@ -30,6 +30,10 @@ data class RouteLeg(
  * point liên tiếp gửi lên. Dùng để phát hiện chặng nào bị router đi vòng xa (do mạng đường
  * OSM thiếu đoạn nối đúng lúc đó, VD lối ven hồ chưa được vẽ hết) và thay bằng đoạn thẳng
  * theo đúng nét vẽ tay thay vì giữ nguyên đường vòng — xem [BuildRouteUseCase.fromSketch].
+ *
+ * [gapPolylines]: các đoạn thẳng đã thay cho chặng bị vòng ở trên (con của [polyline], chỉ để
+ * UI vẽ khác kiểu — VD nét đứt — báo cho người dùng biết đoạn đó chưa có dữ liệu đường thật,
+ * không phải app bám sai).
  */
 data class PlannedRoute(
     val polyline: List<GeoPoint>,
@@ -37,6 +41,7 @@ data class PlannedRoute(
     val steps: List<RouteStep>,
     val snappedToRoads: Boolean,
     val legs: List<RouteLeg> = emptyList(),
+    val gapPolylines: List<List<GeoPoint>> = emptyList(),
 )
 
 /** Route đã lưu. */

@@ -172,6 +172,74 @@ class BuildRouteUseCaseTest {
         assertEquals(listOf(via0, via1, via2), result.polyline)
         assertEquals(800.0, result.distanceMeters, 1.0)
         assertTrue(result.snappedToRoads)
+        // Đoạn đã vá được ghi lại riêng để UI vẽ nét đứt.
+        assertEquals(listOf(listOf(via1, via2)), result.gapPolylines)
+    }
+
+    @Test
+    fun `fromSketch refines a moderately detoured leg with an extra via point`() = runTest {
+        // Chặng dài hơn chord ~20% (< LEG_DETOUR_RATIO nhưng > MODERATE_DETOUR_RATIO) — đúng
+        // kiểu router chọn nhầm nhánh hơi vòng hơn ở ngã ba nhiều đường ngắn giao nhau.
+        val via0 = geo(0.0)
+        val via1 = geo(200.0)
+        val moderateLeg = RouteLeg(
+            polyline = listOf(via0, GeoPoint(0.001, via0.longitude), via1),
+            distanceMeters = 240.0,
+        )
+        val initialRoute = PlannedRoute(
+            polyline = moderateLeg.polyline,
+            distanceMeters = moderateLeg.distanceMeters,
+            steps = emptyList(),
+            snappedToRoads = true,
+            legs = listOf(moderateLeg),
+        )
+        // Kết quả tinh chỉnh (gọi lại với 1 via point chèn giữa) tìm được nhánh ngắn hơn.
+        val refined = PlannedRoute(
+            polyline = listOf(via0, via1),
+            distanceMeters = 205.0,
+            steps = emptyList(),
+            snappedToRoads = true,
+        )
+        val fake = SequencedFakeDirections(listOf(Result.success(initialRoute), Result.success(refined)))
+        val sketch = listOf(via0, via1)
+
+        val result = BuildRouteUseCase(fake).fromSketch(sketch, TravelMode.WALKING)
+
+        assertEquals(listOf(via0, via1), result.polyline)
+        assertEquals(205.0, result.distanceMeters, 1.0)
+        // Chặng tinh chỉnh thành công không được coi là "lỗ hổng dữ liệu".
+        assertTrue(result.gapPolylines.isEmpty())
+    }
+
+    @Test
+    fun `fromSketch keeps the original leg when refining doesn't improve it`() = runTest {
+        val via0 = geo(0.0)
+        val via1 = geo(200.0)
+        val moderateLeg = RouteLeg(
+            polyline = listOf(via0, GeoPoint(0.001, via0.longitude), via1),
+            distanceMeters = 240.0,
+        )
+        val initialRoute = PlannedRoute(
+            polyline = moderateLeg.polyline,
+            distanceMeters = moderateLeg.distanceMeters,
+            steps = emptyList(),
+            snappedToRoads = true,
+            legs = listOf(moderateLeg),
+        )
+        // Tinh chỉnh không tìm được gì tốt hơn (dài bằng hoặc hơn) -> giữ nguyên chặng gốc.
+        val noImprovement = PlannedRoute(
+            polyline = listOf(via0, GeoPoint(0.001, via0.longitude), via1),
+            distanceMeters = 240.0,
+            steps = emptyList(),
+            snappedToRoads = true,
+        )
+        val fake = SequencedFakeDirections(listOf(Result.success(initialRoute), Result.success(noImprovement)))
+        val sketch = listOf(via0, via1)
+
+        val result = BuildRouteUseCase(fake).fromSketch(sketch, TravelMode.WALKING)
+
+        assertEquals(moderateLeg.polyline, result.polyline)
+        assertEquals(240.0, result.distanceMeters, 1.0)
     }
 
     @Test
@@ -214,6 +282,28 @@ class BuildRouteUseCaseTest {
             lastBearingsDegrees = bearingsDegrees
             lastBearingRangeDegrees = bearingRangeDegrees
             return route
+        }
+    }
+
+    /** Trả lần lượt từng kết quả trong [results] theo đúng thứ tự gọi (giữ nguyên kết quả cuối
+     *  nếu bị gọi nhiều hơn số phần tử). Dùng cho test cần phân biệt cuộc gọi đầu (route chính)
+     *  với cuộc gọi tinh chỉnh chặng ([BuildRouteUseCase.refineLeg]). */
+    private class SequencedFakeDirections(
+        private val results: List<Result<PlannedRoute>>,
+    ) : DirectionsRepository {
+        private var index = 0
+
+        override suspend fun route(
+            waypoints: List<GeoPoint>,
+            mode: TravelMode,
+            allowUTurns: Boolean,
+            radiusMeters: Double?,
+            bearingsDegrees: List<Double>?,
+            bearingRangeDegrees: Double,
+        ): Result<PlannedRoute> {
+            val result = results[index.coerceAtMost(results.size - 1)]
+            index++
+            return result
         }
     }
 }

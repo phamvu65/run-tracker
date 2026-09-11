@@ -2,6 +2,7 @@ package com.example.runtracker.ui.common
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.DashPathEffect
 import android.graphics.Paint
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -72,12 +73,16 @@ import org.osmdroid.util.GeoPoint as OsmPoint
 /**
  * Một đường vẽ trên bản đồ. `widthDp` là bề rộng nét theo dp (nhân với mật độ khi vẽ).
  * [showDirection] = true: rải mũi tên chỉ chiều đi dọc đường.
+ * [dashed] = true: vẽ nét đứt thay vì nét liền — dùng cho đoạn ước tính theo nét vẽ tay vì
+ * chưa có dữ liệu đường thật (xem `PlannedRoute.gapPolylines`), để không bị hiểu nhầm là bám
+ * sai hay app bị lỗi.
  */
 data class MapLine(
     val points: List<GeoPoint>,
     val color: Color,
     val widthDp: Float = 4f,
     val showDirection: Boolean = false,
+    val dashed: Boolean = false,
 )
 
 /**
@@ -200,6 +205,9 @@ fun MapView.renderPath(
                 outlinePaint.strokeCap = Paint.Cap.ROUND
                 outlinePaint.strokeJoin = Paint.Join.ROUND
                 outlinePaint.isAntiAlias = true
+                if (line.dashed) {
+                    outlinePaint.pathEffect = DashPathEffect(floatArrayOf(18f * density, 14f * density), 0f)
+                }
                 if (line.showDirection) {
                     setMilestoneManagers(directionMilestones(line.color, density))
                 }

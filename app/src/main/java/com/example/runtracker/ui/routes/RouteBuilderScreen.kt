@@ -117,6 +117,11 @@ fun RouteBuilderScreen(
                     if (previewLine.size >= 2) {
                         add(MapLine(previewLine, lineColor, widthDp = 4.5f, showDirection = true))
                     }
+                    // Đoạn chưa có dữ liệu đường thật (đã thay bằng đường thẳng theo nét vẽ
+                    // tay) — vẽ nét đứt đè lên để phân biệt với đoạn đã bám đường thật.
+                    planned?.gapPolylines?.forEach { gap ->
+                        if (gap.size >= 2) add(MapLine(gap, lineColor, widthDp = 4.5f, dashed = true))
+                    }
                 },
                 markers = when {
                     // Đã có route: chỉ cần mốc xuất phát / về đích, mũi tên lo phần chiều đi.
@@ -183,6 +188,15 @@ fun RouteBuilderScreen(
                         },
                         style = MaterialTheme.typography.titleSmall,
                     )
+
+                    if (!planned?.gapPolylines.isNullOrEmpty()) {
+                        Text(
+                            "Nét đứt: đoạn chưa có dữ liệu đường trong OpenStreetMap, " +
+                                "vẽ thẳng theo đúng nét bạn vẽ tay.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
 
                     viewModel.notice?.let { text ->
                         Text(
