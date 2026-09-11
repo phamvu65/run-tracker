@@ -67,6 +67,7 @@ import com.example.runtracker.ui.theme.Spacing
 @Composable
 fun TrackingScreen(
     modifier: Modifier = Modifier,
+    onRunComplete: (activityId: String) -> Unit = {},
     viewModel: TrackingViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
@@ -77,6 +78,14 @@ fun TrackingScreen(
     val plannedType by viewModel.plannedType.collectAsState()
     val liveTrace by viewModel.liveTrace.collectAsState()
     val beacon by viewModel.beacon.collectAsState()
+    val justFinishedId by viewModel.justFinishedActivityId.collectAsState()
+
+    LaunchedEffect(justFinishedId) {
+        justFinishedId?.let {
+            viewModel.consumeJustFinishedActivity()
+            onRunComplete(it)
+        }
+    }
 
     var showRoutePicker by remember { mutableStateOf(false) }
     var showSportPicker by remember { mutableStateOf(false) }

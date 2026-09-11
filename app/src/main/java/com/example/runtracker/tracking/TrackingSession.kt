@@ -32,6 +32,23 @@ class TrackingSession @Inject constructor() {
         _plannedType.value = type
     }
 
+    /**
+     * Id buổi tập vừa chốt số liệu xong (STOP bình thường hoặc "kết thúc buổi gián đoạn") — tín
+     * hiệu một lần để UI điều hướng sang màn kết quả. Chỉ mang id, không mang kỷ lục: màn kết
+     * quả tự tính lại qua [com.example.runtracker.domain.usecase.DetectPersonalRecordsUseCase]
+     * khi mở, tránh phải truyền dữ liệu phức tạp qua Compose Navigation.
+     */
+    private val _justFinishedActivityId = MutableStateFlow<String?>(null)
+    val justFinishedActivityId: StateFlow<String?> = _justFinishedActivityId.asStateFlow()
+
+    fun activityFinished(activityId: String) {
+        _justFinishedActivityId.value = activityId
+    }
+
+    fun consumeJustFinishedActivity() {
+        _justFinishedActivityId.value = null
+    }
+
     fun update(transform: (TrackingState) -> TrackingState) = _state.update(transform)
 
     fun reset() {

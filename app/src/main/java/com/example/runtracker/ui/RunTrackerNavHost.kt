@@ -32,6 +32,7 @@ import com.example.runtracker.ui.challenges.ARG_CHALLENGE_ID
 import com.example.runtracker.ui.challenges.ChallengeDetailScreen
 import com.example.runtracker.ui.challenges.ChallengeListScreen
 import com.example.runtracker.ui.challenges.CreateChallengeScreen
+import com.example.runtracker.ui.complete.RunCompleteScreen
 import com.example.runtracker.ui.detail.ARG_ACTIVITY_ID
 import com.example.runtracker.ui.detail.ActivityDetailScreen
 import com.example.runtracker.ui.fitness.FitnessScreen
@@ -72,6 +73,8 @@ private object Routes {
     const val CHALLENGE_DETAIL = "challenge/{$ARG_CHALLENGE_ID}"
     const val DETAIL = "detail/{$ARG_ACTIVITY_ID}"
     fun detail(activityId: String) = "detail/$activityId"
+    const val RUN_COMPLETE = "run_complete/{$ARG_ACTIVITY_ID}"
+    fun runComplete(activityId: String) = "run_complete/$activityId"
     fun segment(segmentId: String) = "segment/$segmentId"
     fun route(routeId: String) = "route/$routeId"
     fun challenge(challengeId: String) = "challenge/$challengeId"
@@ -143,7 +146,19 @@ fun RunTrackerNavHost(modifier: Modifier = Modifier) {
             modifier = Modifier.padding(innerPadding),
         ) {
             composable(Routes.TRACKING) {
-                TrackingScreen()
+                TrackingScreen(onRunComplete = { navController.navigate(Routes.runComplete(it)) })
+            }
+            composable(
+                route = Routes.RUN_COMPLETE,
+                arguments = listOf(navArgument(ARG_ACTIVITY_ID) { type = NavType.StringType }),
+            ) {
+                RunCompleteScreen(
+                    onClose = { navController.popBackStack() },
+                    onViewDetail = { activityId ->
+                        navController.popBackStack()
+                        navController.navigate(Routes.detail(activityId))
+                    },
+                )
             }
             composable(Routes.ACTIVITIES) {
                 ActivityListScreen(

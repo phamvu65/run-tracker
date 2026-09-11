@@ -476,6 +476,7 @@ class LocationTrackingService : Service() {
         val id = activityId ?: return
         // Tính lại aggregate + lap từ trace đã lưu (số liệu chuẩn, không lệ thuộc state bộ nhớ).
         finalizeActivityUseCase(id, endTime = Instant.now(), pausedSeconds = pausedAccumSeconds)
+        session.activityFinished(id)
         stateStore.clear()
         beaconController.reset()
 

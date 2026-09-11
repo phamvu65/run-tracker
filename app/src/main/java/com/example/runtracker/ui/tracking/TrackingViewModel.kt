@@ -99,12 +99,18 @@ class TrackingViewModel @Inject constructor(
         _interruptedActivityId.value = null
     }
 
+    /** Id buổi tập vừa chốt số liệu xong — UI quan sát để điều hướng sang màn kết quả. */
+    val justFinishedActivityId: StateFlow<String?> = session.justFinishedActivityId
+
+    fun consumeJustFinishedActivity() = session.consumeJustFinishedActivity()
+
     /** Chốt số liệu buổi bị gián đoạn từ trace đã lưu (endTime = điểm GPS cuối). */
     fun finalizeInterrupted() {
         val id = _interruptedActivityId.value ?: return
         _interruptedActivityId.value = null
         viewModelScope.launch {
             finalizeActivityUseCase(id)
+            session.activityFinished(id)
             stateStore.clear()
         }
     }
