@@ -1,5 +1,8 @@
 package com.example.runtracker.ui.routes
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,14 +39,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.formatDistanceKm
+import com.example.runtracker.core.hasLocationPermission
 import com.example.runtracker.domain.model.GeoPoint
 import com.example.runtracker.domain.model.TravelMode
 import com.example.runtracker.ui.common.MapLine
 import com.example.runtracker.ui.common.MapMarker
 import com.example.runtracker.ui.common.OsmMap
+import com.example.runtracker.ui.common.startFinishMarkers
 import com.example.runtracker.ui.theme.Spacing
 
 private val DEFAULT_CAMERA = GeoPoint(10.7769, 106.7009) // TP.HCM
@@ -64,11 +72,30 @@ fun RouteBuilderScreen(
     }
 
     var showNameDialog by remember { mutableStateOf(false) }
+    val density = LocalDensity.current
+    var panelHeight by remember { mutableStateOf(0.dp) }
+
+    // Xin quyền vị trí để hiện chấm "vị trí của tôi" + nút định vị trên bản đồ.
+    val context = LocalContext.current
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) {}
+    LaunchedEffect(Unit) {
+        if (!context.hasLocationPermission()) {
+            locationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                ),
+            )
+        }
+    }
 
     val tapped = viewModel.tappedPoints
     val planned = viewModel.planned
     val previewLine = planned?.polyline ?: tapped
     val lineColor = MaterialTheme.colorScheme.primary
+    val guideColor = MaterialTheme.colorScheme.outline
 
     Scaffold(
         modifier = modifier,
@@ -85,17 +112,24 @@ fun RouteBuilderScreen(
     ) { padding ->
         val drawMode = viewModel.drawMode
         Box(Modifier.fillMaxSize().padding(padding)) {
+            val sketch = viewModel.lastSketch
             OsmMap(
                 modifier = Modifier.fillMaxSize(),
-                lines = if (previewLine.size >= 2) {
-                    listOf(MapLine(previewLine, lineColor, widthDp = 3.5f))
-                } else {
-                    emptyList()
+                lines = buildList {
+                    // Nét vẽ tay làm đường dẫn mờ để đối chiếu với route đã bám đường.
+                    if (planned?.snappedToRoads == true && sketch.size >= 2) {
+                        add(MapLine(sketch, guideColor, widthDp = 2f))
+                    }
+                    if (previewLine.size >= 2) {
+                        add(MapLine(previewLine, lineColor, widthDp = 4.5f, showDirection = true))
+                    }
                 },
-                markers = if (drawMode) {
-                    emptyList()
-                } else {
-                    tapped.mapIndexed { i, p -> MapMarker(p, "Điểm ${i + 1}") }
+                markers = when {
+                    // Đã có route: chỉ cần mốc xuất phát / về đích, mũi tên lo phần chiều đi.
+                    previewLine.size >= 2 && (planned != null || drawMode) ->
+                        startFinishMarkers(previewLine)
+                    drawMode -> emptyList()
+                    else -> tapped.mapIndexed { i, p -> MapMarker(p, "Điểm ${i + 1}") }
                 },
                 onTap = if (drawMode) null else ({ viewModel.addPoint(it) }),
                 fitToLines = false,
@@ -104,8 +138,8 @@ fun RouteBuilderScreen(
                 showMyLocation = true,
                 drawMode = drawMode,
                 onSketch = viewModel::applySketch,
-                // chừa lề dưới cho panel điều khiển
-                controlsPadding = PaddingValues(end = 12.dp, bottom = 220.dp, top = 12.dp),
+                // chừa lề dưới cho panel điều khiển (đo động)
+                controlsPadding = PaddingValues(end = 12.dp, bottom = panelHeight + 12.dp, top = 12.dp),
             )
 
             if (drawMode) {
@@ -125,7 +159,10 @@ fun RouteBuilderScreen(
             }
 
             Surface(
-                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .onSizeChanged { panelHeight = with(density) { it.height.toDp() } },
                 shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
                 color = MaterialTheme.colorScheme.surface,
                 shadowElevation = 12.dp,
@@ -141,14 +178,25 @@ fun RouteBuilderScreen(
                     Text(
                         when {
                             viewModel.loading -> "Đang bám đường…"
-                            planned != null -> "${formatDistanceKm(planned.distanceMeters)}" +
-                                if (planned.snappedToRoads) " (bám đường)" else " (đường thẳng)"
-                            drawMode -> "Khoanh một vòng quanh khu vực — app tự bám đường"
+                            planned != null -> "${formatDistanceKm(planned.distanceMeters)}" + when {
+                                planned.snappedToRoads -> " (bám đường)"
+                                viewModel.lastSketch.size >= 2 -> " (theo nét vẽ tay)"
+                                else -> " (đường thẳng)"
+                            }
+                            drawMode -> "Khoanh một vòng theo đường bạn muốn chạy rồi thả tay"
                             tapped.size >= 2 -> "${tapped.size} điểm — bấm \"Tính đường\""
                             else -> "Chạm bản đồ để thêm điểm, hoặc bật \"Vẽ tay\""
                         },
                         style = MaterialTheme.typography.titleSmall,
                     )
+
+                    viewModel.notice?.let { text ->
+                        Text(
+                            text,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
 
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         FilterChip(
@@ -184,6 +232,22 @@ fun RouteBuilderScreen(
                                 onClick = viewModel::computeRoute,
                                 enabled = tapped.size >= 2 && !viewModel.loading,
                             ) { Text(if (viewModel.loading) "Đang tính…" else "Tính đường") }
+                        }
+                    }
+
+                    if (drawMode && planned != null && viewModel.lastSketch.size >= 2) {
+                        if (planned.snappedToRoads) {
+                            OutlinedButton(
+                                onClick = viewModel::useSketchAsRoute,
+                                enabled = !viewModel.loading,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text("Bám sai? Quay lại nét vẽ tay") }
+                        } else {
+                            OutlinedButton(
+                                onClick = viewModel::snapSketchToRoads,
+                                enabled = !viewModel.loading,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text(if (viewModel.loading) "Đang bám đường…" else "Bám theo đường (thử)") }
                         }
                     }
 

@@ -1,5 +1,3 @@
-import java.util.Properties
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -9,14 +7,7 @@ plugins {
     alias(libs.plugins.hilt)
 }
 
-// Bản đồ dùng OpenStreetMap (osmdroid) — KHÔNG cần API key.
-// OpenRouteService key (bám đường cho Route Builder): đặt `ORS_API_KEY=...` trong
-// local.properties (đã gitignore). Đăng ký miễn phí ở openrouteservice.org, không cần thẻ.
-// Thiếu key thì Route Builder vẫn chạy, chỉ fallback đường thẳng.
-val orsApiKey: String = Properties().apply {
-    val file = rootProject.file("local.properties")
-    if (file.exists()) file.inputStream().use { load(it) }
-}.getProperty("ORS_API_KEY", "")
+// Bản đồ (osmdroid) + routing (OSRM của FOSSGIS) đều KHÔNG cần API key.
 
 android {
     namespace = "com.example.runtracker"
@@ -32,8 +23,6 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-        buildConfigField("String", "ORS_API_KEY", "\"$orsApiKey\"")
     }
 
     buildTypes {

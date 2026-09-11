@@ -29,6 +29,7 @@ import com.example.runtracker.ui.common.fitToPoints
 import com.example.runtracker.ui.common.lastKnownLocation
 import com.example.runtracker.ui.common.rememberOsmMapView
 import com.example.runtracker.ui.common.renderPath
+import com.example.runtracker.ui.common.startFinishMarkers
 import com.example.runtracker.ui.common.tileSourceFor
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
@@ -106,10 +107,14 @@ fun TrackingMap(
     }
 
     val lines = buildList {
-        if (plannedRoute.size >= 2) add(MapLine(plannedRoute, outline, widthDp = 3f))
+        // Mũi tên trên route đã chọn để biết chạy theo chiều nào.
+        if (plannedRoute.size >= 2) add(MapLine(plannedRoute, outline, widthDp = 3.5f, showDirection = true))
         if (trace.size >= 2) add(MapLine(trace, primary, widthDp = 4.5f))
     }
-    val markers = current?.let { listOf(MapMarker(it, "Vị trí hiện tại")) }.orEmpty()
+    val markers = buildList {
+        addAll(startFinishMarkers(plannedRoute))
+        current?.let { add(MapMarker(it, "Vị trí hiện tại")) }
+    }
 
     val recenter: (() -> Unit)? = if (hasPermission) {
         {

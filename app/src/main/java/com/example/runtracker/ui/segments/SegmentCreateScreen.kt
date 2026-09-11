@@ -32,11 +32,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.formatDistanceKm
 import com.example.runtracker.ui.common.MapLine
 import com.example.runtracker.ui.common.OsmMap
+import com.example.runtracker.ui.common.startFinishMarkers
 import com.example.runtracker.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,6 +60,8 @@ fun SegmentCreateScreen(
     val total = viewModel.totalDistanceMeters
     var range by remember(total) { mutableStateOf(0f..total) }
     var name by remember { mutableStateOf("") }
+    val density = LocalDensity.current
+    var panelHeight by remember { mutableStateOf(0.dp) }
 
     val fullLine = viewModel.routePoints
     val subLine = remember(range, viewModel.routePoints) {
@@ -83,14 +88,20 @@ fun SegmentCreateScreen(
                 modifier = Modifier.fillMaxSize(),
                 lines = buildList {
                     if (fullLine.size >= 2) add(MapLine(fullLine, outlineColor, widthDp = 3f))
-                    if (subLine.size >= 2) add(MapLine(subLine, primaryColor, widthDp = 4.5f))
+                    if (subLine.size >= 2) {
+                        add(MapLine(subLine, primaryColor, widthDp = 4.5f, showDirection = true))
+                    }
                 },
+                markers = startFinishMarkers(subLine),
                 fitToLines = true,
-                controlsPadding = PaddingValues(end = 12.dp, bottom = 240.dp, top = 12.dp),
+                controlsPadding = PaddingValues(end = 12.dp, bottom = panelHeight + 12.dp, top = 12.dp),
             )
 
             Surface(
-                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .onSizeChanged { panelHeight = with(density) { it.height.toDp() } },
                 shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
                 color = MaterialTheme.colorScheme.surface,
                 shadowElevation = 12.dp,

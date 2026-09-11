@@ -1,24 +1,19 @@
 package com.example.runtracker.data.remote
 
-import retrofit2.http.Body
-import retrofit2.http.Header
-import retrofit2.http.POST
-import retrofit2.http.Path
+import retrofit2.http.GET
+import retrofit2.http.Url
 
 /**
- * OpenRouteService Directions API — miễn phí, chỉ cần API key (đăng ký bằng email,
- * không cần thẻ). Trả về geometry mã hoá polyline (độ chính xác 1e-5, giống Google).
+ * OSRM của FOSSGIS (`routing.openstreetmap.de`) — miễn phí, KHÔNG cần API key.
+ * `/route` bám đường qua một chuỗi điểm. Lời gọi dùng URL tuyệt đối; [BASE_URL] chỉ
+ * để Retrofit khởi tạo.
  */
 interface DirectionsApi {
 
-    @POST("v2/directions/{profile}")
-    suspend fun directions(
-        @Path("profile") profile: String,
-        @Header("Authorization") apiKey: String,
-        @Body body: DirectionsRequest,
-    ): DirectionsResponse
+    @GET
+    suspend fun route(@Url url: String): OsrmRouteResponse
 
     companion object {
-        const val BASE_URL = "https://api.openrouteservice.org/"
+        const val BASE_URL = "https://routing.openstreetmap.de/"
     }
 }

@@ -26,6 +26,14 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideOkHttpClient(): OkHttpClient = OkHttpClient.Builder()
+        .addInterceptor { chain ->
+            // OSRM/tile của FOSSGIS yêu cầu User-Agent nhận dạng được.
+            chain.proceed(
+                chain.request().newBuilder()
+                    .header("User-Agent", "RunTracker-Android/${BuildConfig.VERSION_NAME}")
+                    .build(),
+            )
+        }
         .addInterceptor(
             HttpLoggingInterceptor().apply {
                 level = if (BuildConfig.DEBUG) {
@@ -37,7 +45,7 @@ object NetworkModule {
         )
         .build()
 
-    // baseUrl là OpenRouteService; WeatherApi dùng URL tuyệt đối nên không bị ảnh hưởng.
+    // baseUrl chỉ để Retrofit khởi tạo — Directions (OSRM) và Weather đều dùng URL tuyệt đối.
     @Provides
     @Singleton
     fun provideRetrofit(client: OkHttpClient, json: Json): Retrofit = Retrofit.Builder()

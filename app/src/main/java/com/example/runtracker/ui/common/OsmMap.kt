@@ -2,6 +2,7 @@ package com.example.runtracker.ui.common
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Paint
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -68,11 +69,25 @@ import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 import kotlin.coroutines.resume
 import org.osmdroid.util.GeoPoint as OsmPoint
 
-/** Một đường vẽ trên bản đồ. `widthDp` là bề rộng nét theo dp (nhân với mật độ khi vẽ). */
-data class MapLine(val points: List<GeoPoint>, val color: Color, val widthDp: Float = 4f)
+/**
+ * Một đường vẽ trên bản đồ. `widthDp` là bề rộng nét theo dp (nhân với mật độ khi vẽ).
+ * [showDirection] = true: rải mũi tên chỉ chiều đi dọc đường.
+ */
+data class MapLine(
+    val points: List<GeoPoint>,
+    val color: Color,
+    val widthDp: Float = 4f,
+    val showDirection: Boolean = false,
+)
 
-/** Một điểm mốc trên bản đồ. */
-data class MapMarker(val point: GeoPoint, val title: String? = null)
+/** Một điểm mốc trên bản đồ. [MarkerStyle.BADGE] dùng [color] + [label] làm chấm tròn có chữ. */
+data class MapMarker(
+    val point: GeoPoint,
+    val title: String? = null,
+    val style: MarkerStyle = MarkerStyle.PIN,
+    val color: Color = Color.Unspecified,
+    val label: String? = null,
+)
 
 private fun GeoPoint.toOsm() = OsmPoint(latitude, longitude)
 
@@ -175,7 +190,12 @@ fun MapView.renderPath(
                 setPoints(line.points.map { it.toOsm() })
                 outlinePaint.color = line.color.toArgb()
                 outlinePaint.strokeWidth = line.widthDp * density
+                outlinePaint.strokeCap = Paint.Cap.ROUND
+                outlinePaint.strokeJoin = Paint.Join.ROUND
                 outlinePaint.isAntiAlias = true
+                if (line.showDirection) {
+                    setMilestoneManagers(directionMilestones(line.color, density))
+                }
             },
         )
     }
@@ -184,7 +204,12 @@ fun MapView.renderPath(
         overlays.add(
             Marker(this).apply {
                 position = m.point.toOsm()
-                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                if (m.style == MarkerStyle.BADGE) {
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                    icon = badgeDrawable(context, m.color, m.label, density)
+                } else {
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                }
                 title = m.title
                 setInfoWindow(null)
             },
@@ -303,7 +328,8 @@ fun OsmMap(
     var style by rememberSaveable { mutableStateOf(MapStyle.STREET) }
     LaunchedEffect(mapView, style) { mapView.setTileSource(tileSourceFor(style)) }
 
-    val hasLocationPermission = remember { context.hasLocationPermission() }
+    // Không remember: đọc lại mỗi lần recompose để bắt được lúc người dùng vừa cấp quyền.
+    val hasLocationPermission = context.hasLocationPermission()
     val myLocationOverlay = remember(mapView, showMyLocation, hasLocationPermission) {
         if (showMyLocation && hasLocationPermission) {
             MyLocationNewOverlay(GpsMyLocationProvider(context), mapView).apply { disableFollowLocation() }
@@ -418,24 +444,28 @@ fun OsmMap(
     }
 }
 
-/** Bản đồ tĩnh vẽ một đường (route/segment/trail). Camera fit toàn bộ điểm. */
+/**
+ * Bản đồ tĩnh vẽ một đường (route/segment/trail). Camera fit toàn bộ điểm.
+ * Mặc định có mũi tên chỉ chiều đi + mốc xuất phát / về đích.
+ */
 @Composable
 fun PathMap(
     points: List<GeoPoint>,
     modifier: Modifier = Modifier,
     markEndpoints: Boolean = true,
     showMyLocation: Boolean = false,
+    showDirection: Boolean = true,
 ) {
     val primary = MaterialTheme.colorScheme.primary
-    val lines = remember(points, primary) {
-        if (points.size >= 2) listOf(MapLine(points, primary, widthDp = 4f)) else emptyList()
-    }
-    val markers = remember(points, markEndpoints) {
-        if (markEndpoints && points.size >= 2) {
-            listOf(MapMarker(points.first(), "Bắt đầu"), MapMarker(points.last(), "Kết thúc"))
+    val lines = remember(points, primary, showDirection) {
+        if (points.size >= 2) {
+            listOf(MapLine(points, primary, widthDp = 4.5f, showDirection = showDirection))
         } else {
             emptyList()
         }
+    }
+    val markers = remember(points, markEndpoints) {
+        if (markEndpoints) startFinishMarkers(points) else emptyList()
     }
     OsmMap(
         modifier = modifier,

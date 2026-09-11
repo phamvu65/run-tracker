@@ -43,7 +43,79 @@ class BuildRouteUseCaseTest {
         assertEquals(0.0, result.distanceMeters, 0.0)
     }
 
-    private class FakeDirections(private val response: Result<PlannedRoute>) : DirectionsRepository {
-        override suspend fun route(waypoints: List<GeoPoint>, mode: TravelMode) = response
+    @Test
+    fun `fromSketch snaps the trace to roads when routing succeeds`() = runTest {
+        val snapped = PlannedRoute(listOf(geo(0.0), geo(400.0)), 390.0, emptyList(), snappedToRoads = true)
+        val useCase = BuildRouteUseCase(FakeDirections(Result.success(snapped)))
+
+        val result = useCase.fromSketch(listOf(geo(0.0), geo(200.0), geo(400.0)), TravelMode.WALKING)
+
+        assertEquals(snapped, result)
+    }
+
+    @Test
+    fun `fromSketch falls back to a straight line when routing fails`() = runTest {
+        val useCase = BuildRouteUseCase(FakeDirections(Result.failure(RuntimeException("offline"))))
+
+        val result = useCase.fromSketch(listOf(geo(0.0), geo(300.0), geo(700.0)), TravelMode.WALKING)
+
+        assertFalse(result.snappedToRoads)
+        assertEquals(700.0, result.distanceMeters, 1.0)
+    }
+
+    @Test
+    fun `fromSketch rejects a snapped route that wanders far off the sketch`() = runTest {
+        // Đường "bám" dài gấp đôi nét vẽ và vòng ra cách nét vẽ ~1 km — đúng kiểu zigzag
+        // qua nhiều phố mà ta muốn loại.
+        val detour = PlannedRoute(
+            polyline = listOf(geo(0.0), GeoPoint(0.01, 0.0), geo(800.0)),
+            distanceMeters = 1_600.0,
+            steps = emptyList(),
+            snappedToRoads = true,
+        )
+        val fake = FakeDirections(Result.success(detour))
+        val useCase = BuildRouteUseCase(fake)
+        val sketch = listOf(geo(0.0), geo(400.0), geo(800.0))
+
+        val result = useCase.fromSketch(sketch, TravelMode.WALKING)
+
+        assertFalse(result.snappedToRoads)
+        assertEquals(sketch, result.polyline)
+        // Thử lại lần nữa với ít điểm hơn rồi mới bỏ cuộc.
+        assertEquals(2, fake.calls)
+    }
+
+    @Test
+    fun `fromSketch sends only a handful of via points and forbids u-turns`() = runTest {
+        val metersPerDegreeLat = 111_320.0
+        // Nét vẽ dày: 200 điểm cách nhau 10 m (2 km) — không được gửi hết cho router.
+        val sketch = (0 until 200).map { GeoPoint(it * 10.0 / metersPerDegreeLat, 0.0) }
+        val snapped = PlannedRoute(sketch, 2_000.0, emptyList(), snappedToRoads = true)
+        val fake = FakeDirections(Result.success(snapped))
+
+        BuildRouteUseCase(fake).fromSketch(sketch, TravelMode.WALKING)
+
+        assertTrue("gửi ${fake.lastWaypointCount} điểm", fake.lastWaypointCount in 3..12)
+        assertFalse(fake.lastAllowUTurns)
+    }
+
+    private class FakeDirections(private val route: Result<PlannedRoute>) : DirectionsRepository {
+        var calls = 0
+            private set
+        var lastWaypointCount = 0
+            private set
+        var lastAllowUTurns = true
+            private set
+
+        override suspend fun route(
+            waypoints: List<GeoPoint>,
+            mode: TravelMode,
+            allowUTurns: Boolean,
+        ): Result<PlannedRoute> {
+            calls++
+            lastWaypointCount = waypoints.size
+            lastAllowUTurns = allowUTurns
+            return route
+        }
     }
 }

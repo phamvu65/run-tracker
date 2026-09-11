@@ -36,6 +36,14 @@ class RouteBuilderViewModel @Inject constructor(
     var drawMode by mutableStateOf(false)
         private set
 
+    /** Nét vẽ tay đã làm mượt (đã khép vòng) — để đối chiếu hoặc dùng thẳng làm route. */
+    var lastSketch by mutableStateOf<List<GeoPoint>>(emptyList())
+        private set
+
+    /** Thông báo một lần cho người dùng (ví dụ: bám đường thất bại). */
+    var notice by mutableStateOf<String?>(null)
+        private set
+
     fun toggleDrawMode() {
         drawMode = !drawMode
     }
@@ -49,21 +57,61 @@ class RouteBuilderViewModel @Inject constructor(
      * Nhận nét vẽ tay: rút gọn thành ~14 điểm cách đều, tự khép vòng nếu đầu-cuối gần nhau,
      * rồi bám đường luôn. Người dùng chỉ cần khoanh quanh khu vực muốn chạy.
      */
+    /**
+     * Nhận nét vẽ tay. Mặc định DÙNG LUÔN nét vẽ đã làm mượt làm route — vì người dùng
+     * thường vẽ đúng đường họ muốn chạy (ví dụ lối ven hồ), mà mạng đường của OSM ở
+     * những chỗ đó hay thiếu/đứt nên bám đường lại ra kết quả tệ hơn. Nút "Bám theo
+     * đường" cho thử khớp vào mạng đường nếu muốn.
+     */
     fun applySketch(sketch: List<GeoPoint>) {
-        val clean = dedupe(sketch, minGapMeters = 12.0)
+        val clean = dedupe(sketch, minGapMeters = 6.0)
         if (clean.size < 3) return
         val totalLen = GeoMath.pathDistanceMeters(clean)
         if (totalLen < 150.0) return
 
-        var pts = GeoMath.resample(clean, WAYPOINTS)
-        val gap = GeoMath.distanceMeters(pts.first(), pts.last())
-        if (gap < maxOf(60.0, totalLen * 0.2)) {
-            pts = pts.dropLast(1) + pts.first() // khép vòng chính xác
-        }
-        tappedPoints = pts
-        planned = null
-        computeRoute()
+        val isLoop = GeoMath.distanceMeters(clean.first(), clean.last()) < maxOf(60.0, totalLen * 0.2)
+        val closed = if (isLoop) clean + clean.first() else clean
+
+        lastSketch = closed
+        tappedPoints = closed
+        notice = null
+        planned = freehandRoute(closed)
     }
+
+    /** Thử bám nét vẽ vào mạng đường. Use-case tự chọn điểm trung gian và loại kết quả lệch. */
+    fun snapSketchToRoads() {
+        val raw = lastSketch
+        if (raw.size < 2 || loading) return
+        viewModelScope.launch {
+            loading = true
+            notice = null
+            val result = buildRoute.fromSketch(raw, mode)
+            planned = result
+            if (!result.snappedToRoads) {
+                notice = "Quanh đây không có đường nào bám sát nét vẽ — giữ nguyên nét vẽ tay."
+            }
+            loading = false
+        }
+    }
+
+    /** Quay lại dùng nét vẽ tay làm route. */
+    fun useSketchAsRoute() {
+        val raw = lastSketch
+        if (raw.size < 2) return
+        notice = null
+        planned = freehandRoute(raw)
+    }
+
+    fun consumeNotice() {
+        notice = null
+    }
+
+    private fun freehandRoute(points: List<GeoPoint>) = PlannedRoute(
+        polyline = points,
+        distanceMeters = GeoMath.pathDistanceMeters(points),
+        steps = emptyList(),
+        snappedToRoads = false,
+    )
 
     private fun dedupe(points: List<GeoPoint>, minGapMeters: Double): List<GeoPoint> {
         if (points.isEmpty()) return points
@@ -84,6 +132,8 @@ class RouteBuilderViewModel @Inject constructor(
     fun clear() {
         tappedPoints = emptyList()
         planned = null
+        lastSketch = emptyList()
+        notice = null
     }
 
     fun selectMode(newMode: TravelMode) {
@@ -111,9 +161,5 @@ class RouteBuilderViewModel @Inject constructor(
 
     fun consumeSaved() {
         savedRouteId = null
-    }
-
-    private companion object {
-        const val WAYPOINTS = 14
     }
 }

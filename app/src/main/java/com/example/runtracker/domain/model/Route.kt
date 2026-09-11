@@ -1,9 +1,13 @@
 package com.example.runtracker.domain.model
 
-/** Chế độ di chuyển cho Directions API (profile của OpenRouteService). */
-enum class TravelMode(val orsProfile: String) {
-    WALKING("foot-walking"),
-    CYCLING("cycling-regular"),
+/**
+ * Chế độ di chuyển cho routing. Dùng OSRM của FOSSGIS (`routing.openstreetmap.de`) —
+ * miễn phí, không cần key. [osrmHost] là nhánh máy chủ theo hồ sơ, [osrmProfile] là
+ * tên profile trong đường dẫn.
+ */
+enum class TravelMode(val osrmHost: String, val osrmProfile: String) {
+    WALKING("routed-foot", "foot"),
+    CYCLING("routed-bike", "bike"),
 }
 
 /** Một bước rẽ trong route. */
