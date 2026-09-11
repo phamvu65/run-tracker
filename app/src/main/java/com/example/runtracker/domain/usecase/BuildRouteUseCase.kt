@@ -48,12 +48,21 @@ class BuildRouteUseCase @Inject constructor(
      *     đâm vuông góc vào phố chính nên ràng buộc hướng loại được phần lớn kiểu "vòng vào
      *     rồi vòng ra" này (đã kiểm chứng trực tiếp với routing.openstreetmap.de);
      *  4. cấm quay đầu tại điểm trung gian;
-     *  5. chấm điểm các kết quả tìm được (dài hơn nét vẽ bao nhiêu, lệch khỏi nét vẽ bao xa)
-     *     CHỈ để CHỌN cái tốt nhất trong số đó — KHÔNG dùng để từ chối. Một route đã bám
-     *     đường, dù lệch nét vẽ, vẫn luôn trực quan hơn nét vẽ tay thô cắt ngang nhà cửa/hồ,
-     *     nên hễ có ít nhất một kết quả bám đường được là dùng luôn. Chỉ rơi về nét vẽ tay khi
-     *     KHÔNG có kết quả nào cả (mất mạng, hoặc không đường nào trong bán kính/hướng ở mọi
-     *     mật độ điểm đã thử).
+     *  5. mỗi CHẶNG (giữa 2 via point liên tiếp) mà router phải đi vòng quá xa so với khoảng
+     *     cách thẳng giữa 2 via point đó ([LEG_DETOUR_RATIO]) thì THAY chặng đó bằng đoạn
+     *     thẳng nối 2 via point ([fillUnmappedGaps]) — trường hợp thực tế gặp phải: lối đi
+     *     ven hồ chỉ được vẽ trong OSM một đoạn, hết đoạn đó router buộc phải vòng qua cả một
+     *     khu dân cư kế bên để nối tiếp vì đó là đường LIỀN MẠCH duy nhất có trong dữ liệu,
+     *     dù không phải điều người vẽ tay muốn. Không có mật độ via/bán kính/hướng nào sửa
+     *     được việc này vì đây là lỗ hổng DỮ LIỆU OSM (đoạn đường ven hồ chưa được vẽ), không
+     *     phải lỗi khớp điểm — nên vá trực tiếp bằng đoạn thẳng theo đúng nét vẽ tay ở đúng
+     *     chặng đó, giữ nguyên phần còn lại của route đã bám đường tốt;
+     *  6. chấm điểm các kết quả tìm được (sau khi đã vá ở bước 5) — dài hơn nét vẽ bao nhiêu,
+     *     lệch khỏi nét vẽ bao xa — CHỈ để CHỌN cái tốt nhất trong số đó, KHÔNG dùng để từ
+     *     chối. Một route đã bám đường, dù lệch nét vẽ, vẫn luôn trực quan hơn nét vẽ tay thô
+     *     cắt ngang nhà cửa/hồ, nên hễ có ít nhất một kết quả bám đường được là dùng luôn. Chỉ
+     *     rơi về nét vẽ tay khi KHÔNG có kết quả nào cả (mất mạng, hoặc không đường nào trong
+     *     bán kính/hướng ở mọi mật độ điểm đã thử).
      */
     suspend fun fromSketch(sketch: List<GeoPoint>, mode: TravelMode): PlannedRoute {
         if (sketch.size < 2) return straightLine(sketch)
@@ -75,7 +84,7 @@ class BuildRouteUseCase @Inject constructor(
                 radiusMeters = SNAP_RADIUS_METERS,
                 bearingsDegrees = localBearings(trace),
                 bearingRangeDegrees = BEARING_RANGE_DEGREES,
-            ).getOrNull() ?: continue
+            ).getOrNull()?.let { fillUnmappedGaps(it, trace) } ?: continue
             val score = detourScore(candidate, sketch, sketchLength)
             if (score < bestScore) {
                 best = candidate
@@ -85,6 +94,38 @@ class BuildRouteUseCase @Inject constructor(
         }
 
         return best ?: straightLine(sketch)
+    }
+
+    /**
+     * Thay các chặng bị router đi vòng quá xa (so với đường thẳng giữa 2 via point của chặng
+     * đó) bằng chính đoạn thẳng đó — xem giải thích ở bước 5 trong doc của [fromSketch].
+     * Bỏ qua (trả nguyên [route]) nếu số chặng không khớp số via point (an toàn nếu OSRM trả
+     * về khác định dạng mong đợi).
+     */
+    private fun fillUnmappedGaps(route: PlannedRoute, trace: List<GeoPoint>): PlannedRoute {
+        if (route.legs.size != trace.size - 1) return route
+
+        val polyline = ArrayList<GeoPoint>(route.polyline.size)
+        var totalDistance = 0.0
+        for (i in route.legs.indices) {
+            val leg = route.legs[i]
+            val chordLength = GeoMath.distanceMeters(trace[i], trace[i + 1])
+            val legPoints: List<GeoPoint>
+            val legDistance: Double
+            if (chordLength > 0.0 && leg.distanceMeters > chordLength * LEG_DETOUR_RATIO) {
+                legPoints = listOf(trace[i], trace[i + 1])
+                legDistance = chordLength
+            } else {
+                legPoints = leg.polyline
+                legDistance = leg.distanceMeters
+            }
+            for (p in legPoints) {
+                if (polyline.isEmpty() || polyline.last() != p) polyline += p
+            }
+            totalDistance += legDistance
+        }
+        if (polyline.size < 2) return route
+        return route.copy(polyline = polyline, distanceMeters = totalDistance)
     }
 
     /** Hướng nét vẽ tại mỗi điểm — trung bình từ điểm trước tới điểm sau (điểm đầu/cuối dùng
@@ -144,5 +185,10 @@ class BuildRouteUseCase @Inject constructor(
 
         /** Đủ tốt thì nhận luôn, khỏi gọi mạng thêm lần nữa. */
         const val GOOD_SCORE = 0.5
+
+        /** Một chặng (giữa 2 via point liên tiếp) dài hơn đường thẳng nối chúng quá mức này
+         *  thì coi là router phải vòng qua khu vực khác do mạng đường OSM thiếu đoạn nối
+         *  đúng lúc đó — thay bằng đoạn thẳng thay vì giữ nguyên đường vòng. */
+        const val LEG_DETOUR_RATIO = 1.8
     }
 }

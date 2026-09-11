@@ -1,12 +1,14 @@
 package com.example.runtracker.data.repository
 
 import com.example.runtracker.data.remote.DirectionsApi
+import com.example.runtracker.data.remote.OsrmLeg
 import com.example.runtracker.data.remote.OsrmManeuver
 import com.example.runtracker.data.remote.OsrmRoute
 import com.example.runtracker.di.IoDispatcher
 import com.example.runtracker.domain.geo.PolylineCodec
 import com.example.runtracker.domain.model.GeoPoint
 import com.example.runtracker.domain.model.PlannedRoute
+import com.example.runtracker.domain.model.RouteLeg
 import com.example.runtracker.domain.model.RouteStep
 import com.example.runtracker.domain.model.TravelMode
 import com.example.runtracker.domain.repository.DirectionsRepository
@@ -80,7 +82,20 @@ class DirectionsRepositoryImpl @Inject constructor(
             distanceMeters = distance,
             steps = steps,
             snappedToRoads = true,
+            legs = legs.map { it.toRouteLeg() },
         )
+    }
+
+    /** Nối polyline của từng step trong leg — step liền kề chia sẻ 1 điểm nên bỏ điểm trùng. */
+    private fun OsrmLeg.toRouteLeg(): RouteLeg {
+        val points = ArrayList<GeoPoint>()
+        for (step in steps) {
+            val stepPoints = PolylineCodec.decode(step.geometry)
+            for (p in stepPoints) {
+                if (points.isEmpty() || points.last() != p) points += p
+            }
+        }
+        return RouteLeg(polyline = points, distanceMeters = distance)
     }
 
     /** Chuyển maneuver của OSRM sang câu chỉ đường tiếng Việt ngắn gọn. */

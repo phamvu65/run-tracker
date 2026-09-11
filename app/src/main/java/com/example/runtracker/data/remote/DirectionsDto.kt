@@ -20,6 +20,7 @@ data class OsrmRoute(
 @Serializable
 data class OsrmLeg(
     val steps: List<OsrmStep> = emptyList(),
+    val distance: Double = 0.0,
 )
 
 @Serializable
@@ -27,6 +28,9 @@ data class OsrmStep(
     val name: String = "",
     val distance: Double = 0.0,
     val maneuver: OsrmManeuver = OsrmManeuver(),
+    /** Polyline mã hoá của riêng bước này (độ chính xác 1e-5) — dùng để dựng lại hình dạng
+     *  từng leg (giữa 2 via point liên tiếp) khi cần đối chiếu với nét vẽ tay. */
+    val geometry: String = "",
 )
 
 @Serializable

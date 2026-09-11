@@ -2,6 +2,7 @@ package com.example.runtracker.domain.usecase
 
 import com.example.runtracker.domain.model.GeoPoint
 import com.example.runtracker.domain.model.PlannedRoute
+import com.example.runtracker.domain.model.RouteLeg
 import com.example.runtracker.domain.model.TravelMode
 import com.example.runtracker.domain.repository.DirectionsRepository
 import kotlinx.coroutines.test.runTest
@@ -140,6 +141,48 @@ class BuildRouteUseCaseTest {
         assertEquals(3, bearings?.size)
         bearings!!.forEach { assertEquals(90.0, it, 1.0) }
         assertEquals(60.0, fake.lastBearingRangeDegrees, 0.0)
+    }
+
+    @Test
+    fun `fromSketch replaces a leg that detours far past an unmapped road with a straight chord`() = runTest {
+        // Chặng via0->via1 bám đường đúng ý (đường thẳng khớp nét vẽ). Chặng via1->via2 router
+        // phải đi vòng gấp 3 lần đường thẳng nối 2 via đó — đúng kiểu lối ven hồ chưa được vẽ
+        // hết trong OSM, buộc router vòng qua khu dân cư kế bên để nối tiếp.
+        val via0 = geo(0.0)
+        val via1 = geo(400.0)
+        val via2 = geo(800.0)
+        val goodLeg = RouteLeg(polyline = listOf(via0, via1), distanceMeters = 400.0)
+        val detourLeg = RouteLeg(
+            polyline = listOf(via1, GeoPoint(0.01, via1.longitude), via2),
+            distanceMeters = 1_200.0,
+        )
+        val routeWithGap = PlannedRoute(
+            polyline = goodLeg.polyline + detourLeg.polyline.drop(1),
+            distanceMeters = goodLeg.distanceMeters + detourLeg.distanceMeters,
+            steps = emptyList(),
+            snappedToRoads = true,
+            legs = listOf(goodLeg, detourLeg),
+        )
+        val fake = FakeDirections(Result.success(routeWithGap))
+        val sketch = listOf(via0, via1, via2)
+
+        val result = BuildRouteUseCase(fake).fromSketch(sketch, TravelMode.WALKING)
+
+        // Chặng tốt giữ nguyên; chặng vòng xa được thay bằng đoạn thẳng via1 -> via2.
+        assertEquals(listOf(via0, via1, via2), result.polyline)
+        assertEquals(800.0, result.distanceMeters, 1.0)
+        assertTrue(result.snappedToRoads)
+    }
+
+    @Test
+    fun `fromSketch keeps a route as-is when leg count doesn't match via points`() = runTest {
+        // legs rỗng (khác số via point) -> fillUnmappedGaps bỏ qua, dùng nguyên route.
+        val route = PlannedRoute(listOf(geo(0.0), geo(400.0)), 390.0, emptyList(), snappedToRoads = true)
+        val fake = FakeDirections(Result.success(route))
+
+        val result = BuildRouteUseCase(fake).fromSketch(listOf(geo(0.0), geo(200.0), geo(400.0)), TravelMode.WALKING)
+
+        assertEquals(route, result)
     }
 
     private class FakeDirections(private val route: Result<PlannedRoute>) : DirectionsRepository {
