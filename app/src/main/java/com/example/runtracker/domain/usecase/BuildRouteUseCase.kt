@@ -48,11 +48,12 @@ class BuildRouteUseCase @Inject constructor(
      *     đâm vuông góc vào phố chính nên ràng buộc hướng loại được phần lớn kiểu "vòng vào
      *     rồi vòng ra" này (đã kiểm chứng trực tiếp với routing.openstreetmap.de);
      *  4. cấm quay đầu tại điểm trung gian;
-     *  5. chấm điểm kết quả — dài hơn nét vẽ bao nhiêu, lệch khỏi nét vẽ bao xa;
-     *  6. NGƯỠNG CHẤP NHẬN CỐ Ý RỘNG RÃI ([ACCEPTABLE_SCORE]) — thà lấy một route đã bám
-     *     đường dù hơi lệch (dữ liệu OSM khu vực có thể thiếu ngõ nhỏ khiến bám lệch đôi chút)
-     *     còn hơn trả về nét vẽ tay thô cắt ngang nhà cửa. Chỉ khi KHÔNG có kết quả nào tìm
-     *     được (mất mạng, hoặc không đường nào trong bán kính/hướng) mới rơi về nét vẽ tay.
+     *  5. chấm điểm các kết quả tìm được (dài hơn nét vẽ bao nhiêu, lệch khỏi nét vẽ bao xa)
+     *     CHỈ để CHỌN cái tốt nhất trong số đó — KHÔNG dùng để từ chối. Một route đã bám
+     *     đường, dù lệch nét vẽ, vẫn luôn trực quan hơn nét vẽ tay thô cắt ngang nhà cửa/hồ,
+     *     nên hễ có ít nhất một kết quả bám đường được là dùng luôn. Chỉ rơi về nét vẽ tay khi
+     *     KHÔNG có kết quả nào cả (mất mạng, hoặc không đường nào trong bán kính/hướng ở mọi
+     *     mật độ điểm đã thử).
      */
     suspend fun fromSketch(sketch: List<GeoPoint>, mode: TravelMode): PlannedRoute {
         if (sketch.size < 2) return straightLine(sketch)
@@ -83,7 +84,7 @@ class BuildRouteUseCase @Inject constructor(
             if (score <= GOOD_SCORE) break
         }
 
-        return if (best != null && bestScore <= ACCEPTABLE_SCORE) best else straightLine(sketch)
+        return best ?: straightLine(sketch)
     }
 
     /** Hướng nét vẽ tại mỗi điểm — trung bình từ điểm trước tới điểm sau (điểm đầu/cuối dùng
@@ -135,17 +136,13 @@ class BuildRouteUseCase @Inject constructor(
         const val SNAP_RADIUS_METERS = 60.0
 
         /** Mỗi điểm trung gian chỉ được khớp vào đường có hướng lệch không quá mức này so
-         *  với hướng nét vẽ tại chỗ đó — chặn việc vòng vào một con hẻm cắt ngang rồi quay ra. */
-        const val BEARING_RANGE_DEGREES = 45.0
+         *  với hướng nét vẽ tại chỗ đó — chặn việc vòng vào một con hẻm cắt ngang rồi quay ra.
+         *  60° đã kiểm chứng vẫn chặn được kiểu lệch đó (kiểm thử trực tiếp với
+         *  routing.openstreetmap.de) trong khi ít làm rớt cả yêu cầu route (NoRoute) hơn mức
+         *  hẹp hơn ở những khúc cua/ngã ba không thẳng hàng tuyệt đối với nét vẽ. */
+        const val BEARING_RANGE_DEGREES = 60.0
 
         /** Đủ tốt thì nhận luôn, khỏi gọi mạng thêm lần nữa. */
         const val GOOD_SCORE = 0.5
-
-        /**
-         * Tệ hơn mức này thì thà giữ nét vẽ tay. Cố ý rộng rãi: chấp nhận route dài hơn nét vẽ
-         * tới ~60% NẾU bám khá sát (lệch tối đa nhỏ), hoặc lệch tối đa gần bằng
-         * [DEVIATION_BUDGET_M] NẾU quãng đường gần đúng — chỉ loại khi cả hai cùng tệ.
-         */
-        const val ACCEPTABLE_SCORE = 1.6
     }
 }

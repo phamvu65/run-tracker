@@ -64,9 +64,9 @@ class BuildRouteUseCaseTest {
     }
 
     @Test
-    fun `fromSketch rejects a snapped route that wanders far off the sketch`() = runTest {
-        // Đường "bám" dài gấp đôi nét vẽ và vòng ra cách nét vẽ ~1 km — đúng kiểu zigzag
-        // qua nhiều phố mà ta muốn loại.
+    fun `fromSketch uses the best snapped route even when it deviates a lot from the sketch`() = runTest {
+        // Đường "bám" dài gấp đôi nét vẽ và vòng ra cách nét vẽ ~1 km — vẫn là một route thật
+        // trên mạng đường, nên được ưu tiên hơn là rơi về nét vẽ tay thô cắt ngang nhà cửa.
         val detour = PlannedRoute(
             polyline = listOf(geo(0.0), GeoPoint(0.01, 0.0), geo(800.0)),
             distanceMeters = 1_600.0,
@@ -79,9 +79,8 @@ class BuildRouteUseCaseTest {
 
         val result = useCase.fromSketch(sketch, TravelMode.WALKING)
 
-        assertFalse(result.snappedToRoads)
-        assertEquals(sketch, result.polyline)
-        // Thử lại với mật độ điểm khác (3 mức trong VIA_SPACING_M) rồi mới bỏ cuộc.
+        assertEquals(detour, result)
+        // Không mật độ điểm nào (3 mức trong VIA_SPACING_M) đạt GOOD_SCORE nên thử hết cả 3.
         assertEquals(3, fake.calls)
     }
 
@@ -140,7 +139,7 @@ class BuildRouteUseCaseTest {
         val bearings = fake.lastBearingsDegrees
         assertEquals(3, bearings?.size)
         bearings!!.forEach { assertEquals(90.0, it, 1.0) }
-        assertEquals(45.0, fake.lastBearingRangeDegrees, 0.0)
+        assertEquals(60.0, fake.lastBearingRangeDegrees, 0.0)
     }
 
     private class FakeDirections(private val route: Result<PlannedRoute>) : DirectionsRepository {
