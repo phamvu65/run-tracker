@@ -81,12 +81,12 @@ class BuildRouteUseCaseTest {
 
         assertFalse(result.snappedToRoads)
         assertEquals(sketch, result.polyline)
-        // Thử lại lần nữa với ít điểm hơn rồi mới bỏ cuộc.
-        assertEquals(2, fake.calls)
+        // Thử lại với mật độ điểm khác (3 mức trong VIA_SPACING_M) rồi mới bỏ cuộc.
+        assertEquals(3, fake.calls)
     }
 
     @Test
-    fun `fromSketch sends only a handful of via points and forbids u-turns`() = runTest {
+    fun `fromSketch sends only a bounded number of via points and forbids u-turns`() = runTest {
         val metersPerDegreeLat = 111_320.0
         // Nét vẽ dày: 200 điểm cách nhau 10 m (2 km) — không được gửi hết cho router.
         val sketch = (0 until 200).map { GeoPoint(it * 10.0 / metersPerDegreeLat, 0.0) }
@@ -95,8 +95,28 @@ class BuildRouteUseCaseTest {
 
         BuildRouteUseCase(fake).fromSketch(sketch, TravelMode.WALKING)
 
-        assertTrue("gửi ${fake.lastWaypointCount} điểm", fake.lastWaypointCount in 3..12)
+        assertTrue("gửi ${fake.lastWaypointCount} điểm", fake.lastWaypointCount in 3..40)
         assertFalse(fake.lastAllowUTurns)
+    }
+
+    @Test
+    fun `fromSketch constrains each via point to a small snap radius`() = runTest {
+        val snapped = PlannedRoute(listOf(geo(0.0), geo(400.0)), 390.0, emptyList(), snappedToRoads = true)
+        val fake = FakeDirections(Result.success(snapped))
+
+        BuildRouteUseCase(fake).fromSketch(listOf(geo(0.0), geo(200.0), geo(400.0)), TravelMode.WALKING)
+
+        assertEquals(35.0, fake.lastRadiusMeters!!, 0.0)
+    }
+
+    @Test
+    fun `plain invoke does not constrain the snap radius`() = runTest {
+        val planned = PlannedRoute(listOf(geo(0.0), geo(500.0)), 480.0, emptyList(), snappedToRoads = true)
+        val fake = FakeDirections(Result.success(planned))
+
+        BuildRouteUseCase(fake).invoke(listOf(geo(0.0), geo(500.0)), TravelMode.WALKING)
+
+        assertEquals(null, fake.lastRadiusMeters)
     }
 
     private class FakeDirections(private val route: Result<PlannedRoute>) : DirectionsRepository {
@@ -106,15 +126,19 @@ class BuildRouteUseCaseTest {
             private set
         var lastAllowUTurns = true
             private set
+        var lastRadiusMeters: Double? = null
+            private set
 
         override suspend fun route(
             waypoints: List<GeoPoint>,
             mode: TravelMode,
             allowUTurns: Boolean,
+            radiusMeters: Double?,
         ): Result<PlannedRoute> {
             calls++
             lastWaypointCount = waypoints.size
             lastAllowUTurns = allowUTurns
+            lastRadiusMeters = radiusMeters
             return route
         }
     }

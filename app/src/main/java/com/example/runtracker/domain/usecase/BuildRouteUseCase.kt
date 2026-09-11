@@ -27,15 +27,22 @@ class BuildRouteUseCase @Inject constructor(
     /**
      * Bám nét vẽ tay vào mạng đường.
      *
-     * Nhồi hàng chục điểm trung gian dày đặc vào OSRM là nguyên nhân đường đi "bám rất
-     * nhiều đường": mỗi điểm bị ép khớp vào con đường gần nó nhất, hai điểm liền nhau rơi
-     * vào hai phố song song là router phải chui vào ngõ rồi vòng ra. Nên ở đây:
+     * Hai lỗi đối nghịch cần tránh:
+     *  - điểm trung gian quá DÀY (mỗi ~40m): điểm bị ép khớp vào đường gần nó nhất, hai điểm
+     *    liền nhau rơi vào hai phố song song là router chui vào ngõ rồi vòng ra;
+     *  - điểm trung gian quá THƯA (vài trăm mét): router được tự do chọn "đường nhanh nhất"
+     *    giữa hai điểm xa nhau, dễ tạt qua phố khác hẳn nét vẽ dù điểm đầu/cuối vẫn khớp.
      *
-     *  1. rút nét vẽ thành ít điểm trung gian, cách nhau khá xa (thử lần lượt [VIA_SPACING_M]);
-     *  2. cấm quay đầu tại điểm trung gian;
-     *  3. chấm điểm kết quả — dài hơn nét vẽ bao nhiêu, lệch khỏi nét vẽ bao xa;
-     *  4. kết quả tệ thì thử lại với ít điểm hơn; vẫn tệ thì giữ nguyên nét vẽ tay
-     *     (thà đi đúng hình người dùng vẽ còn hơn một vòng zigzag qua chục con phố).
+     * Cách xử lý ở đây:
+     *  1. rút nét vẽ thành các điểm trung gian cách đều, thử lần lượt từ dày tới thưa
+     *     ([VIA_SPACING_M]) — dày trước để bám sát hình vẽ, thưa hơn nếu dày thất bại
+     *     (VD cắt qua công viên/khu không có đường);
+     *  2. mỗi điểm chỉ được khớp vào đường trong bán kính [SNAP_RADIUS_METERS] — đủ rộng để
+     *     chịu sai số tay vẽ, đủ hẹp để KHÔNG nhảy sang một phố song song ở xa hơn;
+     *  3. cấm quay đầu tại điểm trung gian;
+     *  4. chấm điểm kết quả — dài hơn nét vẽ bao nhiêu, lệch khỏi nét vẽ bao xa;
+     *  5. kết quả tệ thì thử mật độ khác; vẫn tệ thì giữ nguyên nét vẽ tay (thà đi đúng hình
+     *     người dùng vẽ còn hơn một vòng zigzag qua nhiều con phố).
      */
     suspend fun fromSketch(sketch: List<GeoPoint>, mode: TravelMode): PlannedRoute {
         if (sketch.size < 2) return straightLine(sketch)
@@ -50,8 +57,12 @@ class BuildRouteUseCase @Inject constructor(
             val trace = GeoMath.resample(sketch, count)
             if (trace.size < 2) continue
 
-            val candidate = directionsRepository.route(trace, mode, allowUTurns = false).getOrNull()
-                ?: continue
+            val candidate = directionsRepository.route(
+                waypoints = trace,
+                mode = mode,
+                allowUTurns = false,
+                radiusMeters = SNAP_RADIUS_METERS,
+            ).getOrNull() ?: continue
             val score = detourScore(candidate, sketch, sketchLength)
             if (score < bestScore) {
                 best = candidate
@@ -90,16 +101,20 @@ class BuildRouteUseCase @Inject constructor(
 
     private companion object {
         /** Khoảng cách giữa hai điểm trung gian gửi cho OSRM, thử lần lượt từ dày tới thưa. */
-        val VIA_SPACING_M = listOf(250.0, 500.0)
+        val VIA_SPACING_M = listOf(80.0, 150.0, 300.0)
         const val MIN_VIA_POINTS = 3
-        const val MAX_VIA_POINTS = 12
+        const val MAX_VIA_POINTS = 40
         const val DEVIATION_SAMPLES = 24
-        const val DEVIATION_BUDGET_M = 80.0
+        const val DEVIATION_BUDGET_M = 60.0
+
+        /** Mỗi điểm trung gian chỉ được khớp vào đường trong bán kính này — chặn việc nhảy
+         *  sang một phố song song ở xa hơn nét vẽ. */
+        const val SNAP_RADIUS_METERS = 35.0
 
         /** Đủ tốt thì nhận luôn, khỏi gọi mạng thêm lần nữa. */
-        const val GOOD_SCORE = 0.5
+        const val GOOD_SCORE = 0.4
 
         /** Tệ hơn mức này thì thà giữ nét vẽ tay. */
-        const val ACCEPTABLE_SCORE = 1.2
+        const val ACCEPTABLE_SCORE = 1.0
     }
 }

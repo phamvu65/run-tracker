@@ -31,13 +31,18 @@ class DirectionsRepositoryImpl @Inject constructor(
         waypoints: List<GeoPoint>,
         mode: TravelMode,
         allowUTurns: Boolean,
+        radiusMeters: Double?,
     ): Result<PlannedRoute> = withContext(io) {
         runCatching {
             require(waypoints.size >= 2) { "cần ít nhất 2 điểm" }
             val coords = waypoints.joinToString(";") { "${it.longitude},${it.latitude}" }
+            val radiuses = radiusMeters?.let { r ->
+                "&radiuses=" + waypoints.joinToString(";") { r.toString() }
+            }.orEmpty()
             val url = "${DirectionsApi.BASE_URL}${mode.osrmHost}/route/v1/${mode.osrmProfile}/$coords" +
                 "?overview=full&geometries=polyline&steps=true" +
-                "&continue_straight=${if (allowUTurns) "false" else "true"}"
+                "&continue_straight=${if (allowUTurns) "false" else "true"}" +
+                radiuses
             val res = api.route(url)
             val route = res.routes.firstOrNull()
             require(res.code == "Ok" && route != null) { "OSRM: ${res.code}" }
