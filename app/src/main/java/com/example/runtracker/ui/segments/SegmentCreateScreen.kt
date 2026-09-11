@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.formatDistanceKm
+import com.example.runtracker.ui.common.MapGuideLineColor
 import com.example.runtracker.ui.common.MapLine
 import com.example.runtracker.ui.common.OsmMap
 import com.example.runtracker.ui.common.startFinishMarkers
@@ -67,7 +68,7 @@ fun SegmentCreateScreen(
     val subLine = remember(range, viewModel.routePoints) {
         viewModel.subRange(range.start, range.endInclusive)
     }
-    val outlineColor = MaterialTheme.colorScheme.outline
+    val outlineColor = MapGuideLineColor
     val primaryColor = MaterialTheme.colorScheme.primary
 
     Scaffold(

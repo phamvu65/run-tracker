@@ -80,6 +80,13 @@ data class MapLine(
     val showDirection: Boolean = false,
 )
 
+/**
+ * Màu đường dẫn phụ/mờ trên bản đồ (nét vẽ tay đối chiếu, route chưa chọn...) — CỐ Ý không
+ * lấy `colorScheme.outline`: token đó dành cho viền UI, ở theme tối gần như đen nên đè lên
+ * ảnh bản đồ (thường sáng) trông như một nét đen chứ không phải đường mờ để đối chiếu.
+ */
+val MapGuideLineColor = Color(0xFF9AA0A6).copy(alpha = 0.55f)
+
 /** Một điểm mốc trên bản đồ. [MarkerStyle.BADGE] dùng [color] + [label] làm chấm tròn có chữ. */
 data class MapMarker(
     val point: GeoPoint,

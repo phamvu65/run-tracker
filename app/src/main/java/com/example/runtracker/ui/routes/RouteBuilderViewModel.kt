@@ -54,14 +54,10 @@ class RouteBuilderViewModel @Inject constructor(
     }
 
     /**
-     * Nhận nét vẽ tay: rút gọn thành ~14 điểm cách đều, tự khép vòng nếu đầu-cuối gần nhau,
-     * rồi bám đường luôn. Người dùng chỉ cần khoanh quanh khu vực muốn chạy.
-     */
-    /**
-     * Nhận nét vẽ tay. Mặc định DÙNG LUÔN nét vẽ đã làm mượt làm route — vì người dùng
-     * thường vẽ đúng đường họ muốn chạy (ví dụ lối ven hồ), mà mạng đường của OSM ở
-     * những chỗ đó hay thiếu/đứt nên bám đường lại ra kết quả tệ hơn. Nút "Bám theo
-     * đường" cho thử khớp vào mạng đường nếu muốn.
+     * Nhận nét vẽ tay: rút gọn điểm quá gần nhau, tự khép vòng nếu đầu-cuối gần nhau, rồi
+     * TỰ ĐỘNG bám đường luôn (đỡ phải bấm thêm nút). Trong lúc chờ, hiện tạm nét vẽ thô làm
+     * preview. Nếu bám đường thất bại/lệch quá (use-case tự loại), rơi về nét vẽ tay — nút
+     * "Thử bám đường lại" vẫn còn để người dùng thử lại (VD do mạng chập chờn lúc vừa vẽ).
      */
     fun applySketch(sketch: List<GeoPoint>) {
         val clean = dedupe(sketch, minGapMeters = 6.0)
@@ -76,9 +72,10 @@ class RouteBuilderViewModel @Inject constructor(
         tappedPoints = closed
         notice = null
         planned = freehandRoute(closed)
+        snapSketchToRoads()
     }
 
-    /** Thử bám nét vẽ vào mạng đường. Use-case tự chọn điểm trung gian và loại kết quả lệch. */
+    /** Bám nét vẽ vào mạng đường. Use-case tự chọn điểm trung gian và loại kết quả lệch. */
     fun snapSketchToRoads() {
         val raw = lastSketch
         if (raw.size < 2 || loading) return

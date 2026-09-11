@@ -22,6 +22,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.example.runtracker.core.hasLocationPermission
 import com.example.runtracker.domain.model.GeoPoint
 import com.example.runtracker.ui.common.MapControls
+import com.example.runtracker.ui.common.MapGuideLineColor
 import com.example.runtracker.ui.common.MapLine
 import com.example.runtracker.ui.common.MapMarker
 import com.example.runtracker.ui.common.MapStyle
@@ -55,7 +56,7 @@ fun TrackingMap(
     val hasPermission = remember { context.hasLocationPermission() }
     val mapView = rememberOsmMapView()
 
-    val outline = MaterialTheme.colorScheme.outline
+    val outline = MapGuideLineColor
     val primary = MaterialTheme.colorScheme.primary
 
     var style by rememberSaveable { mutableStateOf(MapStyle.STREET) }
