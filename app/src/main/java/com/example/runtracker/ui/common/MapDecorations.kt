@@ -90,7 +90,7 @@ internal fun directionMilestones(lineColor: Color, density: Float): List<Milesto
         lineTo(-tail, half)
         close()
     }
-    return listOf(
+    return mutableListOf(
         MilestoneManager(
             MilestonePixelDistanceLister(ARROW_FIRST_DP * density, ARROW_EVERY_DP * density),
             MilestonePathDisplayer(0.0, true, arrow, paint),
