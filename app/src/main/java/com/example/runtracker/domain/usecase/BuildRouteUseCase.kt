@@ -38,11 +38,14 @@ class BuildRouteUseCase @Inject constructor(
      *     ([VIA_SPACING_M]) — dày trước để bám sát hình vẽ, thưa hơn nếu dày thất bại
      *     (VD cắt qua công viên/khu không có đường);
      *  2. mỗi điểm chỉ được khớp vào đường trong bán kính [SNAP_RADIUS_METERS] — đủ rộng để
-     *     chịu sai số tay vẽ, đủ hẹp để KHÔNG nhảy sang một phố song song ở xa hơn;
+     *     chịu sai số tay vẽ và vẫn tìm được đường ở những chỗ thưa (quảng trường, ven sông),
+     *     đủ hẹp để KHÔNG nhảy sang một phố song song ở xa hơn;
      *  3. cấm quay đầu tại điểm trung gian;
      *  4. chấm điểm kết quả — dài hơn nét vẽ bao nhiêu, lệch khỏi nét vẽ bao xa;
-     *  5. kết quả tệ thì thử mật độ khác; vẫn tệ thì giữ nguyên nét vẽ tay (thà đi đúng hình
-     *     người dùng vẽ còn hơn một vòng zigzag qua nhiều con phố).
+     *  5. NGƯỠNG CHẤP NHẬN CỐ Ý RỘNG RÃI ([ACCEPTABLE_SCORE]) — thà lấy một route đã bám
+     *     đường dù hơi lệch (dữ liệu OSM khu vực có thể thiếu ngõ nhỏ khiến bám lệch đôi chút)
+     *     còn hơn trả về nét vẽ tay thô cắt ngang nhà cửa. Chỉ khi KHÔNG có kết quả nào tìm
+     *     được (mất mạng, hoặc không đường nào trong bán kính) mới rơi về nét vẽ tay.
      */
     suspend fun fromSketch(sketch: List<GeoPoint>, mode: TravelMode): PlannedRoute {
         if (sketch.size < 2) return straightLine(sketch)
@@ -105,16 +108,20 @@ class BuildRouteUseCase @Inject constructor(
         const val MIN_VIA_POINTS = 3
         const val MAX_VIA_POINTS = 40
         const val DEVIATION_SAMPLES = 24
-        const val DEVIATION_BUDGET_M = 60.0
+        const val DEVIATION_BUDGET_M = 100.0
 
         /** Mỗi điểm trung gian chỉ được khớp vào đường trong bán kính này — chặn việc nhảy
          *  sang một phố song song ở xa hơn nét vẽ. */
-        const val SNAP_RADIUS_METERS = 35.0
+        const val SNAP_RADIUS_METERS = 60.0
 
         /** Đủ tốt thì nhận luôn, khỏi gọi mạng thêm lần nữa. */
-        const val GOOD_SCORE = 0.4
+        const val GOOD_SCORE = 0.5
 
-        /** Tệ hơn mức này thì thà giữ nét vẽ tay. */
-        const val ACCEPTABLE_SCORE = 1.0
+        /**
+         * Tệ hơn mức này thì thà giữ nét vẽ tay. Cố ý rộng rãi: chấp nhận route dài hơn nét vẽ
+         * tới ~60% NẾU bám khá sát (lệch tối đa nhỏ), hoặc lệch tối đa gần bằng
+         * [DEVIATION_BUDGET_M] NẾU quãng đường gần đúng — chỉ loại khi cả hai cùng tệ.
+         */
+        const val ACCEPTABLE_SCORE = 1.6
     }
 }

@@ -106,7 +106,7 @@ class BuildRouteUseCaseTest {
 
         BuildRouteUseCase(fake).fromSketch(listOf(geo(0.0), geo(200.0), geo(400.0)), TravelMode.WALKING)
 
-        assertEquals(35.0, fake.lastRadiusMeters!!, 0.0)
+        assertEquals(60.0, fake.lastRadiusMeters!!, 0.0)
     }
 
     @Test
