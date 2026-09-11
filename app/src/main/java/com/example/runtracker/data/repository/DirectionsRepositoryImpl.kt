@@ -14,6 +14,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.roundToInt
 
 /**
  * Routing qua OSRM của FOSSGIS (`routing.openstreetmap.de`) — miễn phí, không key.
@@ -32,17 +33,27 @@ class DirectionsRepositoryImpl @Inject constructor(
         mode: TravelMode,
         allowUTurns: Boolean,
         radiusMeters: Double?,
+        bearingsDegrees: List<Double>?,
+        bearingRangeDegrees: Double,
     ): Result<PlannedRoute> = withContext(io) {
         runCatching {
             require(waypoints.size >= 2) { "cần ít nhất 2 điểm" }
+            require(bearingsDegrees == null || bearingsDegrees.size == waypoints.size) {
+                "bearingsDegrees phải có cùng số điểm với waypoints"
+            }
             val coords = waypoints.joinToString(";") { "${it.longitude},${it.latitude}" }
             val radiuses = radiusMeters?.let { r ->
                 "&radiuses=" + waypoints.joinToString(";") { r.toString() }
             }.orEmpty()
+            val bearings = bearingsDegrees?.let { degs ->
+                "&bearings=" + degs.joinToString(";") { d ->
+                    "${d.roundToInt()},${bearingRangeDegrees.roundToInt()}"
+                }
+            }.orEmpty()
             val url = "${DirectionsApi.BASE_URL}${mode.osrmHost}/route/v1/${mode.osrmProfile}/$coords" +
                 "?overview=full&geometries=polyline&steps=true" +
                 "&continue_straight=${if (allowUTurns) "false" else "true"}" +
-                radiuses
+                radiuses + bearings
             val res = api.route(url)
             val route = res.routes.firstOrNull()
             require(res.code == "Ok" && route != null) { "OSRM: ${res.code}" }

@@ -2,6 +2,7 @@ package com.example.runtracker.domain.tracking
 
 import com.example.runtracker.domain.model.GeoPoint
 import kotlin.math.asin
+import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.pow
@@ -26,6 +27,16 @@ object GeoMath {
 
     fun distanceMeters(a: GeoPoint, b: GeoPoint): Double =
         distanceMeters(a.latitude, a.longitude, b.latitude, b.longitude)
+
+    /** Hướng ban đầu (độ, 0-360, 0 = Bắc) đi từ [a] tới [b] theo great circle. */
+    fun bearingDegrees(a: GeoPoint, b: GeoPoint): Double {
+        val lat1 = Math.toRadians(a.latitude)
+        val lat2 = Math.toRadians(b.latitude)
+        val dLon = Math.toRadians(b.longitude - a.longitude)
+        val y = sin(dLon) * cos(lat2)
+        val x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLon)
+        return (Math.toDegrees(atan2(y, x)) + 360.0) % 360.0
+    }
 
     /** Nội suy tuyến tính giữa 2 điểm; `fraction` 0..1. */
     fun interpolate(a: GeoPoint, b: GeoPoint, fraction: Double): GeoPoint = GeoPoint(

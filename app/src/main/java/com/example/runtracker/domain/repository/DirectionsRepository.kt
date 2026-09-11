@@ -18,11 +18,21 @@ interface DirectionsRepository {
      * Dùng cho nét vẽ tay để chặn việc một điểm nhảy sang khớp vào một phố song song ở xa
      * hơn thay vì phố gần nét vẽ nhất. null = không giới hạn (mặc định của OSRM) — dùng cho
      * điểm người dùng tự chấm, vì điểm đó có thể cố ý đặt xa đường (VD cổng công viên).
+     *
+     * [bearingsDegrees] != null: mỗi điểm (0-360, cùng thứ tự [waypoints]) chỉ được khớp vào
+     * đường có hướng lệch không quá [bearingRangeDegrees] so với hướng này. Đây là lý do chính
+     * khiến bám nét vẽ tay hay "chui vào ngõ rồi vòng ra": bán kính + cấm quay đầu tại via
+     * không ngăn được việc điểm khớp vào một con hẻm gần đó rồi phải quay lại (vì quay đầu
+     * chỉ bị cấm ngay tại via, không cấm đi vào rồi ra một ngõ cụt gần via) — hẻm thường đâm
+     * vuông góc vào phố chính nên ràng buộc hướng đi loại được phần lớn trường hợp này.
+     * null = không giới hạn hướng — dùng cho điểm người dùng tự chấm.
      */
     suspend fun route(
         waypoints: List<GeoPoint>,
         mode: TravelMode,
         allowUTurns: Boolean = true,
         radiusMeters: Double? = null,
+        bearingsDegrees: List<Double>? = null,
+        bearingRangeDegrees: Double = 45.0,
     ): Result<PlannedRoute>
 }

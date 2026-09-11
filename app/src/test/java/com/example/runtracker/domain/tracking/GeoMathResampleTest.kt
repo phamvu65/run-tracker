@@ -27,4 +27,16 @@ class GeoMathResampleTest {
         val points = listOf(geo(0.0), geo(500.0))
         assertEquals(points, GeoMath.resample(points, count = 10))
     }
+
+    @Test
+    fun `bearingDegrees points due east for increasing longitude at the equator`() {
+        assertEquals(90.0, GeoMath.bearingDegrees(geo(0.0), geo(500.0)), 0.5)
+    }
+
+    @Test
+    fun `bearingDegrees points due north`() {
+        val south = GeoPoint(0.0, 0.0)
+        val north = GeoPoint(0.01, 0.0)
+        assertEquals(0.0, GeoMath.bearingDegrees(south, north), 0.5)
+    }
 }

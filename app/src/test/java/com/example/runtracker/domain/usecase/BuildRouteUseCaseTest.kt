@@ -119,6 +119,30 @@ class BuildRouteUseCaseTest {
         assertEquals(null, fake.lastRadiusMeters)
     }
 
+    @Test
+    fun `plain invoke does not constrain bearing`() = runTest {
+        val planned = PlannedRoute(listOf(geo(0.0), geo(500.0)), 480.0, emptyList(), snappedToRoads = true)
+        val fake = FakeDirections(Result.success(planned))
+
+        BuildRouteUseCase(fake).invoke(listOf(geo(0.0), geo(500.0)), TravelMode.WALKING)
+
+        assertEquals(null, fake.lastBearingsDegrees)
+    }
+
+    @Test
+    fun `fromSketch constrains each via point to the sketch's local direction`() = runTest {
+        val snapped = PlannedRoute(listOf(geo(0.0), geo(400.0)), 390.0, emptyList(), snappedToRoads = true)
+        val fake = FakeDirections(Result.success(snapped))
+
+        // Nét vẽ đi thẳng theo hướng đông (kinh độ tăng, vĩ độ không đổi) -> bearing ~90.
+        BuildRouteUseCase(fake).fromSketch(listOf(geo(0.0), geo(200.0), geo(400.0)), TravelMode.WALKING)
+
+        val bearings = fake.lastBearingsDegrees
+        assertEquals(3, bearings?.size)
+        bearings!!.forEach { assertEquals(90.0, it, 1.0) }
+        assertEquals(45.0, fake.lastBearingRangeDegrees, 0.0)
+    }
+
     private class FakeDirections(private val route: Result<PlannedRoute>) : DirectionsRepository {
         var calls = 0
             private set
@@ -128,17 +152,25 @@ class BuildRouteUseCaseTest {
             private set
         var lastRadiusMeters: Double? = null
             private set
+        var lastBearingsDegrees: List<Double>? = null
+            private set
+        var lastBearingRangeDegrees: Double = 0.0
+            private set
 
         override suspend fun route(
             waypoints: List<GeoPoint>,
             mode: TravelMode,
             allowUTurns: Boolean,
             radiusMeters: Double?,
+            bearingsDegrees: List<Double>?,
+            bearingRangeDegrees: Double,
         ): Result<PlannedRoute> {
             calls++
             lastWaypointCount = waypoints.size
             lastAllowUTurns = allowUTurns
             lastRadiusMeters = radiusMeters
+            lastBearingsDegrees = bearingsDegrees
+            lastBearingRangeDegrees = bearingRangeDegrees
             return route
         }
     }

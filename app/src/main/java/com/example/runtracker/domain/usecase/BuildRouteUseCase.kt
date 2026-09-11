@@ -8,6 +8,7 @@ import com.example.runtracker.domain.repository.DirectionsRepository
 import com.example.runtracker.domain.tracking.GeoMath
 import javax.inject.Inject
 import kotlin.math.max
+import kotlin.math.min
 
 /**
  * Dựng route. Ưu tiên bám đường qua OSRM; nếu lỗi (mất mạng / không khớp) thì
@@ -40,12 +41,18 @@ class BuildRouteUseCase @Inject constructor(
      *  2. mỗi điểm chỉ được khớp vào đường trong bán kính [SNAP_RADIUS_METERS] — đủ rộng để
      *     chịu sai số tay vẽ và vẫn tìm được đường ở những chỗ thưa (quảng trường, ven sông),
      *     đủ hẹp để KHÔNG nhảy sang một phố song song ở xa hơn;
-     *  3. cấm quay đầu tại điểm trung gian;
-     *  4. chấm điểm kết quả — dài hơn nét vẽ bao nhiêu, lệch khỏi nét vẽ bao xa;
-     *  5. NGƯỠNG CHẤP NHẬN CỐ Ý RỘNG RÃI ([ACCEPTABLE_SCORE]) — thà lấy một route đã bám
+     *  3. mỗi điểm chỉ được khớp vào đường có hướng gần với hướng nét vẽ tại chỗ đó
+     *     ([BEARING_RANGE_DEGREES]) — bán kính + cấm quay đầu tại via (bước 4) không ngăn
+     *     được việc via khớp vào miệng một con hẻm gần đó rồi phải đi vào-quay-ra (quay đầu
+     *     chỉ bị cấm NGAY TẠI via, không cấm việc vòng vào một ngõ cụt cạnh via); hẻm hầu hết
+     *     đâm vuông góc vào phố chính nên ràng buộc hướng loại được phần lớn kiểu "vòng vào
+     *     rồi vòng ra" này (đã kiểm chứng trực tiếp với routing.openstreetmap.de);
+     *  4. cấm quay đầu tại điểm trung gian;
+     *  5. chấm điểm kết quả — dài hơn nét vẽ bao nhiêu, lệch khỏi nét vẽ bao xa;
+     *  6. NGƯỠNG CHẤP NHẬN CỐ Ý RỘNG RÃI ([ACCEPTABLE_SCORE]) — thà lấy một route đã bám
      *     đường dù hơi lệch (dữ liệu OSM khu vực có thể thiếu ngõ nhỏ khiến bám lệch đôi chút)
      *     còn hơn trả về nét vẽ tay thô cắt ngang nhà cửa. Chỉ khi KHÔNG có kết quả nào tìm
-     *     được (mất mạng, hoặc không đường nào trong bán kính) mới rơi về nét vẽ tay.
+     *     được (mất mạng, hoặc không đường nào trong bán kính/hướng) mới rơi về nét vẽ tay.
      */
     suspend fun fromSketch(sketch: List<GeoPoint>, mode: TravelMode): PlannedRoute {
         if (sketch.size < 2) return straightLine(sketch)
@@ -65,6 +72,8 @@ class BuildRouteUseCase @Inject constructor(
                 mode = mode,
                 allowUTurns = false,
                 radiusMeters = SNAP_RADIUS_METERS,
+                bearingsDegrees = localBearings(trace),
+                bearingRangeDegrees = BEARING_RANGE_DEGREES,
             ).getOrNull() ?: continue
             val score = detourScore(candidate, sketch, sketchLength)
             if (score < bestScore) {
@@ -75,6 +84,17 @@ class BuildRouteUseCase @Inject constructor(
         }
 
         return if (best != null && bestScore <= ACCEPTABLE_SCORE) best else straightLine(sketch)
+    }
+
+    /** Hướng nét vẽ tại mỗi điểm — trung bình từ điểm trước tới điểm sau (điểm đầu/cuối dùng
+     *  hướng với hàng xóm duy nhất). */
+    private fun localBearings(trace: List<GeoPoint>): List<Double> {
+        val n = trace.size
+        return List(n) { i ->
+            val prev = trace[max(0, i - 1)]
+            val next = trace[min(n - 1, i + 1)]
+            GeoMath.bearingDegrees(prev, next)
+        }
     }
 
     /**
@@ -113,6 +133,10 @@ class BuildRouteUseCase @Inject constructor(
         /** Mỗi điểm trung gian chỉ được khớp vào đường trong bán kính này — chặn việc nhảy
          *  sang một phố song song ở xa hơn nét vẽ. */
         const val SNAP_RADIUS_METERS = 60.0
+
+        /** Mỗi điểm trung gian chỉ được khớp vào đường có hướng lệch không quá mức này so
+         *  với hướng nét vẽ tại chỗ đó — chặn việc vòng vào một con hẻm cắt ngang rồi quay ra. */
+        const val BEARING_RANGE_DEGREES = 45.0
 
         /** Đủ tốt thì nhận luôn, khỏi gọi mạng thêm lần nữa. */
         const val GOOD_SCORE = 0.5
