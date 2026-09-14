@@ -20,6 +20,7 @@ import com.example.runtracker.core.LOCAL_USER_ID
 import com.example.runtracker.core.formatClock
 import com.example.runtracker.data.health.BleHeartRateStore
 import com.example.runtracker.domain.beacon.LiveLocationTransport
+import com.example.runtracker.domain.health.BarometerSource
 import com.example.runtracker.domain.health.LiveHeartRateSource
 import com.example.runtracker.domain.model.Activity
 import com.example.runtracker.domain.model.GeoPoint
@@ -29,6 +30,7 @@ import com.example.runtracker.domain.model.RoutePoint
 import com.example.runtracker.domain.model.RouteWaypoint
 import com.example.runtracker.domain.navigation.RouteNavigator
 import com.example.runtracker.domain.repository.ActivityRepository
+import com.example.runtracker.domain.tracking.BarometerAltitude
 import com.example.runtracker.domain.tracking.GeoMath
 import com.example.runtracker.domain.tracking.RunAggregator
 import com.example.runtracker.domain.usecase.FinalizeActivityUseCase
@@ -74,12 +76,14 @@ class LocationTrackingService : Service() {
     @Inject lateinit var bleHeartRateStore: BleHeartRateStore
     @Inject lateinit var beaconController: BeaconController
     @Inject lateinit var liveLocationTransport: LiveLocationTransport
+    @Inject lateinit var barometerSource: BarometerSource
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var locationJob: Job? = null
     private var tickerJob: Job? = null
     private var heartRateJob: Job? = null
     private var beaconJob: Job? = null
+    private var barometerJob: Job? = null
     private var broadcastingCode: String? = null
     private var wakeLock: PowerManager.WakeLock? = null
 
@@ -90,6 +94,10 @@ class LocationTrackingService : Service() {
     private var lastAccepted: RoutePoint? = null
     private var pausedAccumSeconds: Long = 0
     private var pausedAt: Instant? = null
+
+    // Độ cao từ khí áp (chính xác hơn GPS altitude), hiệu chỉnh 1 lần theo GPS altitude điểm đầu.
+    private var latestPressureHpa: Float? = null
+    private var seaLevelPressureHpa: Double? = null
 
     // Điều hướng turn-by-turn (rỗng nếu không theo route)
     private var navSteps: List<RouteWaypoint> = emptyList()
@@ -120,6 +128,7 @@ class LocationTrackingService : Service() {
         tickerJob?.cancel()
         heartRateJob?.cancel()
         beaconJob?.cancel()
+        barometerJob?.cancel()
         releaseWakeLock()
         scope.cancel()
         super.onDestroy()
@@ -170,6 +179,22 @@ class LocationTrackingService : Service() {
         startTicker()
         startHeartRateCollection(id)
         startBeaconCollection()
+        startBarometerCollection()
+    }
+
+    /**
+     * Đọc khí áp liên tục trong suốt buổi tập (kể cả lúc tạm dừng, để hiệu chỉnh không bị gián
+     * đoạn). Không phải máy nào cũng có cảm biến này — [onLocation] tự fallback GPS altitude
+     * khi chưa hiệu chỉnh được.
+     */
+    private fun startBarometerCollection() {
+        barometerJob?.cancel()
+        if (!barometerSource.isSupported()) return
+        barometerJob = scope.launch {
+            barometerSource.pressureUpdates()
+                .catch { e -> Log.w(TAG, "barometer stream error", e) }
+                .collect { latestPressureHpa = it }
+        }
     }
 
     /**
@@ -265,6 +290,7 @@ class LocationTrackingService : Service() {
             startTicker()
             startHeartRateCollection(id)
             startBeaconCollection()
+            startBarometerCollection()
             updateNotification()
         }
     }
@@ -344,6 +370,7 @@ class LocationTrackingService : Service() {
         locationJob?.cancel()
         tickerJob?.cancel()
         heartRateJob?.cancel()
+        barometerJob?.cancel()
         releaseWakeLock()
         scope.launch {
             withContext(NonCancellable) {
@@ -491,6 +518,8 @@ class LocationTrackingService : Service() {
         navPolyline = emptyList()
         navStepIndex = 0
         heartRateBuffer.clear()
+        latestPressureHpa = null
+        seaLevelPressureHpa = null
     }
 
     // ---- Notification ----
@@ -581,14 +610,31 @@ class LocationTrackingService : Service() {
         wakeLock = null
     }
 
-    private fun Location.toRoutePoint() = RoutePoint(
-        latitude = latitude,
-        longitude = longitude,
-        altitude = if (hasAltitude()) altitude else 0.0,
-        speedMps = if (hasSpeed()) speed else null,
-        accuracyMeters = if (hasAccuracy()) accuracy else null,
-        timestamp = Instant.ofEpochMilli(time),
-    )
+    private fun Location.toRoutePoint(): RoutePoint {
+        val gpsAltitude = if (hasAltitude()) altitude else 0.0
+        calibrateBarometerIfNeeded(gpsAltitude)
+        return RoutePoint(
+            latitude = latitude,
+            longitude = longitude,
+            altitude = barometerAltitudeMeters() ?: gpsAltitude,
+            speedMps = if (hasSpeed()) speed else null,
+            accuracyMeters = if (hasAccuracy()) accuracy else null,
+            timestamp = Instant.ofEpochMilli(time),
+        )
+    }
+
+    /** Hiệu chỉnh khí áp 1 lần, dùng GPS altitude của điểm đầu tiên đọc được làm mốc. */
+    private fun calibrateBarometerIfNeeded(gpsAltitudeMeters: Double) {
+        if (seaLevelPressureHpa != null) return
+        val pressure = latestPressureHpa ?: return
+        seaLevelPressureHpa = BarometerAltitude.seaLevelPressure(pressure, gpsAltitudeMeters)
+    }
+
+    private fun barometerAltitudeMeters(): Double? {
+        val seaLevel = seaLevelPressureHpa ?: return null
+        val pressure = latestPressureHpa ?: return null
+        return BarometerAltitude.altitudeFor(pressure, seaLevel)
+    }
 
     companion object {
         const val ACTION_START = "com.example.runtracker.tracking.START"
