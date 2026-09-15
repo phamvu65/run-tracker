@@ -75,7 +75,7 @@ fun RunCompleteScreen(
                     StatStrip(
                         listOf(
                             StatCell("Quãng đường", formatDistanceKm(a.distanceMeters)),
-                            StatCell("Thời gian", formatClock(a.movingTime.inWholeSeconds)),
+                            StatCell("Thời gian di chuyển", formatClock(a.movingTime.inWholeSeconds)),
                             StatCell("Nhịp độ", formatPace(a.avgPaceSecPerKm)),
                         ),
                     )
