@@ -170,7 +170,7 @@ private fun LoadedContent(
                     listOf(
                         StatCell("Quãng đường", formatDistanceKm(activity.distanceMeters)),
                         StatCell("Pace", formatPace(activity.avgPaceSecPerKm)),
-                        StatCell("Thời gian", formatClock(activity.movingTime.inWholeSeconds)),
+                        StatCell("Thời gian di chuyển", formatClock(activity.movingTime.inWholeSeconds)),
                     ),
                 )
                 androidx.compose.material3.HorizontalDivider(
