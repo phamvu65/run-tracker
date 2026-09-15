@@ -1,5 +1,13 @@
 package com.example.runtracker.ui.complete
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,8 +24,14 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -46,6 +60,13 @@ fun RunCompleteScreen(
     val activity = viewModel.activity
     val records = viewModel.records
 
+    // Nội dung ẩn lúc đầu, hiện dần (fade + trượt lên, so le từng khối) ngay khi hết loading —
+    // buổi tập nào cũng đáng một chút "ăn mừng" khi màn này xuất hiện.
+    var contentVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(viewModel.loading) {
+        if (!viewModel.loading) contentVisible = true
+    }
+
     Box(modifier.fillMaxSize()) {
         Column(
             Modifier
@@ -61,42 +82,68 @@ fun RunCompleteScreen(
             Spacer(Modifier.height(Spacing.lg))
 
             if (!viewModel.loading) {
-                if (records.isNotEmpty()) {
-                    AchievementHeader(records)
-                } else {
-                    EncouragementHeader(viewModel.quote)
+                AnimatedVisibility(
+                    visible = contentVisible,
+                    enter = fadeIn(tween(350)) + slideInVertically(tween(350)) { it / 4 },
+                ) {
+                    if (records.isNotEmpty()) {
+                        AchievementHeader(records, contentVisible)
+                    } else {
+                        EncouragementHeader(viewModel.quote)
+                    }
                 }
             }
 
             Spacer(Modifier.height(Spacing.xl))
 
             activity?.let { a ->
-                FlatCard {
-                    StatStrip(
-                        listOf(
-                            StatCell("Quãng đường", formatDistanceKm(a.distanceMeters)),
-                            StatCell("Thời gian di chuyển", formatClock(a.movingTime.inWholeSeconds)),
-                            StatCell("Nhịp độ", formatPace(a.avgPaceSecPerKm)),
-                        ),
-                    )
+                AnimatedVisibility(
+                    visible = contentVisible,
+                    enter = fadeIn(tween(400, delayMillis = 150)) +
+                        slideInVertically(tween(400, delayMillis = 150)) { it / 3 },
+                ) {
+                    FlatCard {
+                        StatStrip(
+                            listOf(
+                                StatCell("Quãng đường", formatDistanceKm(a.distanceMeters)),
+                                StatCell("Thời gian di chuyển", formatClock(a.movingTime.inWholeSeconds)),
+                                StatCell("Nhịp độ", formatPace(a.avgPaceSecPerKm)),
+                            ),
+                        )
+                    }
                 }
             }
 
             Spacer(Modifier.height(Spacing.xl))
 
-            Button(
-                onClick = { onViewDetail(viewModel.activityId) },
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text("Xem chi tiết") }
-            Spacer(Modifier.height(Spacing.sm))
-            OutlinedButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) { Text("Đóng") }
+            AnimatedVisibility(
+                visible = contentVisible,
+                enter = fadeIn(tween(400, delayMillis = 300)),
+            ) {
+                Column(Modifier.fillMaxWidth()) {
+                    Button(
+                        onClick = { onViewDetail(viewModel.activityId) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("Xem chi tiết") }
+                    Spacer(Modifier.height(Spacing.sm))
+                    OutlinedButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) { Text("Đóng") }
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun AchievementHeader(records: List<PersonalRecord>) {
-    Text("🏆", style = MaterialTheme.typography.displayLarge)
+private fun AchievementHeader(records: List<PersonalRecord>, visible: Boolean) {
+    val emojiScale by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow,
+        ),
+        label = "trophyScale",
+    )
+    Text("🏆", style = MaterialTheme.typography.displayLarge, modifier = Modifier.scale(emojiScale))
     Spacer(Modifier.height(Spacing.sm))
     Text(
         if (records.size > 1) "Kỷ lục mới!" else "Kỷ lục mới: ${records.first().label}!",
@@ -109,11 +156,17 @@ private fun AchievementHeader(records: List<PersonalRecord>) {
         Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
-        records.forEach { record ->
-            FlatCard {
-                StravaLabel(record.label)
-                Spacer(Modifier.height(2.dp))
-                Text(record.valueText, style = MaterialTheme.typography.headlineSmall)
+        records.forEachIndexed { index, record ->
+            AnimatedVisibility(
+                visible = visible,
+                enter = fadeIn(tween(300, delayMillis = 200 + index * 80)) +
+                    slideInVertically(tween(300, delayMillis = 200 + index * 80)) { it / 2 },
+            ) {
+                FlatCard {
+                    StravaLabel(record.label)
+                    Spacer(Modifier.height(2.dp))
+                    Text(record.valueText, style = MaterialTheme.typography.headlineSmall)
+                }
             }
         }
     }
@@ -121,7 +174,17 @@ private fun AchievementHeader(records: List<PersonalRecord>) {
 
 @Composable
 private fun EncouragementHeader(quote: String) {
-    Text("🏁", style = MaterialTheme.typography.displayLarge)
+    val emojiScale = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        emojiScale.animateTo(
+            1f,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessLow,
+            ),
+        )
+    }
+    Text("🏁", style = MaterialTheme.typography.displayLarge, modifier = Modifier.scale(emojiScale.value))
     Spacer(Modifier.height(Spacing.sm))
     Text(
         "Hoàn thành!",
