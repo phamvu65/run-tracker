@@ -149,7 +149,7 @@ private fun LoadedContent(
                 Text("Không có dữ liệu GPS", style = MaterialTheme.typography.bodyMedium)
             }
         } else {
-            RouteMap(
+            RoutePlaybackMap(
                 points = state.routePoints,
                 modifier = Modifier.fillMaxWidth().height(240.dp),
             )

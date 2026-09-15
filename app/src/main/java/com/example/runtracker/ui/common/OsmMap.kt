@@ -219,11 +219,16 @@ fun MapView.renderPath(
         overlays.add(
             Marker(this).apply {
                 position = m.point.toOsm()
-                if (m.style == MarkerStyle.BADGE) {
-                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                    icon = badgeDrawable(context, m.color, m.label, density)
-                } else {
-                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                when (m.style) {
+                    MarkerStyle.BADGE -> {
+                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                        icon = badgeDrawable(context, m.color, m.label, density)
+                    }
+                    MarkerStyle.EMOJI -> {
+                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                        icon = emojiDrawable(context, m.label.orEmpty(), density)
+                    }
+                    MarkerStyle.PIN -> setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                 }
                 title = m.title
                 setInfoWindow(null)
