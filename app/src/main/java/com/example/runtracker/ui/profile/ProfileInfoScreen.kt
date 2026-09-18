@@ -22,7 +22,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,6 +33,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.domain.model.Sex
 import com.example.runtracker.ui.components.FlatCard
 import com.example.runtracker.ui.components.SectionHeader
+import com.example.runtracker.ui.components.SuccessCheckModal
 import com.example.runtracker.ui.theme.Spacing
 import java.time.Year
 
@@ -46,13 +46,6 @@ fun ProfileInfoScreen(
 ) {
     val user by viewModel.user.collectAsState()
     val saved by viewModel.saved.collectAsState()
-
-    LaunchedEffect(saved) {
-        if (saved) {
-            viewModel.consumeSaved()
-            onBack()
-        }
-    }
 
     var name by remember(user) { mutableStateOf(user?.displayName.orEmpty()) }
     var sex by remember(user) { mutableStateOf(user?.sex) }
@@ -142,6 +135,16 @@ fun ProfileInfoScreen(
                 }
             }
         }
+    }
+
+    if (saved) {
+        SuccessCheckModal(
+            message = "Đã lưu hồ sơ!",
+            onDismiss = {
+                viewModel.consumeSaved()
+                onBack()
+            },
+        )
     }
 }
 

@@ -39,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -350,6 +351,85 @@ fun ChallengeRunCard(
                 )
                 Text(dateRangeText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+        }
+    }
+}
+
+/**
+ * Toggle nhỏ kiểu "Switch" GoRun: viên nổi bật màu primary ở lựa chọn đang chọn, trượt trên
+ * nền viên thuốc xám — dùng để đổi kỳ xem (tuần/tháng...) trong [DiagramCard].
+ */
+@Composable
+fun PeriodSwitch(
+    options: List<String>,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .padding(2.dp),
+    ) {
+        options.forEachIndexed { index, label ->
+            val selected = index == selectedIndex
+            Box(
+                Modifier
+                    .clip(CircleShape)
+                    .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                    .clickable { onSelect(index) }
+                    .padding(horizontal = Spacing.md, vertical = Spacing.xs),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Thẻ mẹo dạng carousel kiểu GoRun "Tips": icon lớn giữa nền gradient, chú thích mờ phía dưới
+ * (thay ảnh minh hoạ bằng gradient token màu — nội dung tĩnh trong app, không tải ảnh ngoài).
+ */
+@Composable
+fun TipCard(
+    icon: ImageVector,
+    text: String,
+    gradientColors: List<Color>,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier
+            .width(148.dp)
+            .height(168.dp)
+            .clip(MaterialTheme.shapes.extraLarge)
+            .background(Brush.verticalGradient(gradientColors)),
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.92f),
+            modifier = Modifier.align(Alignment.Center).size(40.dp),
+        )
+        Box(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .background(Color.Black.copy(alpha = 0.38f))
+                .padding(Spacing.sm),
+        ) {
+            Text(
+                text,
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

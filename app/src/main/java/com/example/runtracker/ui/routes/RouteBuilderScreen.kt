@@ -52,6 +52,7 @@ import com.example.runtracker.ui.common.MapLine
 import com.example.runtracker.ui.common.MapMarker
 import com.example.runtracker.ui.common.OsmMap
 import com.example.runtracker.ui.common.startFinishMarkers
+import com.example.runtracker.ui.components.SuccessCheckModal
 import com.example.runtracker.ui.theme.Spacing
 
 private val DEFAULT_CAMERA = GeoPoint(10.7769, 106.7009) // TP.HCM
@@ -64,13 +65,6 @@ fun RouteBuilderScreen(
     modifier: Modifier = Modifier,
     viewModel: RouteBuilderViewModel = hiltViewModel(),
 ) {
-    LaunchedEffect(viewModel.savedRouteId) {
-        viewModel.savedRouteId?.let {
-            viewModel.consumeSaved()
-            onSaved(it)
-        }
-    }
-
     var showNameDialog by remember { mutableStateOf(false) }
     val density = LocalDensity.current
     var panelHeight by remember { mutableStateOf(0.dp) }
@@ -289,6 +283,17 @@ fun RouteBuilderScreen(
                 }) { Text("Lưu") }
             },
             dismissButton = { TextButton(onClick = { showNameDialog = false }) { Text("Huỷ") } },
+        )
+    }
+
+    val savedRouteId = viewModel.savedRouteId
+    if (savedRouteId != null) {
+        SuccessCheckModal(
+            message = "Đã lưu route!",
+            onDismiss = {
+                viewModel.consumeSaved()
+                onSaved(savedRouteId)
+            },
         )
     }
 }

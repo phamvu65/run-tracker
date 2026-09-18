@@ -18,7 +18,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
 import javax.inject.Inject
 import kotlin.time.Duration
@@ -34,9 +36,15 @@ data class ProfileSummary(
     val weekElevationGainMeters: Double = 0.0,
     /** Quãng đường (km) từng tuần, cũ → mới; dài WEEKS phần tử. */
     val weeklyKm: List<Double> = emptyList(),
+    val monthDistanceMeters: Double = 0.0,
+    val monthMovingTime: Duration = Duration.ZERO,
+    val monthElevationGainMeters: Double = 0.0,
+    /** Quãng đường (km) từng tháng dương lịch, cũ → mới; dài MONTHS phần tử. */
+    val monthlyKm: List<Double> = emptyList(),
 ) {
     companion object {
         const val WEEKS = 12
+        const val MONTHS = 6
     }
 }
 
@@ -97,13 +105,19 @@ class ProfileViewModel @Inject constructor(
             val today = LocalDate.now(ZONE)
             val weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
             val firstWeekStart = weekStart.minusWeeks((ProfileSummary.WEEKS - 1).toLong())
+            val monthStart = today.withDayOfMonth(1)
+            val firstMonth = YearMonth.from(today).minusMonths((ProfileSummary.MONTHS - 1).toLong())
 
             var weekDist = 0.0
             var weekMoving = Duration.ZERO
             var weekElev = 0.0
+            var monthDist = 0.0
+            var monthMoving = Duration.ZERO
+            var monthElev = 0.0
             var totalDist = 0.0
             var totalMoving = Duration.ZERO
             val perWeek = DoubleArray(ProfileSummary.WEEKS)
+            val perMonth = DoubleArray(ProfileSummary.MONTHS)
             var earliestYear = today.year
 
             activities.forEach { a ->
@@ -118,8 +132,19 @@ class ProfileViewModel @Inject constructor(
                     weekElev += a.elevationGainMeters
                 }
                 if (!date.isBefore(firstWeekStart)) {
-                    val idx = java.time.temporal.ChronoUnit.WEEKS.between(firstWeekStart, date).toInt()
+                    val idx = ChronoUnit.WEEKS.between(firstWeekStart, date).toInt()
                     if (idx in 0 until ProfileSummary.WEEKS) perWeek[idx] += a.distanceMeters / 1000.0
+                }
+
+                if (!date.isBefore(monthStart)) {
+                    monthDist += a.distanceMeters
+                    monthMoving += a.movingTime
+                    monthElev += a.elevationGainMeters
+                }
+                val activityMonth = YearMonth.from(date)
+                if (!activityMonth.isBefore(firstMonth)) {
+                    val idx = ChronoUnit.MONTHS.between(firstMonth, activityMonth).toInt()
+                    if (idx in 0 until ProfileSummary.MONTHS) perMonth[idx] += a.distanceMeters / 1000.0
                 }
             }
 
@@ -132,6 +157,10 @@ class ProfileViewModel @Inject constructor(
                 weekMovingTime = weekMoving,
                 weekElevationGainMeters = weekElev,
                 weeklyKm = perWeek.toList(),
+                monthDistanceMeters = monthDist,
+                monthMovingTime = monthMoving,
+                monthElevationGainMeters = monthElev,
+                monthlyKm = perMonth.toList(),
             )
         }
     }

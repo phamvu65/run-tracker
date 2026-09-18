@@ -10,12 +10,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.TrendingDown
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -47,6 +51,7 @@ import com.example.runtracker.ui.components.FlatCard
 import com.example.runtracker.ui.components.IconStatGrid
 import com.example.runtracker.ui.components.IconStatTileData
 import com.example.runtracker.ui.components.SectionHeader
+import com.example.runtracker.ui.components.TipCard
 import com.example.runtracker.ui.theme.Spacing
 import kotlin.math.roundToInt
 import kotlin.math.roundToLong
@@ -136,9 +141,43 @@ fun FitnessScreen(
             if (predictions.isNotEmpty()) {
                 PredictionSection(predictions)
             }
+
+            TipsSection()
         }
     }
 }
+
+/** Carousel mẹo tập luyện kiểu GoRun "Tips": nền gradient token màu, chú thích mờ phía dưới. */
+@Composable
+private fun TipsSection() {
+    val gradients = listOf(
+        listOf(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.primary),
+        listOf(MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.tertiary),
+        listOf(MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.secondary),
+        listOf(MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.surfaceContainerHigh),
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        SectionHeader(title = "Mẹo chạy bộ")
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            itemsIndexed(FITNESS_TIPS) { index, tip ->
+                TipCard(
+                    icon = tip.icon,
+                    text = tip.text,
+                    gradientColors = gradients[index % gradients.size],
+                )
+            }
+        }
+    }
+}
+
+private data class FitnessTip(val icon: androidx.compose.ui.graphics.vector.ImageVector, val text: String)
+
+private val FITNESS_TIPS = listOf(
+    FitnessTip(Icons.Filled.Favorite, "Cấu hình đúng vùng nhịp tim để TRIMP và Relative Effort chính xác hơn."),
+    FitnessTip(Icons.Filled.LocationOn, "Giữ điện thoại lộ thiên khi chạy để tránh tín hiệu GPS yếu làm lệch quãng đường."),
+    FitnessTip(Icons.Filled.TrendingUp, "TSB âm sâu kéo dài là dấu hiệu nên giảm tải, tránh chấn thương."),
+    FitnessTip(Icons.Filled.Build, "Một số máy (Xiaomi, Oppo...) tự tắt app nền — nhớ miễn tối ưu pin khi ghi buổi tập."),
+)
 
 /** Thẻ "Gợi ý hôm nay" kiểu Figma Insights: icon tròn + heading + mô tả + CTA dạng link. */
 @Composable

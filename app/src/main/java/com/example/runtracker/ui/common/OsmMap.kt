@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.DashPathEffect
 import android.graphics.Paint
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -301,14 +302,19 @@ fun MapControls(
     }
 }
 
+/**
+ * Nút tròn nổi trên bản đồ kiểu GoRun "Map Guide": nền tối trong suốt + viền mảnh, thay vì
+ * thẻ đặc kiểu Material — đọc được trên mọi nền ảnh bản đồ mà không che khuất quá nhiều.
+ */
 @Composable
 private fun MapControlButton(onClick: () -> Unit, content: @Composable () -> Unit) {
     Surface(
         onClick = onClick,
         shape = CircleShape,
-        color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 4.dp,
-        modifier = Modifier.size(44.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.75f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)),
+        shadowElevation = 2.dp,
+        modifier = Modifier.size(46.dp),
     ) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { content() }
     }

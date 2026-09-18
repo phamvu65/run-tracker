@@ -25,7 +25,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,6 +40,7 @@ import com.example.runtracker.ui.common.MapGuideLineColor
 import com.example.runtracker.ui.common.MapLine
 import com.example.runtracker.ui.common.OsmMap
 import com.example.runtracker.ui.common.startFinishMarkers
+import com.example.runtracker.ui.components.SuccessCheckModal
 import com.example.runtracker.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -51,13 +51,6 @@ fun SegmentCreateScreen(
     modifier: Modifier = Modifier,
     viewModel: SegmentCreateViewModel = hiltViewModel(),
 ) {
-    LaunchedEffect(viewModel.savedSegmentId) {
-        viewModel.savedSegmentId?.let {
-            viewModel.consumeSaved()
-            onCreated(it)
-        }
-    }
-
     val total = viewModel.totalDistanceMeters
     var range by remember(total) { mutableStateOf(0f..total) }
     var name by remember { mutableStateOf("") }
@@ -144,5 +137,16 @@ fun SegmentCreateScreen(
                 }
             }
         }
+    }
+
+    val savedSegmentId = viewModel.savedSegmentId
+    if (savedSegmentId != null) {
+        SuccessCheckModal(
+            message = "Đã tạo segment!",
+            onDismiss = {
+                viewModel.consumeSaved()
+                onCreated(savedSegmentId)
+            },
+        )
     }
 }

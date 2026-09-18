@@ -43,6 +43,7 @@ import com.example.runtracker.domain.model.PlannedSession
 import com.example.runtracker.domain.model.TrainingPlan
 import com.example.runtracker.domain.training.RaceDistance
 import com.example.runtracker.ui.components.FlatCard
+import com.example.runtracker.ui.components.SuccessCheckModal
 import com.example.runtracker.ui.theme.Spacing
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -58,6 +59,7 @@ fun TrainingPlanScreen(
 ) {
     val state by viewModel.state.collectAsState()
     var editing by remember { mutableStateOf(false) }
+    var justSavedGoal by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier,
@@ -80,6 +82,7 @@ fun TrainingPlanScreen(
                     onSave = { d, date ->
                         viewModel.saveGoal(d, date)
                         editing = false
+                        justSavedGoal = true
                     },
                 )
 
@@ -91,6 +94,7 @@ fun TrainingPlanScreen(
                             onSave = { d, date ->
                                 viewModel.saveGoal(d, date)
                                 editing = false
+                                justSavedGoal = true
                             },
                             onCancel = { editing = false },
                         )
@@ -104,6 +108,13 @@ fun TrainingPlanScreen(
                 }
             }
         }
+    }
+
+    if (justSavedGoal) {
+        SuccessCheckModal(
+            message = "Đã lưu mục tiêu!",
+            onDismiss = { justSavedGoal = false },
+        )
     }
 }
 

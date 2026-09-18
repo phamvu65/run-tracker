@@ -24,7 +24,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.domain.model.ChallengeGoalType
+import com.example.runtracker.ui.components.SuccessCheckModal
 import com.example.runtracker.ui.theme.Spacing
 import java.time.LocalDate
 
@@ -44,13 +44,6 @@ fun CreateChallengeScreen(
     modifier: Modifier = Modifier,
     viewModel: CreateChallengeViewModel = hiltViewModel(),
 ) {
-    LaunchedEffect(viewModel.savedId) {
-        viewModel.savedId?.let {
-            viewModel.consumeSaved()
-            onCreated(it)
-        }
-    }
-
     val today = remember { LocalDate.now() }
     var name by remember { mutableStateOf("") }
     var goalType by remember { mutableStateOf(ChallengeGoalType.TOTAL_DISTANCE) }
@@ -155,5 +148,16 @@ fun CreateChallengeScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) { Text(if (viewModel.saving) "Đang tạo…" else "Tạo thử thách") }
         }
+    }
+
+    val savedId = viewModel.savedId
+    if (savedId != null) {
+        SuccessCheckModal(
+            message = "Đã tạo thử thách!",
+            onDismiss = {
+                viewModel.consumeSaved()
+                onCreated(savedId)
+            },
+        )
     }
 }

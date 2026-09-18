@@ -3,6 +3,7 @@ package com.example.runtracker.ui.profile
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -42,6 +43,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Path
@@ -57,6 +61,7 @@ import com.example.runtracker.ui.components.AthleteAvatar
 import com.example.runtracker.ui.components.DiagramCard
 import com.example.runtracker.ui.components.IconStatGrid
 import com.example.runtracker.ui.components.IconStatTileData
+import com.example.runtracker.ui.components.PeriodSwitch
 import com.example.runtracker.ui.components.StatCell
 import com.example.runtracker.ui.components.StatStrip
 import com.example.runtracker.ui.components.StravaLabel
@@ -158,26 +163,51 @@ fun ProfileScreen(
             Spacer(Modifier.height(Spacing.lg))
             HorizontalDivider(thickness = 8.dp, color = MaterialTheme.colorScheme.surfaceContainerLow)
 
-            // ---- Tuần này ----
+            // ---- Tuần này / Tháng này (chuyển kỳ xem kiểu GoRun "Diagram Card") ----
+            var period by remember { mutableStateOf(ChartPeriod.WEEKLY) }
+            val periodSeries = if (period == ChartPeriod.WEEKLY) summary.weeklyKm else summary.monthlyKm
+            val periodDistance = if (period == ChartPeriod.WEEKLY) summary.weekDistanceMeters else summary.monthDistanceMeters
+            val periodMoving = if (period == ChartPeriod.WEEKLY) summary.weekMovingTime else summary.monthMovingTime
+            val periodElevation = if (period == ChartPeriod.WEEKLY) summary.weekElevationGainMeters else summary.monthElevationGainMeters
+
             Box(Modifier.padding(Spacing.screen)) {
                 DiagramCard(
-                    title = "Tuần này",
+                    title = if (period == ChartPeriod.WEEKLY) "Tuần này" else "Tháng này",
                     trailing = {
                         Text(
-                            "%.1f km".format(summary.weekDistanceMeters / 1000.0),
+                            "%.1f km".format(periodDistance / 1000.0),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                         )
                     },
-                    legend = if (summary.weeklyKm.any { it > 0.0 }) {
-                        { StravaLabel("${ProfileSummary.WEEKS} tuần qua") }
+                    legend = if (summary.weeklyKm.any { it > 0.0 } || summary.monthlyKm.any { it > 0.0 }) {
+                        {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                StravaLabel(
+                                    if (period == ChartPeriod.WEEKLY) {
+                                        "${ProfileSummary.WEEKS} tuần qua"
+                                    } else {
+                                        "${ProfileSummary.MONTHS} tháng qua"
+                                    },
+                                )
+                                PeriodSwitch(
+                                    options = listOf("Tuần", "Tháng"),
+                                    selectedIndex = period.ordinal,
+                                    onSelect = { period = ChartPeriod.entries[it] },
+                                )
+                            }
+                        }
                     } else {
                         null
                     },
-                    chart = if (summary.weeklyKm.any { it > 0.0 }) {
+                    chart = if (periodSeries.any { it > 0.0 }) {
                         {
                             WeeklyChart(
-                                weeklyKm = summary.weeklyKm,
+                                weeklyKm = periodSeries,
                                 modifier = Modifier.fillMaxWidth().height(120.dp),
                             )
                         }
@@ -187,9 +217,9 @@ fun ProfileScreen(
                     footerGrid = {
                         IconStatGrid(
                             listOf(
-                                IconStatTileData(Icons.Filled.DirectionsRun, "Quãng đường", "%.1f km".format(summary.weekDistanceMeters / 1000.0)),
-                                IconStatTileData(Icons.Filled.Timer, "Thời gian", formatHours(summary.weekMovingTime.inWholeSeconds)),
-                                IconStatTileData(Icons.Filled.Terrain, "Độ cao", "${summary.weekElevationGainMeters.roundToInt()} m"),
+                                IconStatTileData(Icons.Filled.DirectionsRun, "Quãng đường", "%.1f km".format(periodDistance / 1000.0)),
+                                IconStatTileData(Icons.Filled.Timer, "Thời gian", formatHours(periodMoving.inWholeSeconds)),
+                                IconStatTileData(Icons.Filled.Terrain, "Độ cao", "${periodElevation.roundToInt()} m"),
                             ),
                         )
                     },
@@ -285,6 +315,8 @@ private fun WeeklyChart(weeklyKm: List<Double>, modifier: Modifier = Modifier) {
         }
     }
 }
+
+private enum class ChartPeriod { WEEKLY, MONTHLY }
 
 private fun formatHours(totalSeconds: Long): String {
     if (totalSeconds < 3600) return formatClock(totalSeconds)
