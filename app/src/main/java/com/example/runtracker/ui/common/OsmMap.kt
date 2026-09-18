@@ -33,6 +33,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -407,7 +408,11 @@ fun OsmMap(
     var sketchPx by remember { mutableStateOf<List<Offset>>(emptyList()) }
     val sketchColor = MaterialTheme.colorScheme.primary
 
-    Box(modifier) {
+    // clipToBounds() bắt buộc: nếu không, MapView (View gốc Android bọc qua AndroidView) có thể
+    // vẽ tràn ra ngoài khung Compose đã cấp (thấy rõ nhất khi có nội dung khác ngay sát mép dưới
+    // bản đồ, ví dụ RoutePlaybackMap — chữ/thẻ bên dưới bị tile bản đồ đè lên dù bounds layout
+    // đã đúng).
+    Box(modifier.clipToBounds()) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { mapView },

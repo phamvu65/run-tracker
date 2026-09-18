@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.runtracker.core.formatClock
@@ -93,7 +94,7 @@ fun RoutePlaybackMap(
     }
     val primary = MaterialTheme.colorScheme.primary
 
-    Box(modifier) {
+    Box(modifier.clipToBounds()) {
         OsmMap(
             modifier = Modifier.fillMaxSize(),
             lines = if (geoPoints.size >= 2) {
@@ -140,9 +141,13 @@ private fun PlaybackBar(
     onScrub: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Đặc màu (không trong suốt) — bản đồ OSM nhiều chi tiết/màu sắc, thanh trong suốt trước đây
+    // khiến tile bản đồ lộ qua trông rối mắt và khó đọc số liệu/nút bấm.
     Surface(
         modifier = modifier,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+        shape = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 3.dp,
     ) {
         Row(
             Modifier
