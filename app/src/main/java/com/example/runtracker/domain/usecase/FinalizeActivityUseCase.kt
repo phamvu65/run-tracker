@@ -1,8 +1,10 @@
 package com.example.runtracker.domain.usecase
 
 import com.example.runtracker.domain.repository.ActivityRepository
+import com.example.runtracker.domain.repository.UserRepository
 import com.example.runtracker.domain.tracking.LapCalculator
 import com.example.runtracker.domain.tracking.RunAggregator
+import com.example.runtracker.domain.training.CalorieEstimator
 import com.example.runtracker.domain.training.summary
 import java.time.Duration
 import java.time.Instant
@@ -16,6 +18,7 @@ import kotlin.time.Duration.Companion.seconds
  */
 class FinalizeActivityUseCase @Inject constructor(
     private val repository: ActivityRepository,
+    private val userRepository: UserRepository,
     private val refreshTrainingMetrics: RefreshTrainingMetricsUseCase,
     private val detectSegmentEfforts: DetectSegmentEffortsUseCase,
     private val updateChallengeProgress: UpdateChallengeProgressUseCase,
@@ -23,11 +26,14 @@ class FinalizeActivityUseCase @Inject constructor(
     /**
      * @param endTime null -> lấy timestamp điểm GPS cuối (đúng cho buổi bị gián đoạn), fallback now.
      * @param pausedSeconds tổng thời gian đã tạm dừng, trừ khỏi tổng thời gian.
+     * @param steps số bước đếm được từ cảm biến trong buổi tập (null nếu không có, ví dụ buổi bị
+     *   gián đoạn kết thúc thủ công — không có nguồn persisted để tính lại như route points).
      */
     suspend operator fun invoke(
         activityId: String,
         endTime: Instant? = null,
         pausedSeconds: Long = 0,
+        steps: Int? = null,
     ) {
         val activity = repository.getActivity(activityId) ?: return
         val points = repository.getRoutePoints(activityId)
@@ -36,6 +42,12 @@ class FinalizeActivityUseCase @Inject constructor(
         val end = endTime ?: points.lastOrNull()?.timestamp ?: Instant.now()
         val totalSeconds = (Duration.between(activity.startTime, end).seconds - pausedSeconds)
             .coerceAtLeast(0)
+        val calories = CalorieEstimator.estimate(
+            type = activity.type,
+            distanceMeters = aggregate.distanceMeters,
+            movingTimeSeconds = aggregate.movingTimeSeconds,
+            weightKg = userRepository.getCurrentUser()?.weightKg,
+        )
 
         repository.upsertActivity(
             activity.copy(
@@ -57,6 +69,8 @@ class FinalizeActivityUseCase @Inject constructor(
                 },
                 elevationGainMeters = aggregate.elevationGainMeters,
                 elevationLossMeters = aggregate.elevationLossMeters,
+                calories = calories ?: activity.calories,
+                steps = steps ?: activity.steps,
             ),
         )
         repository.replaceLaps(activityId, LapCalculator.splitByDistance(points))

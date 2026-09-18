@@ -42,6 +42,12 @@
         android:name="android.hardware.location.gps"
         android:required="false" />
 
+    <!-- Đếm bước chân trong buổi tập (Sensor.TYPE_STEP_COUNTER) — cần quyền từ Android 10. -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <uses-feature
+        android:name="android.hardware.sensor.stepcounter"
+        android:required="false" />
+
     <application
         android:name=".RunTrackerApp"
         android:allowBackup="true"

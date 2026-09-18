@@ -22,6 +22,7 @@ import com.example.runtracker.data.health.BleHeartRateStore
 import com.example.runtracker.domain.beacon.LiveLocationTransport
 import com.example.runtracker.domain.health.BarometerSource
 import com.example.runtracker.domain.health.LiveHeartRateSource
+import com.example.runtracker.domain.health.StepCounterSource
 import com.example.runtracker.domain.model.Activity
 import com.example.runtracker.domain.model.GeoPoint
 import com.example.runtracker.domain.model.HeartRateSample
@@ -77,6 +78,7 @@ class LocationTrackingService : Service() {
     @Inject lateinit var beaconController: BeaconController
     @Inject lateinit var liveLocationTransport: LiveLocationTransport
     @Inject lateinit var barometerSource: BarometerSource
+    @Inject lateinit var stepCounterSource: StepCounterSource
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var locationJob: Job? = null
@@ -84,6 +86,7 @@ class LocationTrackingService : Service() {
     private var heartRateJob: Job? = null
     private var beaconJob: Job? = null
     private var barometerJob: Job? = null
+    private var stepJob: Job? = null
     private var broadcastingCode: String? = null
     private var wakeLock: PowerManager.WakeLock? = null
 
@@ -102,6 +105,10 @@ class LocationTrackingService : Service() {
     // Độ cao từ khí áp (chính xác hơn GPS altitude), hiệu chỉnh 1 lần theo GPS altitude điểm đầu.
     private var latestPressureHpa: Float? = null
     private var seaLevelPressureHpa: Double? = null
+
+    // Số bước tích luỹ từ cảm biến phần cứng — chỉ cộng dồn khi đang TRACKING (không tính lúc tạm dừng).
+    private var lastStepCumulative: Int? = null
+    private var stepsAccumulated: Int = 0
 
     // Điều hướng turn-by-turn (rỗng nếu không theo route)
     private var navSteps: List<RouteWaypoint> = emptyList()
@@ -133,6 +140,7 @@ class LocationTrackingService : Service() {
         heartRateJob?.cancel()
         beaconJob?.cancel()
         barometerJob?.cancel()
+        stepJob?.cancel()
         releaseWakeLock()
         scope.cancel()
         super.onDestroy()
@@ -151,6 +159,8 @@ class LocationTrackingService : Service() {
         pausedAccumSeconds = 0
         pausedAt = null
         lastFixAt = now
+        lastStepCumulative = null
+        stepsAccumulated = 0
         stateStore.markActive(id)
 
         startAsForeground(TrackingStatus.TRACKING)
@@ -185,6 +195,29 @@ class LocationTrackingService : Service() {
         startHeartRateCollection(id)
         startBeaconCollection()
         startBarometerCollection()
+        startStepCollection()
+    }
+
+    /**
+     * Đếm bước chân bằng cảm biến phần cứng (`TYPE_STEP_COUNTER`, tích luỹ từ khi máy khởi động).
+     * Job này KHÔNG bị huỷ lúc tạm dừng (khác [locationJob]) — cần giữ chạy để [lastStepCumulative]
+     * luôn cập nhật, nếu không bước đi trong lúc tạm dừng sẽ bị cộng nhầm vào lúc tiếp tục ghi.
+     * Chỉ cộng dồn vào [stepsAccumulated] khi trạng thái đang TRACKING.
+     */
+    private fun startStepCollection() {
+        stepJob?.cancel()
+        if (!stepCounterSource.isSupported() || !stepCounterSource.hasPermission()) return
+        stepJob = scope.launch {
+            stepCounterSource.stepCountUpdates()
+                .catch { e -> Log.w(TAG, "step counter stream error", e) }
+                .collect { total ->
+                    val prev = lastStepCumulative
+                    lastStepCumulative = total
+                    if (prev != null && session.state.value.status == TrackingStatus.TRACKING) {
+                        stepsAccumulated += (total - prev).coerceAtLeast(0)
+                    }
+                }
+        }
     }
 
     /**
@@ -274,6 +307,10 @@ class LocationTrackingService : Service() {
             pausedAccumSeconds = 0
             pausedAt = null
             lastFixAt = Instant.now()
+            // Steps không có nguồn persisted để tính lại như route points -> bắt đầu lại từ 0
+            // sau khi Service bị OS kill (cùng giới hạn với nav route/beacon, xem CLAUDE.md).
+            lastStepCumulative = null
+            stepsAccumulated = 0
 
             session.reset()
             session.update {
@@ -297,6 +334,7 @@ class LocationTrackingService : Service() {
             startHeartRateCollection(id)
             startBeaconCollection()
             startBarometerCollection()
+            startStepCollection()
             updateNotification()
         }
     }
@@ -378,6 +416,7 @@ class LocationTrackingService : Service() {
         tickerJob?.cancel()
         heartRateJob?.cancel()
         barometerJob?.cancel()
+        stepJob?.cancel()
         releaseWakeLock()
         scope.launch {
             withContext(NonCancellable) {
@@ -520,6 +559,7 @@ class LocationTrackingService : Service() {
         avgHeartRate = null,
         maxHeartRate = null,
         calories = null,
+        steps = null,
         avgCadence = null,
         perceivedExertion = null,
         weather = null,
@@ -529,7 +569,12 @@ class LocationTrackingService : Service() {
     private suspend fun finalizeAndReset() {
         val id = activityId ?: return
         // Tính lại aggregate + lap từ trace đã lưu (số liệu chuẩn, không lệ thuộc state bộ nhớ).
-        finalizeActivityUseCase(id, endTime = Instant.now(), pausedSeconds = pausedAccumSeconds)
+        finalizeActivityUseCase(
+            id,
+            endTime = Instant.now(),
+            pausedSeconds = pausedAccumSeconds,
+            steps = stepsAccumulated,
+        )
         session.activityFinished(id)
         stateStore.clear()
         beaconController.reset()
@@ -548,6 +593,8 @@ class LocationTrackingService : Service() {
         heartRateBuffer.clear()
         latestPressureHpa = null
         seaLevelPressureHpa = null
+        lastStepCumulative = null
+        stepsAccumulated = 0
     }
 
     // ---- Notification ----

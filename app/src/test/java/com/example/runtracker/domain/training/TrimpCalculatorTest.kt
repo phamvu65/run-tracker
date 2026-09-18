@@ -82,7 +82,7 @@ class TrimpCalculatorTest {
         duration = totalMinutes.minutes, movingTime = movingMinutes.minutes,
         avgPaceSecPerKm = 0.0, avgSpeedKmh = 0.0,
         elevationGainMeters = 0.0, elevationLossMeters = 0.0,
-        avgHeartRate = avgHr, maxHeartRate = null, calories = null, avgCadence = null,
+        avgHeartRate = avgHr, maxHeartRate = null, calories = null, steps = null, avgCadence = null,
         perceivedExertion = rpe, weather = null, gpxRawPath = null,
     )
 }

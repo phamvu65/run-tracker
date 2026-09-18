@@ -20,33 +20,17 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
-import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
 import javax.inject.Inject
 import kotlin.time.Duration
 
-/** Tổng hợp số liệu cho phần đầu màn Hồ sơ. */
+/** Tổng hợp số liệu cho đầu màn Hồ sơ — số liệu tuần/tháng nằm ở [weekStat]/[monthStat] (xem `ProfileStats.kt`). */
 data class ProfileSummary(
     val activityCount: Int = 0,
     val totalDistanceMeters: Double = 0.0,
     val totalMovingTime: Duration = Duration.ZERO,
     val memberSinceYear: Int = LocalDate.now().year,
-    val weekDistanceMeters: Double = 0.0,
-    val weekMovingTime: Duration = Duration.ZERO,
-    val weekElevationGainMeters: Double = 0.0,
-    /** Quãng đường (km) từng tuần, cũ → mới; dài WEEKS phần tử. */
-    val weeklyKm: List<Double> = emptyList(),
-    val monthDistanceMeters: Double = 0.0,
-    val monthMovingTime: Duration = Duration.ZERO,
-    val monthElevationGainMeters: Double = 0.0,
-    /** Quãng đường (km) từng tháng dương lịch, cũ → mới; dài MONTHS phần tử. */
-    val monthlyKm: List<Double> = emptyList(),
-) {
-    companion object {
-        const val WEEKS = 12
-        const val MONTHS = 6
-    }
-}
+)
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
@@ -54,12 +38,50 @@ class ProfileViewModel @Inject constructor(
     activityRepository: ActivityRepository,
 ) : ViewModel() {
 
+    private val zone: ZoneId = ZoneId.systemDefault()
+
+    /** Đầu tuần hiện tại (Thứ Hai) / tháng hiện tại — tính lại mỗi lần [activities] phát mới, luôn là "bây giờ". */
+    private val weekStart: LocalDate
+        get() = LocalDate.now(zone).with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+    private val currentMonth: YearMonth
+        get() = YearMonth.now(zone)
+
     val user: StateFlow<User?> = userRepository.observeCurrentUser()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    val summary: StateFlow<ProfileSummary> = activityRepository.observeActivities(LOCAL_USER_ID)
-        .map { activities -> buildSummary(activities) }
+    private val activities: StateFlow<List<Activity>> = activityRepository.observeActivities(LOCAL_USER_ID)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val summary: StateFlow<ProfileSummary> = activities.map { buildSummary(it, zone) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ProfileSummary())
+
+    val weekDaysList: StateFlow<List<DayStat>> = activities.map { weekDays(it, weekStart) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val weekStat: StateFlow<PeriodStat> = activities.map {
+        val start = weekStart
+        periodStat(
+            it,
+            range = start..start.plusDays(6),
+            previousRange = start.minusDays(7)..start.minusDays(1),
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PeriodStat())
+
+    val monthDaysGrid: StateFlow<Map<LocalDate, DayStat>> = activities.map { monthDays(it, currentMonth) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    val monthStat: StateFlow<PeriodStat> = activities.map {
+        val month = currentMonth
+        val prevMonth = month.minusMonths(1)
+        periodStat(
+            it,
+            range = month.atDay(1)..month.atEndOfMonth(),
+            previousRange = prevMonth.atDay(1)..prevMonth.atEndOfMonth(),
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PeriodStat())
+
+    val monthlyTrendKm: StateFlow<List<Double>> = activities.map { monthlyTrend(it, months = TREND_MONTHS) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val _saved = MutableStateFlow(false)
     val saved: StateFlow<Boolean> = _saved.asStateFlow()
@@ -97,55 +119,20 @@ class ProfileViewModel @Inject constructor(
     }
 
     private companion object {
-        val ZONE: ZoneId = ZoneId.systemDefault()
+        const val TREND_MONTHS = 6
 
-        fun buildSummary(activities: List<Activity>): ProfileSummary {
+        fun buildSummary(activities: List<Activity>, zone: ZoneId): ProfileSummary {
             if (activities.isEmpty()) return ProfileSummary()
 
-            val today = LocalDate.now(ZONE)
-            val weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-            val firstWeekStart = weekStart.minusWeeks((ProfileSummary.WEEKS - 1).toLong())
-            val monthStart = today.withDayOfMonth(1)
-            val firstMonth = YearMonth.from(today).minusMonths((ProfileSummary.MONTHS - 1).toLong())
-
-            var weekDist = 0.0
-            var weekMoving = Duration.ZERO
-            var weekElev = 0.0
-            var monthDist = 0.0
-            var monthMoving = Duration.ZERO
-            var monthElev = 0.0
             var totalDist = 0.0
             var totalMoving = Duration.ZERO
-            val perWeek = DoubleArray(ProfileSummary.WEEKS)
-            val perMonth = DoubleArray(ProfileSummary.MONTHS)
-            var earliestYear = today.year
+            var earliestYear = LocalDate.now(zone).year
 
             activities.forEach { a ->
                 totalDist += a.distanceMeters
                 totalMoving += a.movingTime
-                val date = a.startTime.atZone(ZONE).toLocalDate()
-                if (date.year < earliestYear) earliestYear = date.year
-
-                if (!date.isBefore(weekStart)) {
-                    weekDist += a.distanceMeters
-                    weekMoving += a.movingTime
-                    weekElev += a.elevationGainMeters
-                }
-                if (!date.isBefore(firstWeekStart)) {
-                    val idx = ChronoUnit.WEEKS.between(firstWeekStart, date).toInt()
-                    if (idx in 0 until ProfileSummary.WEEKS) perWeek[idx] += a.distanceMeters / 1000.0
-                }
-
-                if (!date.isBefore(monthStart)) {
-                    monthDist += a.distanceMeters
-                    monthMoving += a.movingTime
-                    monthElev += a.elevationGainMeters
-                }
-                val activityMonth = YearMonth.from(date)
-                if (!activityMonth.isBefore(firstMonth)) {
-                    val idx = ChronoUnit.MONTHS.between(firstMonth, activityMonth).toInt()
-                    if (idx in 0 until ProfileSummary.MONTHS) perMonth[idx] += a.distanceMeters / 1000.0
-                }
+                val year = a.startTime.atZone(zone).toLocalDate().year
+                if (year < earliestYear) earliestYear = year
             }
 
             return ProfileSummary(
@@ -153,14 +140,6 @@ class ProfileViewModel @Inject constructor(
                 totalDistanceMeters = totalDist,
                 totalMovingTime = totalMoving,
                 memberSinceYear = earliestYear,
-                weekDistanceMeters = weekDist,
-                weekMovingTime = weekMoving,
-                weekElevationGainMeters = weekElev,
-                weeklyKm = perWeek.toList(),
-                monthDistanceMeters = monthDist,
-                monthMovingTime = monthMoving,
-                monthElevationGainMeters = monthElev,
-                monthlyKm = perMonth.toList(),
             )
         }
     }

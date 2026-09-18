@@ -72,7 +72,7 @@ abstract class RunTrackerDatabase : RoomDatabase() {
     abstract fun challengeDao(): ChallengeDao
 
     companion object {
-        const val DB_VERSION = 2
+        const val DB_VERSION = 3
         const val DB_NAME = "runtracker.db"
     }
 }

@@ -30,6 +30,7 @@ class ActivityMappersTest {
             avgHeartRate = 155,
             maxHeartRate = 178,
             calories = 320,
+            steps = 6284,
             avgCadence = 168,
             perceivedExertion = 6,
             weather = ActivityWeather(
@@ -56,7 +57,7 @@ class ActivityMappersTest {
             distanceMeters = 0.0, duration = 0.seconds, movingTime = 0.seconds,
             avgPaceSecPerKm = 0.0, avgSpeedKmh = 0.0,
             elevationGainMeters = 0.0, elevationLossMeters = 0.0,
-            avgHeartRate = null, maxHeartRate = null, calories = null, avgCadence = null,
+            avgHeartRate = null, maxHeartRate = null, calories = null, steps = null, avgCadence = null,
             perceivedExertion = null, weather = null, gpxRawPath = null,
         )
         assertEquals(null, activity.toEntity(updatedAt = 0L).toDomain().weather)
@@ -70,7 +71,7 @@ class ActivityMappersTest {
             distanceMeters = 0.0, duration = 0.seconds, movingTime = 0.seconds,
             avgPaceSecPerKm = 0.0, avgSpeedKmh = 0.0,
             elevationGainMeters = 0.0, elevationLossMeters = 0.0,
-            avgHeartRate = null, maxHeartRate = null, calories = null, avgCadence = null,
+            avgHeartRate = null, maxHeartRate = null, calories = null, steps = null, avgCadence = null,
             perceivedExertion = null, weather = null, gpxRawPath = null,
         ).toEntity(updatedAt = 0L).copy(type = "SWIMMING")
 

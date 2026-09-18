@@ -22,6 +22,7 @@ data class Activity(
     val avgHeartRate: Int?,
     val maxHeartRate: Int?,
     val calories: Int?,
+    val steps: Int?,
     val avgCadence: Int?,
     val perceivedExertion: Int?,   // RPE 1-10, fallback cho TRIMP khi thiếu HR
     val weather: ActivityWeather?,

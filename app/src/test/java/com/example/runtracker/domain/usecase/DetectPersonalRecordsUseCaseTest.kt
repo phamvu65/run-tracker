@@ -97,7 +97,7 @@ class DetectPersonalRecordsUseCaseTest {
         duration = movingTime, movingTime = movingTime,
         avgPaceSecPerKm = avgPaceSecPerKm, avgSpeedKmh = 0.0,
         elevationGainMeters = 0.0, elevationLossMeters = 0.0,
-        avgHeartRate = null, maxHeartRate = null, calories = null, avgCadence = null,
+        avgHeartRate = null, maxHeartRate = null, calories = null, steps = null, avgCadence = null,
         perceivedExertion = null, weather = null, gpxRawPath = null,
     )
 

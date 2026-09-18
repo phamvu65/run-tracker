@@ -28,6 +28,7 @@ data class ActivityEntity(
     val avgHeartRate: Int?,
     val maxHeartRate: Int?,
     val calories: Int?,
+    val stepCount: Int? = null,
     val avgCadence: Int?,
     val weatherTempC: Double?,          // Phase 3 — weather overlay (Open-Meteo)
     val weatherApparentTempC: Double? = null,

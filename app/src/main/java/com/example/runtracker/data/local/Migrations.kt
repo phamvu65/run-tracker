@@ -16,5 +16,12 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
     }
 }
 
+/** v2 → v3: thêm cột số bước chân (`stepCount`) vào `activities`, đếm bằng cảm biến phần cứng. */
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE activities ADD COLUMN stepCount INTEGER")
+    }
+}
+
 /** Mọi migration của DB, theo thứ tự. */
-val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2)
+val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
