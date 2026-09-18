@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -27,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
@@ -46,7 +46,13 @@ import com.example.runtracker.ui.theme.Spacing
 import kotlin.math.roundToInt
 
 private val DAY_LABELS = listOf("T2", "T3", "T4", "T5", "T6", "T7", "CN")
-private val TOOLTIP_WIDTH = 168.dp
+private val TOOLTIP_MIN_WIDTH = 72.dp
+// Chỉ dùng để tính vị trí (clamp không tràn mép) — không ép chiều rộng hiển thị thật, xem
+// widthIn(min=...) bên dưới. Không đo kích thước thật của chính tooltip để tránh vòng phụ
+// thuộc tự tham chiếu (đo xong mới đặt vị trí, đặt vị trí lại phụ thuộc kích thước) từng khiến
+// tooltip không hiện ra do lệch pha giữa layout/composition.
+private val TOOLTIP_CLAMP_WIDTH = 104.dp
+private val TOOLTIP_AREA_HEIGHT = 64.dp
 
 /**
  * Biểu đồ 7 ngày (Thứ Hai → Chủ Nhật) kiểu GoRun "Diagram Card Weekly": đường + vùng tô theo
@@ -69,78 +75,28 @@ fun WeeklyActivityChart(
     var canvasWidthPx by remember { mutableStateOf(0f) }
 
     Column(modifier) {
-        Box {
-            Canvas(
-                Modifier
-                    .fillMaxWidth()
-                    .height(140.dp)
-                    .onSizeChanged { canvasWidthPx = it.width.toFloat() }
-                    .pointerInput(days) {
-                        val stepX = size.width / 6f
-                        detectTapGestures(
-                            onPress = { offset -> onSelect((offset.x / stepX).roundToInt().coerceIn(0, 6)) },
-                        )
-                    }
-                    .pointerInput(days) {
-                        val stepX = size.width / 6f
-                        detectHorizontalDragGestures { change, _ ->
-                            onSelect((change.position.x / stepX).roundToInt().coerceIn(0, 6))
-                            change.consume()
-                        }
-                    },
-            ) {
-                val maxKm = (days.maxOf { it.distanceMeters } / 1000.0).coerceAtLeast(1.0)
-                val stepX = size.width / 6f
-                val plotHeight = size.height * 0.82f
-                fun x(i: Int) = i * stepX
-                fun y(km: Double) = (size.height - (km / maxKm) * plotHeight).toFloat()
-
-                listOf(0.5f, 1f).forEach { f ->
-                    val gy = size.height - f * plotHeight
-                    drawLine(grid, Offset(0f, gy), Offset(size.width, gy), strokeWidth = 1f)
-                }
-
-                val linePath = Path()
-                val fillPath = Path().apply { moveTo(0f, size.height) }
-                days.forEachIndexed { i, d ->
-                    val px = x(i)
-                    val py = y(d.distanceMeters / 1000.0)
-                    if (i == 0) linePath.moveTo(px, py) else linePath.lineTo(px, py)
-                    fillPath.lineTo(px, py)
-                }
-                fillPath.lineTo(x(6), size.height)
-                fillPath.close()
-                drawPath(fillPath, fill)
-                drawPath(linePath, line, style = Stroke(width = 4f, cap = StrokeCap.Round, join = StrokeJoin.Round))
-
-                days.forEachIndexed { i, d ->
-                    val isSelected = i == selectedIndex
-                    drawCircle(
-                        line,
-                        radius = if (isSelected) 7f else 4f,
-                        center = Offset(x(i), y(d.distanceMeters / 1000.0)),
-                    )
-                }
-            }
-
+        // Vùng riêng cho bong bóng số liệu, tách khỏi Canvas bên dưới — không bao giờ đè lên
+        // đường biểu đồ dù đỉnh dữ liệu cao tới đâu (khác bản cũ đặt tooltip chồng lên Canvas).
+        Box(Modifier.fillMaxWidth().height(TOOLTIP_AREA_HEIGHT)) {
             if (selected.hasActivity && canvasWidthPx > 0f) {
-                val tooltipWidthPx = with(density) { TOOLTIP_WIDTH.toPx() }
+                val tooltipClampWidthPx = with(density) { TOOLTIP_CLAMP_WIDTH.toPx() }
                 val stepPx = canvasWidthPx / 6f
-                val xPx = (selectedIndex * stepPx - tooltipWidthPx / 2f)
-                    .coerceIn(0f, (canvasWidthPx - tooltipWidthPx).coerceAtLeast(0f))
+                val xPx = (selectedIndex * stepPx - tooltipClampWidthPx / 2f)
+                    .coerceIn(0f, (canvasWidthPx - tooltipClampWidthPx).coerceAtLeast(0f))
                 val xDp = with(density) { xPx.toDp() }
 
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(10.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                    shadowElevation = 4.dp,
+                    shadowElevation = 3.dp,
                     modifier = Modifier
-                        .padding(start = xDp, top = 8.dp)
-                        .width(TOOLTIP_WIDTH),
+                        .align(Alignment.BottomStart)
+                        .padding(start = xDp)
+                        .widthIn(min = TOOLTIP_MIN_WIDTH),
                 ) {
                     Column(
-                        Modifier.padding(Spacing.sm),
-                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                        Modifier.padding(horizontal = Spacing.sm, vertical = 6.dp),
+                        verticalArrangement = Arrangement.spacedBy(1.dp),
                     ) {
                         val paceSecPerKm = if (selected.distanceMeters > 0) {
                             selected.movingTime.inWholeSeconds / (selected.distanceMeters / 1000.0)
@@ -152,6 +108,59 @@ fun WeeklyActivityChart(
                         TooltipRow(Icons.Filled.Timer, formatClock(selected.movingTime.inWholeSeconds))
                     }
                 }
+            }
+        }
+
+        Canvas(
+            Modifier
+                .fillMaxWidth()
+                .height(120.dp)
+                .onSizeChanged { canvasWidthPx = it.width.toFloat() }
+                .pointerInput(days) {
+                    val stepX = size.width / 6f
+                    detectTapGestures(
+                        onPress = { offset -> onSelect((offset.x / stepX).roundToInt().coerceIn(0, 6)) },
+                    )
+                }
+                .pointerInput(days) {
+                    val stepX = size.width / 6f
+                    detectHorizontalDragGestures { change, _ ->
+                        onSelect((change.position.x / stepX).roundToInt().coerceIn(0, 6))
+                        change.consume()
+                    }
+                },
+        ) {
+            val maxKm = (days.maxOf { it.distanceMeters } / 1000.0).coerceAtLeast(1.0)
+            val stepX = size.width / 6f
+            val plotHeight = size.height * 0.92f
+            fun x(i: Int) = i * stepX
+            fun y(km: Double) = (size.height - (km / maxKm) * plotHeight).toFloat()
+
+            listOf(0.5f, 1f).forEach { f ->
+                val gy = size.height - f * plotHeight
+                drawLine(grid, Offset(0f, gy), Offset(size.width, gy), strokeWidth = 1f)
+            }
+
+            val linePath = Path()
+            val fillPath = Path().apply { moveTo(0f, size.height) }
+            days.forEachIndexed { i, d ->
+                val px = x(i)
+                val py = y(d.distanceMeters / 1000.0)
+                if (i == 0) linePath.moveTo(px, py) else linePath.lineTo(px, py)
+                fillPath.lineTo(px, py)
+            }
+            fillPath.lineTo(x(6), size.height)
+            fillPath.close()
+            drawPath(fillPath, fill)
+            drawPath(linePath, line, style = Stroke(width = 4f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+
+            days.forEachIndexed { i, d ->
+                val isSelected = i == selectedIndex
+                drawCircle(
+                    line,
+                    radius = if (isSelected) 7f else 4f,
+                    center = Offset(x(i), y(d.distanceMeters / 1000.0)),
+                )
             }
         }
 
@@ -178,13 +187,13 @@ fun WeeklyActivityChart(
 
 @Composable
 private fun TooltipRow(icon: ImageVector, text: String) {
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         Icon(
             icon,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(14.dp),
+            modifier = Modifier.size(11.dp),
         )
-        Text(text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
+        Text(text, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface)
     }
 }
