@@ -258,6 +258,48 @@ fun MapView.fitToPoints(points: List<GeoPoint>, paddingPx: Int) {
     }
 }
 
+private const val METERS_PER_DEGREE_LAT = 111_320.0
+
+/**
+ * Camera bám theo một "vệt" điểm đang lớn dần (dùng cho phát lại buổi tập): bao trọn toàn bộ
+ * [points] kiểu fit-bounds animate mượt — nhưng ép khung tối thiểu [minSpanMeters] mỗi chiều
+ * bằng cách nới rộng bounding box quanh tâm trước khi fit, KHÔNG dựa vào việc dò lại zoom sau
+ * animate (không đáng tin cậy vì animate chạy bất đồng bộ). Nhờ vậy đoạn đầu (ít điểm, khu vực
+ * nhỏ) không bị zoom sát tới mức chỉ thấy vài toà nhà — luôn còn bối cảnh xung quanh — và camera
+ * tự "zoom ra" dần khi vệt dài hơn khung tối thiểu, tạo cảm giác vừa bám người vừa bao quát bản đồ.
+ */
+fun MapView.followTrail(points: List<GeoPoint>, paddingPx: Int, minSpanMeters: Double = 220.0) {
+    if (points.isEmpty()) return
+    val apply = Runnable {
+        runCatching {
+            val lats = points.map { it.latitude }
+            val lngs = points.map { it.longitude }
+            var minLat = lats.min()
+            var maxLat = lats.max()
+            var minLng = lngs.min()
+            var maxLng = lngs.max()
+            val centerLat = (minLat + maxLat) / 2.0
+            val centerLng = (minLng + maxLng) / 2.0
+            val latSpanMeters = (maxLat - minLat) * METERS_PER_DEGREE_LAT
+            val cosLat = kotlin.math.cos(Math.toRadians(centerLat)).coerceAtLeast(0.2)
+            val lngSpanMeters = (maxLng - minLng) * METERS_PER_DEGREE_LAT * cosLat
+            if (latSpanMeters < minSpanMeters) {
+                val half = (minSpanMeters / METERS_PER_DEGREE_LAT) / 2.0
+                minLat = centerLat - half
+                maxLat = centerLat + half
+            }
+            if (lngSpanMeters < minSpanMeters) {
+                val half = (minSpanMeters / (METERS_PER_DEGREE_LAT * cosLat)) / 2.0
+                minLng = centerLng - half
+                maxLng = centerLng + half
+            }
+            val box = BoundingBox(maxLat, maxLng, minLat, minLng)
+            zoomToBoundingBox(box, true, paddingPx)
+        }
+    }
+    if (width > 0 && height > 0) apply.run() else addOnFirstLayoutListener { _, _, _, _, _ -> apply.run() }
+}
+
 /** Vị trí GPS gần nhất qua FusedLocation (null nếu chưa có quyền / chưa có fix). */
 @SuppressLint("MissingPermission")
 suspend fun lastKnownLocation(context: Context): GeoPoint? {
@@ -344,12 +386,12 @@ fun OsmMap(
     drawMode: Boolean = false,
     onSketch: ((List<GeoPoint>) -> Unit)? = null,
     /**
-     * Khác null: camera bám theo điểm này (zoom [followZoom]), đè lên hành vi fit-bounds mặc
-     * định — dùng cho "phát lại" buổi tập (camera bám theo người chạy thay vì đứng yên bao trọn
-     * route). Đổi giá trị liên tục (mỗi tick phát lại) sẽ animate camera theo từng bước.
+     * Khác null: camera bám theo TOÀN BỘ vệt điểm này (fit-bounds có khung tối thiểu, xem
+     * [followTrail]), đè lên hành vi fit-bounds mặc định — dùng cho "phát lại" buổi tập (camera
+     * bám theo người chạy, vệt dài dần theo tiến độ, thay vì đứng yên bao trọn route). Đổi giá
+     * trị liên tục (mỗi tick phát lại) sẽ animate camera theo từng bước.
      */
-    followPoint: GeoPoint? = null,
-    followZoom: Double = 17.5,
+    followTrail: List<GeoPoint>? = null,
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current.density
@@ -388,11 +430,8 @@ fun OsmMap(
         if (fitToLines) mapView.fitToPoints(fitPoints, (24 * density).toInt())
     }
 
-    LaunchedEffect(mapView, followPoint) {
-        followPoint?.let {
-            mapView.controller.setZoom(followZoom)
-            mapView.controller.animateTo(it.toOsm())
-        }
+    LaunchedEffect(mapView, followTrail) {
+        followTrail?.let { mapView.followTrail(it, (24 * density).toInt()) }
     }
 
     val recenter: (() -> Unit)? = when {

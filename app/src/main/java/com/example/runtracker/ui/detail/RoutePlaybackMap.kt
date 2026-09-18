@@ -36,6 +36,7 @@ import com.example.runtracker.core.formatClock
 import com.example.runtracker.domain.model.GeoPoint
 import com.example.runtracker.domain.model.RoutePoint
 import com.example.runtracker.domain.tracking.GeoMath
+import com.example.runtracker.ui.common.MapGuideLineColor
 import com.example.runtracker.ui.common.MapLine
 import com.example.runtracker.ui.common.MapMarker
 import com.example.runtracker.ui.common.MarkerStyle
@@ -49,13 +50,19 @@ private const val PLAYBACK_DURATION_MS = 25_000L
 private const val PLAYBACK_TICK_MS = 120L
 private const val RUNNER_EMOJI = "🏃"
 
+/** Vị trí người chạy + phần đường đã "đi qua" tại một mốc tiến độ (0..1) của buổi phát lại. */
+private data class PlaybackFrame(val runner: GeoPoint, val revealed: List<GeoPoint>)
+
 /**
  * Bản đồ route có thể "xem lại" kiểu Strava: một hình người chạy di chuyển dọc theo đường đã
- * ghi (mốc thời gian thật của từng điểm GPS — đoạn chạy nhanh thì icon di chuyển nhanh hơn),
- * CAMERA BÁM THEO người chạy (zoom gần, animate từng bước) thay vì đứng yên bao trọn route —
- * đây là phần "ấn tượng" khi bấm phát. Toàn bộ buổi được nén lại phát trong
- * [PLAYBACK_DURATION_MS] để xem nhanh, không phụ thuộc thời lượng thật. Dừng/hết phát lại ->
- * camera tự quay về bao trọn route (qua nút "về vị trí" có sẵn của [OsmMap]).
+ * ghi (mốc thời gian thật của từng điểm GPS — đoạn chạy nhanh thì icon di chuyển nhanh hơn).
+ * Đường đi được "VẼ DẦN" theo người chạy (đoạn chưa tới chỉ hiện mờ làm nền định hướng, đoạn đã
+ * qua tô đậm màu chính) thay vì hiện sẵn trọn vẹn ngay từ đầu. CAMERA BÁM THEO vệt đã vẽ (fit
+ * bounds có khung tối thiểu — xem [com.example.runtracker.ui.common.followTrail]) nên vừa cảm
+ * giác "đuổi theo" người chạy vừa luôn thấy bối cảnh xung quanh, không zoom sát tới mức chỉ thấy
+ * vài toà nhà. Toàn bộ buổi được nén lại phát trong [PLAYBACK_DURATION_MS] để xem nhanh, không
+ * phụ thuộc thời lượng thật. Dừng/hết phát lại -> camera tự quay về bao trọn route (qua nút "về
+ * vị trí" có sẵn của [OsmMap]).
  */
 @Composable
 fun RoutePlaybackMap(
@@ -91,23 +98,28 @@ fun RoutePlaybackMap(
     }
 
     val geoPoints = remember(points) { points.map { GeoPoint(it.latitude, it.longitude) } }
-    val runnerPoint = remember(points, progress) {
-        if (canPlayback) runnerPositionAt(points, progress) else null
+    val frame = remember(points, progress) {
+        if (canPlayback) playbackFrameAt(points, progress) else null
     }
     val primary = MaterialTheme.colorScheme.primary
+    val guide = MapGuideLineColor
 
     Box(modifier.clipToBounds()) {
         OsmMap(
             modifier = Modifier.fillMaxSize(),
-            lines = if (geoPoints.size >= 2) {
-                listOf(MapLine(geoPoints, primary, widthDp = 4.5f, showDirection = true))
-            } else {
-                emptyList()
+            lines = buildList {
+                // Nền mờ: toàn bộ route, để luôn định hướng được đường sẽ đi kể cả trước khi bấm
+                // phát hoặc phần chưa "vẽ" tới.
+                if (geoPoints.size >= 2) add(MapLine(geoPoints, guide, widthDp = 3.5f))
+                // Đoạn đã đi qua: tô đậm, chỉ dài dần theo tiến độ phát lại (rỗng lúc chưa phát).
+                frame?.revealed?.takeIf { it.size >= 2 }?.let {
+                    add(MapLine(it, primary, widthDp = 4.5f, showDirection = true))
+                }
             },
             markers = startFinishMarkers(geoPoints) +
-                listOfNotNull(runnerPoint?.let { MapMarker(it, style = MarkerStyle.EMOJI, label = RUNNER_EMOJI) }),
+                listOfNotNull(frame?.runner?.let { MapMarker(it, style = MarkerStyle.EMOJI, label = RUNNER_EMOJI) }),
             fitToLines = true,
-            followPoint = if (playing) runnerPoint else null,
+            followTrail = if (playing) frame?.revealed else null,
             controlsPadding = PaddingValues(top = Spacing.sm, end = Spacing.sm, bottom = Spacing.sm),
         )
 
@@ -116,7 +128,9 @@ fun RoutePlaybackMap(
                 visible = playing,
                 enter = fadeIn(),
                 exit = fadeOut(),
-                modifier = Modifier.align(Alignment.BottomStart).padding(Spacing.md),
+                // Không đặt TopStart: trùng góc với nút back nổi mà ActivityDetailScreen chồng
+                // lên trên RoutePlaybackMap (cả hai cùng full-size nên cùng hệ toạ độ góc).
+                modifier = Modifier.align(Alignment.TopCenter).padding(Spacing.md),
             ) {
                 Surface(
                     shape = RoundedCornerShape(50),
@@ -132,10 +146,12 @@ fun RoutePlaybackMap(
                 }
             }
 
+            // Đặt giữa-đáy (không phải góc) — góc phải-đáy đã có 2 nút của OsmMap (đổi kiểu bản
+            // đồ + về vị trí), đặt cùng góc sẽ đè lên nhau.
             PlaybackFab(
                 playing = playing,
                 onClick = { playing = !playing },
-                modifier = Modifier.align(Alignment.BottomEnd).padding(Spacing.md),
+                modifier = Modifier.align(Alignment.BottomCenter).padding(Spacing.md),
             )
         }
     }
@@ -189,8 +205,11 @@ private fun PauseGlyph(color: Color) {
     }
 }
 
-/** Nội suy vị trí ứng với [fraction] (0..1) của tổng thời lượng buổi tập, theo mốc thời gian thật. */
-private fun runnerPositionAt(points: List<RoutePoint>, fraction: Float): GeoPoint {
+/**
+ * Vị trí người chạy ứng với [fraction] (0..1) của tổng thời lượng buổi tập (nội suy theo mốc
+ * thời gian thật), kèm toàn bộ điểm ĐÃ ĐI QUA tính tới đó (dùng vẽ đoạn đường tô đậm dần).
+ */
+private fun playbackFrameAt(points: List<RoutePoint>, fraction: Float): PlaybackFrame {
     val start = points.first().timestamp.toEpochMilli()
     val end = points.last().timestamp.toEpochMilli()
     val target = start + ((end - start) * fraction.toDouble()).toLong()
@@ -206,9 +225,15 @@ private fun runnerPositionAt(points: List<RoutePoint>, fraction: Float): GeoPoin
     } else {
         0.0
     }
-    return GeoMath.interpolate(
+    val runner = GeoMath.interpolate(
         GeoPoint(a.latitude, a.longitude),
         GeoPoint(b.latitude, b.longitude),
         segFraction,
     )
+
+    val revealed = ArrayList<GeoPoint>(i + 1)
+    for (idx in 0 until i) revealed.add(GeoPoint(points[idx].latitude, points[idx].longitude))
+    revealed.add(runner)
+
+    return PlaybackFrame(runner, revealed)
 }
