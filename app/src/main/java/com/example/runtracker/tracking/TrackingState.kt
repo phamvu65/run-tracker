@@ -21,6 +21,12 @@ data class TrackingState(
     val lastLatitude: Double? = null,
     val lastLongitude: Double? = null,
     val lastUpdate: Instant? = null,
+    /**
+     * Tín hiệu GPS còn tốt hay không (chỉ có ý nghĩa khi [status] == TRACKING): false khi
+     * [android.location.LocationListener] báo hết khả năng định vị, hoặc lâu rồi không có fix mới.
+     * Không phản ánh việc đã cấp quyền vị trí hay chưa (xem UI dùng `hasPermission` riêng cho việc đó).
+     */
+    val gpsSignalOk: Boolean = true,
     /** Nhịp tim live từ đai BLE (null nếu không kết nối). */
     val liveHeartRateBpm: Int? = null,
     // Turn-by-turn navigation (null nếu không theo route nào)

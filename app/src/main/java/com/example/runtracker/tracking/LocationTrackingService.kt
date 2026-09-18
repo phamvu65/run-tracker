@@ -95,6 +95,10 @@ class LocationTrackingService : Service() {
     private var pausedAccumSeconds: Long = 0
     private var pausedAt: Instant? = null
 
+    // Mốc thời gian nhận fix GPS gần nhất — dùng để phát hiện mất tín hiệu giữa buổi
+    // (khác lastAccepted.timestamp vì đó là giờ GPS, có thể lệch giờ hệ thống).
+    private var lastFixAt: Instant? = null
+
     // Độ cao từ khí áp (chính xác hơn GPS altitude), hiệu chỉnh 1 lần theo GPS altitude điểm đầu.
     private var latestPressureHpa: Float? = null
     private var seaLevelPressureHpa: Double? = null
@@ -146,6 +150,7 @@ class LocationTrackingService : Service() {
         lastAccepted = null
         pausedAccumSeconds = 0
         pausedAt = null
+        lastFixAt = now
         stateStore.markActive(id)
 
         startAsForeground(TrackingStatus.TRACKING)
@@ -268,6 +273,7 @@ class LocationTrackingService : Service() {
             lastAccepted = last
             pausedAccumSeconds = 0
             pausedAt = null
+            lastFixAt = Instant.now()
 
             session.reset()
             session.update {
@@ -360,7 +366,8 @@ class LocationTrackingService : Service() {
         if (session.state.value.status != TrackingStatus.PAUSED) return
         pausedAt?.let { pausedAccumSeconds += Duration.between(it, Instant.now()).seconds }
         pausedAt = null
-        session.update { it.copy(status = TrackingStatus.TRACKING) }
+        lastFixAt = Instant.now()
+        session.update { it.copy(status = TrackingStatus.TRACKING, gpsSignalOk = true) }
         startLocationCollection()
         updateNotification()
         publishBeacon()
@@ -389,8 +396,17 @@ class LocationTrackingService : Service() {
         locationJob?.cancel()
         locationJob = scope.launch {
             locationClient.locationUpdates(LOCATION_INTERVAL_MS)
-                .catch { e -> Log.w(TAG, "location updates stopped", e) }
-                .collect { onLocation(it) }
+                .catch { e ->
+                    Log.w(TAG, "location updates stopped", e)
+                    session.update { it.copy(gpsSignalOk = false) }
+                }
+                .collect { event ->
+                    when (event) {
+                        is LocationEvent.Fix -> onLocation(event.location)
+                        is LocationEvent.Availability ->
+                            if (!event.available) session.update { it.copy(gpsSignalOk = false) }
+                    }
+                }
         }
     }
 
@@ -398,6 +414,7 @@ class LocationTrackingService : Service() {
         val id = activityId ?: return
         val stored = repository.appendRoutePoints(id, listOf(location.toRoutePoint()))
         val accepted = stored.lastOrNull() ?: return
+        lastFixAt = Instant.now()
 
         val prev = lastAccepted
         if (prev != null) {
@@ -421,6 +438,7 @@ class LocationTrackingService : Service() {
                     lastLatitude = accepted.latitude,
                     lastLongitude = accepted.longitude,
                     lastUpdate = accepted.timestamp,
+                    gpsSignalOk = true,
                 )
             }
         } else {
@@ -430,6 +448,7 @@ class LocationTrackingService : Service() {
                     lastLatitude = accepted.latitude,
                     lastLongitude = accepted.longitude,
                     lastUpdate = accepted.timestamp,
+                    gpsSignalOk = true,
                 )
             }
         }
@@ -469,7 +488,15 @@ class LocationTrackingService : Service() {
                 val start = startedAt ?: continue
                 if (session.state.value.status != TrackingStatus.TRACKING) continue
                 val elapsed = Duration.between(start, Instant.now()).seconds - pausedAccumSeconds
-                session.update { it.copy(elapsedSeconds = elapsed.coerceAtLeast(0)) }
+                val stale = lastFixAt?.let {
+                    Duration.between(it, Instant.now()).seconds >= GPS_STALE_THRESHOLD_SECONDS
+                } ?: false
+                session.update {
+                    it.copy(
+                        elapsedSeconds = elapsed.coerceAtLeast(0),
+                        gpsSignalOk = it.gpsSignalOk && !stale,
+                    )
+                }
                 updateNotification()
             }
         }
@@ -514,6 +541,7 @@ class LocationTrackingService : Service() {
         lastAccepted = null
         pausedAccumSeconds = 0
         pausedAt = null
+        lastFixAt = null
         navSteps = emptyList()
         navPolyline = emptyList()
         navStepIndex = 0
@@ -648,6 +676,7 @@ class LocationTrackingService : Service() {
         private const val CHANNEL_ID = "tracking"
         private const val NOTIF_ID = 1001
         private const val LOCATION_INTERVAL_MS = 3_000L
+        private const val GPS_STALE_THRESHOLD_SECONDS = 12L // ~4x chu kỳ cập nhật vị trí
         private const val HEART_RATE_FLUSH_SIZE = 10
         private const val HEART_RATE_RECONNECT_DELAY_MS = 5_000L
         private const val MAX_WAKE_LOCK_MS = 6L * 60 * 60 * 1000 // 6h an toàn

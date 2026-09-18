@@ -268,7 +268,7 @@ private fun RecordPanel(
             )
             Spacer(Modifier.height(Spacing.md))
 
-            GpsStrip(hasPermission = hasPermission, onRequestPermission = onRequestPermission)
+            GpsStrip(state = state, hasPermission = hasPermission, onRequestPermission = onRequestPermission)
             Spacer(Modifier.height(Spacing.lg))
 
             val stats = buildList {
@@ -378,25 +378,49 @@ private fun RecordPanel(
     }
 }
 
+/**
+ * 3 trạng thái: thiếu quyền vị trí / đang ghi nhưng chưa có (hoặc mất) tín hiệu GPS / đã có tín
+ * hiệu tốt. Chỉ trạng thái thứ hai dựa trên [TrackingState.gpsSignalOk] + số điểm đã nhận — lúc
+ * IDLE hoặc PAUSED không có gì để kiểm tra (service không đang thu vị trí) nên coi như "ổn".
+ */
 @Composable
-private fun GpsStrip(hasPermission: Boolean, onRequestPermission: () -> Unit) {
-    val ok = hasPermission
-    val bg = if (ok) Color(0xFF1B3A1E) else MaterialTheme.colorScheme.errorContainer
-    val fg = if (ok) Color(0xFF9BE29E) else MaterialTheme.colorScheme.onErrorContainer
+private fun GpsStrip(state: TrackingState, hasPermission: Boolean, onRequestPermission: () -> Unit) {
+    val waitingForFix = state.status == TrackingStatus.TRACKING &&
+        (state.pointCount == 0 || !state.gpsSignalOk)
+    val bg: Color
+    val fg: Color
+    val label: String
+    val requestable: Boolean
+    when {
+        !hasPermission -> {
+            bg = MaterialTheme.colorScheme.errorContainer
+            fg = MaterialTheme.colorScheme.onErrorContainer
+            label = "⚠  Cần quyền vị trí — chạm để cấp"
+            requestable = true
+        }
+        waitingForFix -> {
+            bg = Color(0xFF3A2E1B)
+            fg = Color(0xFFE2C08D)
+            label = "📡  Đang chờ tín hiệu GPS…"
+            requestable = false
+        }
+        else -> {
+            bg = Color(0xFF1B3A1E)
+            fg = Color(0xFF9BE29E)
+            label = "📶  Đã kết nối GPS"
+            requestable = false
+        }
+    }
     Row(
         Modifier
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.small)
             .background(bg)
-            .clickable(enabled = !ok, onClick = onRequestPermission)
+            .clickable(enabled = requestable, onClick = onRequestPermission)
             .padding(vertical = Spacing.sm, horizontal = Spacing.md),
         horizontalArrangement = Arrangement.Center,
     ) {
-        Text(
-            if (ok) "📶  Đã kết nối GPS" else "⚠  Cần quyền vị trí — chạm để cấp",
-            style = MaterialTheme.typography.labelLarge,
-            color = fg,
-        )
+        Text(label, style = MaterialTheme.typography.labelLarge, color = fg)
     }
 }
 

@@ -6,6 +6,7 @@ import android.location.Location
 import android.os.Looper
 import com.example.runtracker.core.hasLocationPermission
 import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationAvailability
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
@@ -16,10 +17,16 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import javax.inject.Inject
 
+/** Sự kiện từ nguồn vị trí: điểm fix mới, hoặc thay đổi khả năng cấp tín hiệu (mất/có lại GPS). */
+sealed interface LocationEvent {
+    data class Fix(val location: Location) : LocationEvent
+    data class Availability(val available: Boolean) : LocationEvent
+}
+
 /** Nguồn cấp vị trí — tách interface để test / thay thế (mock GPS trong test). */
 interface LocationClient {
     /** @throws SecurityException nếu chưa có quyền vị trí. */
-    fun locationUpdates(intervalMillis: Long): Flow<Location>
+    fun locationUpdates(intervalMillis: Long): Flow<LocationEvent>
 }
 
 class FusedLocationClient @Inject constructor(
@@ -28,7 +35,7 @@ class FusedLocationClient @Inject constructor(
 ) : LocationClient {
 
     @SuppressLint("MissingPermission") // caller (Service) chỉ start khi đã có quyền
-    override fun locationUpdates(intervalMillis: Long): Flow<Location> = callbackFlow {
+    override fun locationUpdates(intervalMillis: Long): Flow<LocationEvent> = callbackFlow {
         if (!context.hasLocationPermission()) {
             close(SecurityException("Location permission not granted"))
             return@callbackFlow
@@ -41,7 +48,11 @@ class FusedLocationClient @Inject constructor(
 
         val callback = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
-                result.locations.forEach { trySend(it) }
+                result.locations.forEach { trySend(LocationEvent.Fix(it)) }
+            }
+
+            override fun onLocationAvailability(availability: LocationAvailability) {
+                trySend(LocationEvent.Availability(availability.isLocationAvailable))
             }
         }
 
