@@ -1,22 +1,20 @@
 package com.example.runtracker.ui.detail
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,6 +29,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.unit.dp
 import com.example.runtracker.core.formatClock
 import com.example.runtracker.domain.model.GeoPoint
@@ -50,10 +50,12 @@ private const val PLAYBACK_TICK_MS = 120L
 private const val RUNNER_EMOJI = "🏃"
 
 /**
- * Bản đồ route có thể "xem lại": một hình người chạy di chuyển dọc theo đường đã ghi, dựa trên
- * mốc thời gian thật của từng điểm GPS (đoạn chạy nhanh thì icon di chuyển nhanh hơn). Toàn bộ
- * buổi được nén lại phát trong [PLAYBACK_DURATION_MS] để xem nhanh, không phụ thuộc thời lượng
- * thật của buổi tập. Camera giữ nguyên bao trọn cả route, chỉ icon di chuyển.
+ * Bản đồ route có thể "xem lại" kiểu Strava: một hình người chạy di chuyển dọc theo đường đã
+ * ghi (mốc thời gian thật của từng điểm GPS — đoạn chạy nhanh thì icon di chuyển nhanh hơn),
+ * CAMERA BÁM THEO người chạy (zoom gần, animate từng bước) thay vì đứng yên bao trọn route —
+ * đây là phần "ấn tượng" khi bấm phát. Toàn bộ buổi được nén lại phát trong
+ * [PLAYBACK_DURATION_MS] để xem nhanh, không phụ thuộc thời lượng thật. Dừng/hết phát lại ->
+ * camera tự quay về bao trọn route (qua nút "về vị trí" có sẵn của [OsmMap]).
  */
 @Composable
 fun RoutePlaybackMap(
@@ -105,90 +107,81 @@ fun RoutePlaybackMap(
             markers = startFinishMarkers(geoPoints) +
                 listOfNotNull(runnerPoint?.let { MapMarker(it, style = MarkerStyle.EMOJI, label = RUNNER_EMOJI) }),
             fitToLines = true,
-            controlsPadding = PaddingValues(
-                top = Spacing.sm,
-                end = Spacing.sm,
-                bottom = if (canPlayback) 56.dp else Spacing.sm,
-            ),
+            followPoint = if (playing) runnerPoint else null,
+            controlsPadding = PaddingValues(top = Spacing.sm, end = Spacing.sm, bottom = Spacing.sm),
         )
 
         if (canPlayback) {
-            PlaybackBar(
+            AnimatedVisibility(
+                visible = playing,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier.align(Alignment.BottomStart).padding(Spacing.md),
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = Color.Black.copy(alpha = 0.55f),
+                ) {
+                    Text(
+                        "${formatClock((progress * totalDurationMs / 1000).toLong())} / " +
+                            formatClock(totalDurationMs / 1000),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 6.dp),
+                    )
+                }
+            }
+
+            PlaybackFab(
                 playing = playing,
-                progress = progress,
-                elapsedMs = (progress * totalDurationMs).toLong(),
-                totalMs = totalDurationMs,
-                onTogglePlay = { playing = !playing },
-                onScrub = { value ->
-                    playing = false
-                    progress = value
-                },
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth(),
+                onClick = { playing = !playing },
+                modifier = Modifier.align(Alignment.BottomEnd).padding(Spacing.md),
             )
         }
     }
 }
 
+/** Nút tròn nổi kiểu Strava thay cho thanh phát lại full-width cũ — không che bản đồ. */
 @Composable
-private fun PlaybackBar(
-    playing: Boolean,
-    progress: Float,
-    elapsedMs: Long,
-    totalMs: Long,
-    onTogglePlay: () -> Unit,
-    onScrub: (Float) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    // Đặc màu (không trong suốt) — bản đồ OSM nhiều chi tiết/màu sắc, thanh trong suốt trước đây
-    // khiến tile bản đồ lộ qua trông rối mắt và khó đọc số liệu/nút bấm.
+private fun PlaybackFab(playing: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp),
-        color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 3.dp,
+        onClick = onClick,
+        modifier = modifier.size(60.dp),
+        shape = CircleShape,
+        color = Color.Black.copy(alpha = 0.72f),
+        shadowElevation = 6.dp,
     ) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
-        ) {
-            IconButton(onClick = onTogglePlay) {
-                if (playing) {
-                    PauseGlyph(MaterialTheme.colorScheme.primary)
-                } else {
-                    Icon(
-                        Icons.Filled.PlayArrow,
-                        contentDescription = "Phát",
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                }
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            if (playing) {
+                PauseGlyph(Color.White)
+            } else {
+                PlayGlyph(Color.White)
             }
-            Slider(
-                value = progress,
-                onValueChange = onScrub,
-                valueRange = 0f..1f,
-                modifier = Modifier.weight(1f),
-                colors = SliderDefaults.colors(thumbColor = MaterialTheme.colorScheme.primary),
-            )
-            Text(
-                "${formatClock(elapsedMs / 1000)} / ${formatClock(totalMs / 1000)}",
-                style = MaterialTheme.typography.labelSmall,
-            )
         }
+    }
+}
+
+/** Tam giác phát tự vẽ (tránh phụ thuộc icon "PlayArrow" lệch tâm khi phóng to trong nút tròn). */
+@Composable
+private fun PlayGlyph(color: Color) {
+    Canvas(Modifier.size(22.dp)) {
+        val path = Path().apply {
+            moveTo(0f, 0f)
+            lineTo(size.width, size.height / 2f)
+            lineTo(0f, size.height)
+            close()
+        }
+        translate(left = size.width * 0.12f) { drawPath(path, color) }
     }
 }
 
 @Composable
 private fun PauseGlyph(color: Color) {
-    Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         repeat(2) {
             Box(
                 Modifier
-                    .size(width = 4.dp, height = 16.dp)
+                    .size(width = 5.dp, height = 20.dp)
                     .clip(RoundedCornerShape(1.dp))
                     .background(color),
             )

@@ -1,6 +1,8 @@
 package com.example.runtracker.ui.detail
 
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,7 +12,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -18,14 +22,12 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -34,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.health.connect.client.PermissionController
@@ -79,19 +82,6 @@ fun ActivityDetailScreen(
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            TopAppBar(
-                title = { Text("Chi tiết buổi tập") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
-                    }
-                },
-            )
-        },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             when (val s = state) {
@@ -108,6 +98,7 @@ fun ActivityDetailScreen(
                     weatherMessage = viewModel.weatherMessage,
                     zoneDistribution = zoneDistribution,
                     segmentEfforts = segmentEfforts,
+                    onBack = onBack,
                     onSyncHeartRate = {
                         viewModel.importHeartRateOrRequest {
                             heartRatePermissionLauncher.launch(viewModel.heartRatePermissions)
@@ -122,6 +113,9 @@ fun ActivityDetailScreen(
     }
 }
 
+/** Chiều cao bản đồ đầu màn — lớn, tràn viền kiểu Strava thay vì một dải nhỏ 240dp trước đây. */
+private val MAP_HEIGHT = 420.dp
+
 @Composable
 private fun LoadedContent(
     state: ActivityDetailUiState.Loaded,
@@ -130,6 +124,7 @@ private fun LoadedContent(
     weatherMessage: String?,
     zoneDistribution: List<ZoneTime>,
     segmentEfforts: List<SegmentEffortRow>,
+    onBack: () -> Unit,
     onSyncHeartRate: () -> Unit,
     onSetRpe: (Int) -> Unit,
     onRefreshWeather: () -> Unit,
@@ -141,18 +136,21 @@ private fun LoadedContent(
             .fillMaxSize()
             .verticalScroll(rememberScrollState()),
     ) {
-        if (state.routePoints.isEmpty()) {
-            Box(
-                Modifier.fillMaxWidth().height(180.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("Không có dữ liệu GPS", style = MaterialTheme.typography.bodyMedium)
+        Box(Modifier.fillMaxWidth().height(MAP_HEIGHT)) {
+            if (state.routePoints.isEmpty()) {
+                Box(
+                    Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("Không có dữ liệu GPS", style = MaterialTheme.typography.bodyMedium)
+                }
+            } else {
+                RoutePlaybackMap(points = state.routePoints, modifier = Modifier.fillMaxSize())
             }
-        } else {
-            RoutePlaybackMap(
-                points = state.routePoints,
-                modifier = Modifier.fillMaxWidth().height(240.dp),
-            )
+
+            // Nút back nổi trực tiếp trên bản đồ thay cho TopAppBar đặc — Scaffold đã chừa an
+            // toàn status bar nên không cần statusBarsPadding() thêm ở đây (tránh đệm 2 lần).
+            FloatingBackButton(onBack, modifier = Modifier.align(Alignment.TopStart).padding(Spacing.md))
         }
 
         Column(
@@ -351,4 +349,23 @@ private fun SegmentSection(
     }
     Spacer(Modifier.height(Spacing.xs))
     OutlinedButton(onClick = onCreateSegment) { Text("Tạo segment từ buổi này") }
+}
+
+/** Nút back tròn nổi trên bản đồ — cùng kiểu "Map Guide" (nền tối trong suốt + viền mảnh) với
+ * cụm nút đổi kiểu bản đồ/về vị trí của [com.example.runtracker.ui.common.OsmMap], thay cho
+ * TopAppBar đặc để bản đồ được nhìn trọn vẹn, không bị thanh tiêu đề ăn bớt chiều cao. */
+@Composable
+private fun FloatingBackButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.size(44.dp),
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.75f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)),
+        shadowElevation = 2.dp,
+    ) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
+        }
+    }
 }

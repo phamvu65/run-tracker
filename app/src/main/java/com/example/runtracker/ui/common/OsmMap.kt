@@ -343,6 +343,13 @@ fun OsmMap(
     controlsPadding: PaddingValues = PaddingValues(12.dp),
     drawMode: Boolean = false,
     onSketch: ((List<GeoPoint>) -> Unit)? = null,
+    /**
+     * Khác null: camera bám theo điểm này (zoom [followZoom]), đè lên hành vi fit-bounds mặc
+     * định — dùng cho "phát lại" buổi tập (camera bám theo người chạy thay vì đứng yên bao trọn
+     * route). Đổi giá trị liên tục (mỗi tick phát lại) sẽ animate camera theo từng bước.
+     */
+    followPoint: GeoPoint? = null,
+    followZoom: Double = 17.5,
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current.density
@@ -379,6 +386,13 @@ fun OsmMap(
     val fitPoints = if (fitToLines) lines.flatMap { it.points } else emptyList()
     LaunchedEffect(mapView, fitPoints) {
         if (fitToLines) mapView.fitToPoints(fitPoints, (24 * density).toInt())
+    }
+
+    LaunchedEffect(mapView, followPoint) {
+        followPoint?.let {
+            mapView.controller.setZoom(followZoom)
+            mapView.controller.animateTo(it.toOsm())
+        }
     }
 
     val recenter: (() -> Unit)? = when {
