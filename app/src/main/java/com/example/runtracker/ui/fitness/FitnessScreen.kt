@@ -1,5 +1,6 @@
 package com.example.runtracker.ui.fitness
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,24 +9,30 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.TrendingDown
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -34,12 +41,12 @@ import com.example.runtracker.core.formatPace
 import com.example.runtracker.domain.model.DailySuggestion
 import com.example.runtracker.domain.model.PerformancePrediction
 import com.example.runtracker.domain.training.RaceDistance
+import com.example.runtracker.ui.components.DiagramCard
 import com.example.runtracker.ui.components.EmptyState
 import com.example.runtracker.ui.components.FlatCard
+import com.example.runtracker.ui.components.IconStatGrid
+import com.example.runtracker.ui.components.IconStatTileData
 import com.example.runtracker.ui.components.SectionHeader
-import com.example.runtracker.ui.components.StatCell
-import com.example.runtracker.ui.components.StatStrip
-import com.example.runtracker.ui.components.StravaLabel
 import com.example.runtracker.ui.theme.Spacing
 import kotlin.math.roundToInt
 import kotlin.math.roundToLong
@@ -86,33 +93,36 @@ fun FitnessScreen(
                 .padding(Spacing.screen),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            suggestion?.let { SuggestionCard(it) }
-
-            FilledTonalButton(onClick = onOpenPlan, modifier = Modifier.fillMaxWidth()) {
-                Text(if (hasGoal) "Xem kế hoạch tập luyện" else "Tạo kế hoạch tập luyện")
+            val currentSuggestion = suggestion
+            if (currentSuggestion != null) {
+                SuggestionCard(currentSuggestion, hasGoal = hasGoal, onOpenPlan = onOpenPlan)
+            } else {
+                androidx.compose.material3.FilledTonalButton(onClick = onOpenPlan, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (hasGoal) "Xem kế hoạch tập luyện" else "Tạo kế hoạch tập luyện")
+                }
             }
 
             if (latest != null) {
-                FlatCard {
-                    SectionHeader("Thể trạng hôm nay")
-                    Spacer(Modifier.height(Spacing.xs))
-                    StatStrip(
-                        listOf(
-                            StatCell("Fitness", latest.ctl.roundToInt().toString()),
-                            StatCell("Fatigue", latest.atl.roundToInt().toString()),
-                            StatCell("Form", latest.tsb.roundToInt().toString()),
-                        ),
-                    )
+                DiagramCard(
+                    title = "Thể trạng hôm nay",
+                    footerGrid = {
+                        IconStatGrid(
+                            listOf(
+                                IconStatTileData(Icons.Filled.TrendingUp, "Fitness", latest.ctl.roundToInt().toString()),
+                                IconStatTileData(Icons.Filled.TrendingDown, "Fatigue", latest.atl.roundToInt().toString()),
+                                IconStatTileData(Icons.Filled.Favorite, "Form", latest.tsb.roundToInt().toString()),
+                            ),
+                        )
+                    },
+                ) {
                     Text(
                         formInterpretation(latest.tsb),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = Spacing.sm),
                     )
                 }
-                FlatCard {
-                    SectionHeader("90 ngày qua")
-                    FitnessChart(snapshots = snapshots, modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm))
+                DiagramCard(title = "90 ngày qua") {
+                    FitnessChart(snapshots = snapshots, modifier = Modifier.fillMaxWidth())
                 }
             } else {
                 FlatCard {
@@ -130,20 +140,24 @@ fun FitnessScreen(
     }
 }
 
+/** Thẻ "Gợi ý hôm nay" kiểu Figma Insights: icon tròn + heading + mô tả + CTA dạng link. */
 @Composable
-private fun SuggestionCard(suggestion: DailySuggestion) {
-    androidx.compose.material3.Card(
-        Modifier.fillMaxWidth(),
-        colors = androidx.compose.material3.CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-        ),
-        elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 0.dp),
+private fun SuggestionCard(suggestion: DailySuggestion, hasGoal: Boolean, onOpenPlan: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.large)
+            .background(MaterialTheme.colorScheme.primaryContainer)
+            .padding(Spacing.lg),
     ) {
-        Column(
-            Modifier.padding(Spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
-        ) {
-            StravaLabel("Gợi ý hôm nay", color = MaterialTheme.colorScheme.onPrimaryContainer)
+        Icon(
+            Icons.Filled.Lightbulb,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier.padding(top = 2.dp),
+        )
+        Spacer(Modifier.width(Spacing.md))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
             Text(
                 suggestion.headline,
                 style = MaterialTheme.typography.titleMedium,
@@ -154,6 +168,13 @@ private fun SuggestionCard(suggestion: DailySuggestion) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
             )
+            TextButton(onClick = onOpenPlan, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
+                Text(
+                    if (hasGoal) "Xem kế hoạch tập luyện →" else "Tạo kế hoạch tập luyện →",
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
         }
     }
 }

@@ -7,6 +7,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -20,11 +22,13 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +44,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -135,6 +140,62 @@ fun StatStrip(
     }
 }
 
+/** Dữ liệu cho một ô [IconStatTile]. */
+data class IconStatTileData(val icon: ImageVector, val label: String, val value: String, val unit: String? = null)
+
+/** Ô số liệu có icon phía trên — kiểu "Button" tile của GoRun (RunRecap). */
+@Composable
+fun IconStatTile(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    unit: String? = null,
+) {
+    Column(
+        modifier
+            .clip(MaterialTheme.shapes.large)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .padding(Spacing.md),
+        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+    ) {
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
+        StravaLabel(label)
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(value, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+            if (unit != null) {
+                Spacer(Modifier.width(2.dp))
+                Text(
+                    unit,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+/** Lưới các [IconStatTile], tự xuống dòng — thay cho [StatStrip] ở các thẻ kiểu GoRun. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun IconStatGrid(cells: List<IconStatTileData>, modifier: Modifier = Modifier) {
+    FlowRow(
+        modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+    ) {
+        cells.forEach { cell ->
+            IconStatTile(
+                cell.icon,
+                cell.label,
+                cell.value,
+                unit = cell.unit,
+                modifier = Modifier.weight(1f, fill = true).widthIn(min = 96.dp),
+            )
+        }
+    }
+}
+
 /** Hàng "nhãn ⟷ giá trị". */
 @Composable
 fun LabeledValue(
@@ -176,6 +237,129 @@ fun FlatCard(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column(Modifier.fillMaxWidth().padding(Spacing.lg), content = content)
+    }
+}
+
+/**
+ * Thẻ biểu đồ kiểu GoRun "Diagram Card": tiêu đề + hành động phụ, chú giải tuỳ chọn,
+ * slot biểu đồ, rồi lưới số liệu ([IconStatGrid]) phía dưới.
+ */
+@Composable
+fun DiagramCard(
+    title: String,
+    modifier: Modifier = Modifier,
+    trailing: (@Composable () -> Unit)? = null,
+    legend: (@Composable () -> Unit)? = null,
+    footerGrid: (@Composable () -> Unit)? = null,
+    chart: (@Composable () -> Unit)? = null,
+) {
+    Column(
+        modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.extraLarge)
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .padding(Spacing.lg),
+        verticalArrangement = Arrangement.spacedBy(Spacing.md),
+    ) {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+            trailing?.invoke()
+        }
+        legend?.invoke()
+        chart?.invoke()
+        footerGrid?.invoke()
+    }
+}
+
+/**
+ * Thẻ thử thách kiểu GoRun "Run Card = Challenge": icon huy hiệu, tiêu đề/mô tả,
+ * thanh tiến độ, hàng ngày tháng.
+ */
+@Composable
+fun ChallengeRunCard(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    dateRangeText: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    progress: Float? = null,
+    statusLabel: String? = null,
+) {
+    Row(
+        modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.large)
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .clickable(onClick = onClick)
+            .padding(Spacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+    ) {
+        Box(
+            Modifier
+                .size(56.dp)
+                .clip(MaterialTheme.shapes.large)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
+        }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                if (statusLabel != null) {
+                    Text(
+                        statusLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (progress != null) {
+                LinearProgressIndicator(
+                    progress = { progress.coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth(),
+                    trackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                )
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                Icon(
+                    Icons.Filled.CalendarMonth,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(14.dp),
+                )
+                Text(dateRangeText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+/** Icon nhỏ + text — dùng thay một ô [StatCell] trong hàng số liệu compact (kiểu Run Card = History). */
+@Composable
+fun IconStatChip(icon: ImageVector, text: String, modifier: Modifier = Modifier) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
+        Text(text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
     }
 }
 
@@ -382,6 +566,7 @@ fun FeedActivityCard(
     subtitle: String? = null,
     achievementText: String? = null,
     routePoints: List<GeoPoint> = emptyList(),
+    statIcons: List<ImageVector> = emptyList(),
 ) {
     Column(
         modifier
@@ -422,8 +607,21 @@ fun FeedActivityCard(
                 .padding(top = Spacing.md),
         )
 
-        Box(Modifier.padding(horizontal = Spacing.screen, vertical = Spacing.md)) {
-            StatStrip(stats)
+        if (statIcons.size == stats.size && stats.isNotEmpty()) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.screen, vertical = Spacing.md),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
+            ) {
+                stats.forEachIndexed { index, cell ->
+                    IconStatChip(statIcons[index], "${cell.value} · ${cell.label}")
+                }
+            }
+        } else {
+            Box(Modifier.padding(horizontal = Spacing.screen, vertical = Spacing.md)) {
+                StatStrip(stats)
+            }
         }
 
         if (achievementText != null) {

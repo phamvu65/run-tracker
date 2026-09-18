@@ -20,12 +20,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Terrain
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -51,7 +54,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.formatClock
 import com.example.runtracker.ui.components.AthleteAvatar
-import com.example.runtracker.ui.components.SectionHeader
+import com.example.runtracker.ui.components.DiagramCard
+import com.example.runtracker.ui.components.IconStatGrid
+import com.example.runtracker.ui.components.IconStatTileData
 import com.example.runtracker.ui.components.StatCell
 import com.example.runtracker.ui.components.StatStrip
 import com.example.runtracker.ui.components.StravaLabel
@@ -154,25 +159,41 @@ fun ProfileScreen(
             HorizontalDivider(thickness = 8.dp, color = MaterialTheme.colorScheme.surfaceContainerLow)
 
             // ---- Tuần này ----
-            Column(Modifier.padding(Spacing.screen)) {
-                SectionHeader("Tuần này")
-                Spacer(Modifier.height(Spacing.sm))
-                StatStrip(
-                    listOf(
-                        StatCell("Quãng đường", "%.1f km".format(summary.weekDistanceMeters / 1000.0)),
-                        StatCell("Thời gian", formatHours(summary.weekMovingTime.inWholeSeconds)),
-                        StatCell("Độ cao", "${summary.weekElevationGainMeters.roundToInt()} m"),
-                    ),
+            Box(Modifier.padding(Spacing.screen)) {
+                DiagramCard(
+                    title = "Tuần này",
+                    trailing = {
+                        Text(
+                            "%.1f km".format(summary.weekDistanceMeters / 1000.0),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    },
+                    legend = if (summary.weeklyKm.any { it > 0.0 }) {
+                        { StravaLabel("${ProfileSummary.WEEKS} tuần qua") }
+                    } else {
+                        null
+                    },
+                    chart = if (summary.weeklyKm.any { it > 0.0 }) {
+                        {
+                            WeeklyChart(
+                                weeklyKm = summary.weeklyKm,
+                                modifier = Modifier.fillMaxWidth().height(120.dp),
+                            )
+                        }
+                    } else {
+                        null
+                    },
+                    footerGrid = {
+                        IconStatGrid(
+                            listOf(
+                                IconStatTileData(Icons.Filled.DirectionsRun, "Quãng đường", "%.1f km".format(summary.weekDistanceMeters / 1000.0)),
+                                IconStatTileData(Icons.Filled.Timer, "Thời gian", formatHours(summary.weekMovingTime.inWholeSeconds)),
+                                IconStatTileData(Icons.Filled.Terrain, "Độ cao", "${summary.weekElevationGainMeters.roundToInt()} m"),
+                            ),
+                        )
+                    },
                 )
-                if (summary.weeklyKm.any { it > 0.0 }) {
-                    Spacer(Modifier.height(Spacing.lg))
-                    StravaLabel("${ProfileSummary.WEEKS} tuần qua")
-                    Spacer(Modifier.height(Spacing.sm))
-                    WeeklyChart(
-                        weeklyKm = summary.weeklyKm,
-                        modifier = Modifier.fillMaxWidth().height(120.dp),
-                    )
-                }
             }
 
             HorizontalDivider(thickness = 8.dp, color = MaterialTheme.colorScheme.surfaceContainerLow)

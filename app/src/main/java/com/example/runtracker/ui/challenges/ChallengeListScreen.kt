@@ -1,28 +1,23 @@
 package com.example.runtracker.ui.challenges
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.filled.DirectionsRun
+import androidx.compose.material.icons.filled.SportsScore
+import androidx.compose.material.icons.filled.Terrain
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -32,9 +27,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.runtracker.domain.model.ChallengeGoalType
 import com.example.runtracker.domain.model.ChallengeStanding
+import com.example.runtracker.ui.components.ChallengeRunCard
 import com.example.runtracker.ui.components.EmptyState
 import com.example.runtracker.ui.theme.Spacing
 import java.time.LocalDate
@@ -97,42 +94,24 @@ fun ChallengeListScreen(
     }
 }
 
+private fun ChallengeGoalType.icon(): ImageVector = when (this) {
+    ChallengeGoalType.TOTAL_DISTANCE -> Icons.Filled.DirectionsRun
+    ChallengeGoalType.TOTAL_ACTIVITIES -> Icons.Filled.SportsScore
+    ChallengeGoalType.TOTAL_ELEVATION -> Icons.Filled.Terrain
+    ChallengeGoalType.TOTAL_DURATION -> Icons.Filled.Timer
+}
+
 @Composable
 private fun ChallengeCard(standing: ChallengeStanding, onClick: () -> Unit) {
     val challenge = standing.challenge
     val today = remember { LocalDate.now() }
-    Card(
-        Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-    ) {
-        Column(
-            Modifier
-                .clickable(onClick = onClick)
-                .padding(Spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
-        ) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(challenge.name, style = MaterialTheme.typography.titleSmall)
-                Text(
-                    challenge.statusOn(today).label(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-            LinearProgressIndicator(
-                progress = { standing.fraction },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Text(
-                "${challenge.goalType.formatAmount(standing.myProgress)} / " +
-                    "${challenge.goalType.formatAmount(challenge.goalValue)}  ·  " +
-                    "${challenge.startDate.format(DATE_FORMAT)}–${challenge.endDate.format(DATE_FORMAT)}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
+    ChallengeRunCard(
+        icon = challenge.goalType.icon(),
+        title = challenge.name,
+        subtitle = "${challenge.goalType.formatAmount(standing.myProgress)} / ${challenge.goalType.formatAmount(challenge.goalValue)}",
+        progress = standing.fraction,
+        dateRangeText = "${challenge.startDate.format(DATE_FORMAT)}–${challenge.endDate.format(DATE_FORMAT)}",
+        statusLabel = challenge.statusOn(today).label(),
+        onClick = onClick,
+    )
 }

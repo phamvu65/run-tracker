@@ -18,6 +18,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.unit.dp
 import com.example.runtracker.domain.model.FitnessFreshnessSnapshot
 
@@ -38,6 +41,8 @@ fun FitnessChart(
     val ctl = remember(snapshots) { snapshots.map { it.ctl } }
     val atl = remember(snapshots) { snapshots.map { it.atl } }
     val maxValue = remember(snapshots) { (ctl + atl).maxOrNull()?.coerceAtLeast(1.0) ?: 1.0 }
+    val textMeasurer = rememberTextMeasurer()
+    val labelStyle = MaterialTheme.typography.labelSmall.copy(color = ctlColor)
 
     Column(modifier) {
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -55,6 +60,15 @@ fun FitnessChart(
             fun px(i: Int) = if (ctl.size == 1) 0f else i.toFloat() / (ctl.size - 1) * w
             fun py(v: Double) = (h - (v / maxValue) * h).toFloat()
 
+            // Vùng tô dưới đường CTL, làm nổi bật xu hướng Fitness — cùng kỹ thuật ElevationChart.
+            val ctlPath = Path().apply {
+                moveTo(px(0), h)
+                ctl.forEachIndexed { i, v -> lineTo(px(i), py(v)) }
+                lineTo(px(ctl.lastIndex), h)
+                close()
+            }
+            drawPath(ctlPath, color = ctlColor.copy(alpha = 0.16f))
+
             fun line(values: List<Double>, color: Color) {
                 var prev = Offset(px(0), py(values[0]))
                 for (i in 1 until values.size) {
@@ -65,6 +79,22 @@ fun FitnessChart(
             }
             line(ctl, ctlColor)
             line(atl, atlColor)
+
+            // Chấm + nhãn giá trị mới nhất cuối mỗi đường.
+            val lastCtl = Offset(px(ctl.lastIndex), py(ctl.last()))
+            val lastAtl = Offset(px(atl.lastIndex), py(atl.last()))
+            drawCircle(ctlColor, radius = 4.dp.toPx(), center = lastCtl)
+            drawCircle(atlColor, radius = 4.dp.toPx(), center = lastAtl)
+            val ctlText = textMeasurer.measure(ctl.last().toInt().toString(), style = labelStyle)
+            drawText(
+                textMeasurer,
+                ctl.last().toInt().toString(),
+                topLeft = Offset(
+                    (lastCtl.x - ctlText.size.width).coerceAtLeast(0f),
+                    (lastCtl.y - ctlText.size.height - 4.dp.toPx()).coerceAtLeast(0f),
+                ),
+                style = labelStyle,
+            )
         }
     }
 }
