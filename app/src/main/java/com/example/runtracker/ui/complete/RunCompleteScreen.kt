@@ -3,7 +3,6 @@ package com.example.runtracker.ui.complete
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -16,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -45,10 +45,15 @@ import com.example.runtracker.ui.components.StatCell
 import com.example.runtracker.ui.components.StatStrip
 import com.example.runtracker.ui.components.StravaLabel
 import com.example.runtracker.ui.theme.Spacing
+import kotlinx.coroutines.delay
 
 /**
  * Màn hiện ra ngay sau khi kết thúc một buổi tập: có kỷ lục thì ăn mừng, không thì một câu
  * khích lệ ngẫu nhiên — hoàn thành buổi nào cũng đáng được ghi nhận, không chỉ khi có PR.
+ *
+ * Bố cục 3 phần cố định (không cuộn theo nút): thanh đóng trên cùng, nội dung ăn mừng/số liệu
+ * canh giữa phần còn lại (tự cuộn nếu tràn màn hình nhỏ), và hai nút hành động ghim ở đáy — tránh
+ * để trống một khoảng lớn phía dưới khi nội dung ngắn hơn màn hình.
  */
 @Composable
 fun RunCompleteScreen(
@@ -67,36 +72,38 @@ fun RunCompleteScreen(
         if (!viewModel.loading) contentVisible = true
     }
 
-    Box(modifier.fillMaxSize()) {
+    Column(modifier.fillMaxSize()) {
+        Box(
+            Modifier.fillMaxWidth().padding(Spacing.screen),
+            contentAlignment = Alignment.CenterEnd,
+        ) {
+            TextButton(onClick = onClose) { Text("Đóng") }
+        }
+
         Column(
             Modifier
-                .fillMaxSize()
+                .weight(1f)
+                .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(Spacing.screen),
+                .padding(horizontal = Spacing.screen),
             horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
         ) {
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-                TextButton(onClick = onClose) { Text("Đóng") }
-            }
-
-            Spacer(Modifier.height(Spacing.lg))
-
             if (!viewModel.loading) {
                 AnimatedVisibility(
                     visible = contentVisible,
                     enter = fadeIn(tween(350)) + slideInVertically(tween(350)) { it / 4 },
                 ) {
                     if (records.isNotEmpty()) {
-                        AchievementHeader(records, contentVisible)
+                        AchievementHeader(records)
                     } else {
                         EncouragementHeader(viewModel.quote)
                     }
                 }
             }
 
-            Spacer(Modifier.height(Spacing.xl))
-
             activity?.let { a ->
+                Spacer(Modifier.height(Spacing.xl))
                 AnimatedVisibility(
                     visible = contentVisible,
                     enter = fadeIn(tween(400, delayMillis = 150)) +
@@ -106,45 +113,38 @@ fun RunCompleteScreen(
                         StatStrip(
                             listOf(
                                 StatCell("Quãng đường", formatDistanceKm(a.distanceMeters)),
-                                StatCell("Thời gian di chuyển", formatClock(a.movingTime.inWholeSeconds)),
+                                StatCell(
+                                    "Thời gian di chuyển",
+                                    formatClock(a.movingTime.inWholeSeconds),
+                                ),
                                 StatCell("Nhịp độ", formatPace(a.avgPaceSecPerKm)),
                             ),
                         )
                     }
                 }
             }
+        }
 
-            Spacer(Modifier.height(Spacing.xl))
-
-            AnimatedVisibility(
-                visible = contentVisible,
-                enter = fadeIn(tween(400, delayMillis = 300)),
-            ) {
-                Column(Modifier.fillMaxWidth()) {
-                    Button(
-                        onClick = { onViewDetail(viewModel.activityId) },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Xem chi tiết") }
-                    Spacer(Modifier.height(Spacing.sm))
-                    OutlinedButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) { Text("Đóng") }
-                }
+        AnimatedVisibility(
+            visible = contentVisible,
+            enter = fadeIn(tween(300, delayMillis = 300)),
+        ) {
+            Column(Modifier.fillMaxWidth().padding(Spacing.screen)) {
+                Button(
+                    onClick = { onViewDetail(viewModel.activityId) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Xem chi tiết") }
+                Spacer(Modifier.height(Spacing.sm))
+                OutlinedButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) { Text("Đóng") }
             }
         }
     }
 }
 
 @Composable
-private fun AchievementHeader(records: List<PersonalRecord>, visible: Boolean) {
-    val emojiScale by animateFloatAsState(
-        targetValue = if (visible) 1f else 0f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow,
-        ),
-        label = "trophyScale",
-    )
-    Text("🏆", style = MaterialTheme.typography.displayLarge, modifier = Modifier.scale(emojiScale))
-    Spacer(Modifier.height(Spacing.sm))
+private fun AchievementHeader(records: List<PersonalRecord>) {
+    BouncyEmoji("🏆")
+    Spacer(Modifier.height(Spacing.md))
     Text(
         if (records.size > 1) "Kỷ lục mới!" else "Kỷ lục mới: ${records.first().label}!",
         style = MaterialTheme.typography.headlineMedium,
@@ -157,10 +157,18 @@ private fun AchievementHeader(records: List<PersonalRecord>, visible: Boolean) {
         verticalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
         records.forEachIndexed { index, record ->
+            // Tự quản trạng thái visible riêng (không mượn boolean của cha) — cha chỉ mount khối
+            // này SAU KHI đã chuyển sang visible=true, nên delayMillis trên AnimatedVisibility(cha
+            // truyền true ngay từ đầu) sẽ không có hiệu ứng gì để chạy; state nội bộ này mới thật
+            // sự bắt đầu ở false rồi bật lên true, nên hiệu ứng so le mới thực sự chạy.
+            var itemVisible by remember { mutableStateOf(false) }
+            LaunchedEffect(Unit) {
+                delay(150L + index * 80L)
+                itemVisible = true
+            }
             AnimatedVisibility(
-                visible = visible,
-                enter = fadeIn(tween(300, delayMillis = 200 + index * 80)) +
-                    slideInVertically(tween(300, delayMillis = 200 + index * 80)) { it / 2 },
+                visible = itemVisible,
+                enter = fadeIn(tween(300)) + slideInVertically(tween(300)) { it / 2 },
             ) {
                 FlatCard {
                     StravaLabel(record.label)
@@ -174,18 +182,8 @@ private fun AchievementHeader(records: List<PersonalRecord>, visible: Boolean) {
 
 @Composable
 private fun EncouragementHeader(quote: String) {
-    val emojiScale = remember { Animatable(0f) }
-    LaunchedEffect(Unit) {
-        emojiScale.animateTo(
-            1f,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessLow,
-            ),
-        )
-    }
-    Text("🏁", style = MaterialTheme.typography.displayLarge, modifier = Modifier.scale(emojiScale.value))
-    Spacer(Modifier.height(Spacing.sm))
+    BouncyEmoji("🏁")
+    Spacer(Modifier.height(Spacing.md))
     Text(
         "Hoàn thành!",
         style = MaterialTheme.typography.headlineMedium,
@@ -199,4 +197,30 @@ private fun EncouragementHeader(quote: String) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = Spacing.md),
     )
+}
+
+/**
+ * Emoji lớn nảy vào khi xuất hiện. Bọc trong [Box] kích thước cố định lớn hơn nội dung thật —
+ * scale chỉ biến đổi khi vẽ chứ không đổi kích thước layout, nên nếu không có khung chứa đủ rộng,
+ * lúc animation nảy quá 100% (overshoot của spring) chữ/emoji sẽ đè lên khối bên dưới.
+ */
+@Composable
+private fun BouncyEmoji(emoji: String) {
+    val scale = remember { Animatable(0f) }
+    LaunchedEffect(emoji) {
+        scale.animateTo(
+            1f,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioLowBouncy,
+                stiffness = Spring.StiffnessMedium,
+            ),
+        )
+    }
+    Box(Modifier.size(96.dp), contentAlignment = Alignment.Center) {
+        Text(
+            emoji,
+            style = MaterialTheme.typography.displayLarge,
+            modifier = Modifier.scale(scale.value),
+        )
+    }
 }
