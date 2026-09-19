@@ -32,6 +32,8 @@ import com.example.runtracker.ui.common.rememberOsmMapView
 import com.example.runtracker.ui.common.renderPath
 import com.example.runtracker.ui.common.startFinishMarkers
 import com.example.runtracker.ui.common.tileSourceFor
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 import org.osmdroid.util.GeoPoint as OsmPoint
@@ -50,6 +52,8 @@ fun TrackingMap(
     modifier: Modifier = Modifier,
     controlsAlignment: Alignment = Alignment.BottomEnd,
     controlsPadding: PaddingValues = PaddingValues(12.dp),
+    /** Báo (lặp lại mỗi giây) đã bắt được vị trí GPS thật hay chưa — dùng cho banner trạng thái lúc IDLE. */
+    onFixAvailable: (Boolean) -> Unit = {},
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current.density
@@ -81,6 +85,23 @@ fun TrackingMap(
     DisposableEffect(myLocationOverlay) {
         myLocationOverlay?.enableMyLocation()
         onDispose { myLocationOverlay?.disableMyLocation() }
+    }
+
+    // `current` (điểm GPS service đã ghi) là fix đáng tin nhất khi đang ghi; lúc IDLE service
+    // chưa chạy nên hỏi trực tiếp osmdroid overlay — poll vì đây là getter thường, không phải Flow.
+    LaunchedEffect(myLocationOverlay, current) {
+        if (current != null) {
+            onFixAvailable(true)
+            return@LaunchedEffect
+        }
+        if (myLocationOverlay == null) {
+            onFixAvailable(false)
+            return@LaunchedEffect
+        }
+        while (isActive) {
+            onFixAvailable(myLocationOverlay.myLocation != null)
+            delay(1_000)
+        }
     }
 
     var cameraInitialized by remember { mutableStateOf(false) }

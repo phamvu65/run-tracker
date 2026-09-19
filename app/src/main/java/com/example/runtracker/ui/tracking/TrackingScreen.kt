@@ -166,6 +166,9 @@ fun TrackingScreen(
     val current = state.lastLatitude?.let { lat ->
         state.lastLongitude?.let { lng -> GeoPoint(lat, lng) }
     }
+    // Lúc IDLE service chưa chạy nên `state.gpsSignalOk` không có ý nghĩa gì — dùng tín hiệu fix
+    // thật từ chính bản đồ (osmdroid) để banner không "nói dối" là đã kết nối trước khi có fix.
+    var idleGpsFix by remember { mutableStateOf(false) }
 
     Box(modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         TrackingMap(
@@ -175,6 +178,7 @@ fun TrackingScreen(
             follow = state.status != TrackingStatus.IDLE,
             modifier = Modifier.fillMaxSize(),
             controlsAlignment = BiasAlignment(horizontalBias = 1f, verticalBias = -0.15f),
+            onFixAvailable = { idleGpsFix = it },
         )
 
         // ---- Lớp phủ trên ----
@@ -208,6 +212,7 @@ fun TrackingScreen(
         RecordPanel(
             state = state,
             hasPermission = hasPermission,
+            hasIdleGpsFix = idleGpsFix,
             plannedType = plannedType,
             selectedRoute = selectedRoute,
             beaconSharing = beacon.sharing,
@@ -229,6 +234,7 @@ fun TrackingScreen(
 private fun RecordPanel(
     state: TrackingState,
     hasPermission: Boolean,
+    hasIdleGpsFix: Boolean,
     plannedType: ActivityType,
     selectedRoute: Route?,
     beaconSharing: Boolean,
@@ -268,7 +274,12 @@ private fun RecordPanel(
             )
             Spacer(Modifier.height(Spacing.md))
 
-            GpsStrip(state = state, hasPermission = hasPermission, onRequestPermission = onRequestPermission)
+            GpsStrip(
+                state = state,
+                hasPermission = hasPermission,
+                hasIdleGpsFix = hasIdleGpsFix,
+                onRequestPermission = onRequestPermission,
+            )
             Spacer(Modifier.height(Spacing.lg))
 
             val stats = buildList {
@@ -379,14 +390,24 @@ private fun RecordPanel(
 }
 
 /**
- * 3 trạng thái: thiếu quyền vị trí / đang ghi nhưng chưa có (hoặc mất) tín hiệu GPS / đã có tín
- * hiệu tốt. Chỉ trạng thái thứ hai dựa trên [TrackingState.gpsSignalOk] + số điểm đã nhận — lúc
- * IDLE hoặc PAUSED không có gì để kiểm tra (service không đang thu vị trí) nên coi như "ổn".
+ * 3 trạng thái: thiếu quyền vị trí / đang chờ (hoặc mất) tín hiệu GPS / đã có tín hiệu tốt.
+ * Lúc TRACKING dựa vào [TrackingState.gpsSignalOk] + số điểm đã nhận (service tự theo dõi độ trễ
+ * fix). Lúc IDLE service chưa chạy nên không có gì để hỏi — dùng [hasIdleGpsFix] (tín hiệu fix
+ * thật lấy trực tiếp từ osmdroid, xem [TrackingMap]) thay vì mặc định coi là "ổn". Lúc PAUSED giữ
+ * nguyên coi ổn vì buổi TRACKING trước đó chắc chắn đã có fix.
  */
 @Composable
-private fun GpsStrip(state: TrackingState, hasPermission: Boolean, onRequestPermission: () -> Unit) {
-    val waitingForFix = state.status == TrackingStatus.TRACKING &&
-        (state.pointCount == 0 || !state.gpsSignalOk)
+private fun GpsStrip(
+    state: TrackingState,
+    hasPermission: Boolean,
+    hasIdleGpsFix: Boolean,
+    onRequestPermission: () -> Unit,
+) {
+    val waitingForFix = when (state.status) {
+        TrackingStatus.TRACKING -> state.pointCount == 0 || !state.gpsSignalOk
+        TrackingStatus.IDLE -> !hasIdleGpsFix
+        TrackingStatus.PAUSED -> false
+    }
     val bg: Color
     val fg: Color
     val label: String
