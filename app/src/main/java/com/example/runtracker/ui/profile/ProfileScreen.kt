@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.LocationOn
@@ -78,6 +79,7 @@ import kotlin.math.roundToInt
 @Composable
 fun ProfileScreen(
     onOpenInfo: () -> Unit = {},
+    onOpenRecords: () -> Unit = {},
     onOpenSegments: () -> Unit = {},
     onOpenPlan: () -> Unit = {},
     onOpenZones: () -> Unit = {},
@@ -207,6 +209,8 @@ fun ProfileScreen(
             HorizontalDivider(thickness = 8.dp, color = MaterialTheme.colorScheme.surfaceContainerLow)
 
             // ---- Danh sách mục ----
+            ProfileMenuRow(Icons.Filled.EmojiEvents, "Thành tích", onOpenRecords)
+            MenuDivider()
             ProfileMenuRow(Icons.Filled.Place, "Đoạn (Segments)", onOpenSegments)
             MenuDivider()
             ProfileMenuRow(Icons.Filled.DateRange, "Kế hoạch tập luyện", onOpenPlan)

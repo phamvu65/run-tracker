@@ -50,7 +50,7 @@ class BestEffortRepositoryImpl @Inject constructor(
                 rankAtAchievement = rank,
                 improvedBySecondsAtAchievement = improved,
             )
-            results += BestEffort(window.distance, window.elapsedSeconds, rank, improved)
+            results += BestEffort(activityId, window.distance, window.elapsedSeconds, achievedAt, rank, improved)
         }
         dao.insertAll(entities)
         return results
@@ -69,17 +69,17 @@ class BestEffortRepositoryImpl @Inject constructor(
     }
 
     override fun observeGroupedByActivity(userId: String): Flow<Map<String, List<BestEffort>>> =
-        dao.observeForUser(userId).map { list ->
-            list.groupBy(
-                keySelector = { it.activityId },
-                valueTransform = {
-                    BestEffort(
-                        distance = EffortDistance.valueOf(it.distance),
-                        elapsedSeconds = it.elapsedSeconds,
-                        rank = it.rankAtAchievement,
-                        improvedBySeconds = it.improvedBySecondsAtAchievement,
-                    )
-                },
-            )
-        }
+        dao.observeForUser(userId).map { list -> list.groupBy { it.activityId }.mapValues { (_, v) -> v.map { it.toDomain() } } }
+
+    override fun observeAllForUser(userId: String): Flow<List<BestEffort>> =
+        dao.observeForUser(userId).map { list -> list.map { it.toDomain() } }
+
+    private fun BestEffortEntity.toDomain() = BestEffort(
+        activityId = activityId,
+        distance = EffortDistance.valueOf(distance),
+        elapsedSeconds = elapsedSeconds,
+        achievedAt = Instant.ofEpochMilli(achievedAt),
+        rank = rankAtAchievement,
+        improvedBySeconds = improvedBySecondsAtAchievement,
+    )
 }

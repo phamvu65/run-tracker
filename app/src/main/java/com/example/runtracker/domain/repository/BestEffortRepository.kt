@@ -28,4 +28,7 @@ interface BestEffortRepository {
 
     /** Mọi best effort của user, gộp theo activityId — dùng hiển thị huy chương trên feed hoạt động. */
     fun observeGroupedByActivity(userId: String): Flow<Map<String, List<BestEffort>>>
+
+    /** Mọi best effort của user, KHÔNG gộp — dùng cho màn Thành tích (kỷ lục hiện tại + lịch sử). */
+    fun observeAllForUser(userId: String): Flow<List<BestEffort>>
 }

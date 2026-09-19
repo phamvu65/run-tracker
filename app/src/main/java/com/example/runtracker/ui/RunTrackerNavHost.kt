@@ -40,6 +40,7 @@ import com.example.runtracker.ui.hrsensor.HrSensorScreen
 import com.example.runtracker.ui.plan.TrainingPlanScreen
 import com.example.runtracker.ui.profile.ProfileInfoScreen
 import com.example.runtracker.ui.profile.ProfileScreen
+import com.example.runtracker.ui.records.PersonalRecordsScreen
 import com.example.runtracker.ui.routes.ARG_ROUTE_ID
 import com.example.runtracker.ui.routes.RouteBuilderScreen
 import com.example.runtracker.ui.routes.RouteDetailScreen
@@ -58,6 +59,7 @@ private object Routes {
     const val PROFILE_INFO = "profile_info"
     const val FITNESS = "fitness"
     const val TRAINING_PLAN = "training_plan"
+    const val RECORDS = "records"
     const val ZONES = "zones"
     const val HR_SENSOR = "hr_sensor"
     const val BEACON_VIEWER = "beacon_viewer"
@@ -169,6 +171,7 @@ fun RunTrackerNavHost(modifier: Modifier = Modifier) {
             composable(Routes.PROFILE) {
                 ProfileScreen(
                     onOpenInfo = { navController.navigate(Routes.PROFILE_INFO) },
+                    onOpenRecords = { navController.navigate(Routes.RECORDS) },
                     onOpenSegments = { navController.navigate(Routes.SEGMENTS) },
                     onOpenPlan = { navController.navigate(Routes.TRAINING_PLAN) },
                     onOpenZones = { navController.navigate(Routes.ZONES) },
@@ -179,6 +182,12 @@ fun RunTrackerNavHost(modifier: Modifier = Modifier) {
             }
             composable(Routes.PROFILE_INFO) {
                 ProfileInfoScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Routes.RECORDS) {
+                PersonalRecordsScreen(
+                    onBack = { navController.popBackStack() },
+                    onActivityClick = { navController.navigate(Routes.detail(it)) },
+                )
             }
             composable(Routes.HR_SENSOR) {
                 HrSensorScreen(onBack = { navController.popBackStack() })
