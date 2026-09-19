@@ -27,8 +27,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.formatClock
+import com.example.runtracker.core.formatDistanceKm
 import com.example.runtracker.core.formatPace
-import com.example.runtracker.domain.model.BestEffort
+import com.example.runtracker.domain.training.ActivityRecordType
 import com.example.runtracker.ui.components.AppListCard
 import com.example.runtracker.ui.components.EmptyState
 import com.example.runtracker.ui.components.SectionHeader
@@ -36,6 +37,7 @@ import com.example.runtracker.ui.theme.Spacing
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.roundToInt
 
 private val HISTORY_DATE: DateTimeFormatter =
     DateTimeFormatter.ofPattern("d 'thg' M, yyyy", Locale.forLanguageTag("vi"))
@@ -46,7 +48,31 @@ private fun medalEmoji(rank: Int) = when (rank) {
     else -> "🥉"
 }
 
-private fun BestEffort.paceText() = formatPace(elapsedSeconds / (distance.meters / 1000.0))
+private fun RecordEntry.title(): String = when (this) {
+    is RecordEntry.Distance -> effort.distance.label
+    is RecordEntry.Whole -> record.type.label
+}
+
+/** Giá trị chính hiển thị bên phải thẻ — thời gian (cự ly chuẩn) hoặc pace/km/mét (toàn buổi). */
+private fun RecordEntry.primaryValueText(): String = when (this) {
+    is RecordEntry.Distance -> formatClock(effort.elapsedSeconds)
+    is RecordEntry.Whole -> when (record.type) {
+        ActivityRecordType.FASTEST_PACE -> formatPace(record.value)
+        ActivityRecordType.LONGEST_DISTANCE -> formatDistanceKm(record.value)
+        ActivityRecordType.MOST_ELEVATION_GAIN -> "${record.value.roundToInt()} m"
+    }
+}
+
+/** Subtitle phụ ở dòng kỷ lục hiện tại — chỉ cự ly chuẩn mới có pace tương ứng để hiện thêm. */
+private fun RecordEntry.subtitleText(): String? = when (this) {
+    is RecordEntry.Distance -> formatPace(effort.elapsedSeconds / (effort.distance.meters / 1000.0))
+    is RecordEntry.Whole -> null
+}
+
+private fun RecordEntry.historyTitle(): String = when (this) {
+    is RecordEntry.Distance -> "${effort.distance.label} nhanh thứ ${effort.rank}"
+    is RecordEntry.Whole -> "${record.type.label} thứ ${record.rank}"
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -97,13 +123,13 @@ fun PersonalRecordsScreen(
                     Spacer(Modifier.height(Spacing.xs))
                 }
             }
-            items(currentRecords, key = { "record_${it.distance.name}" }) { record ->
+            items(currentRecords, key = { "record_${it.title()}" }) { entry ->
                 AppListCard(
-                    title = record.distance.label,
-                    subtitle = record.paceText(),
-                    onClick = { onActivityClick(record.activityId) },
+                    title = entry.title(),
+                    subtitle = entry.subtitleText(),
+                    onClick = { onActivityClick(entry.activityId) },
                     trailing = {
-                        Text(formatClock(record.elapsedSeconds), style = MaterialTheme.typography.titleMedium)
+                        Text(entry.primaryValueText(), style = MaterialTheme.typography.titleMedium)
                     },
                 )
             }
@@ -116,13 +142,13 @@ fun PersonalRecordsScreen(
                         Spacer(Modifier.height(Spacing.xs))
                     }
                 }
-                items(history, key = { "${it.activityId}_${it.distance.name}" }) { entry ->
+                items(history, key = { "${it.activityId}_${it.title()}_${it.achievedAt}" }) { entry ->
                     AppListCard(
-                        title = "${medalEmoji(entry.rank)}  ${entry.distance.label} nhanh thứ ${entry.rank}",
+                        title = "${medalEmoji(entry.rank)}  ${entry.historyTitle()}",
                         subtitle = entry.achievedAt.atZone(ZoneId.systemDefault()).format(HISTORY_DATE),
                         onClick = { onActivityClick(entry.activityId) },
                         trailing = {
-                            Text(formatClock(entry.elapsedSeconds), style = MaterialTheme.typography.titleSmall)
+                            Text(entry.primaryValueText(), style = MaterialTheme.typography.titleSmall)
                         },
                     )
                 }

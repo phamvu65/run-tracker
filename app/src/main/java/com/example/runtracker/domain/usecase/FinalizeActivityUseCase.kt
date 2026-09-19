@@ -23,6 +23,7 @@ class FinalizeActivityUseCase @Inject constructor(
     private val detectSegmentEfforts: DetectSegmentEffortsUseCase,
     private val updateChallengeProgress: UpdateChallengeProgressUseCase,
     private val detectBestEfforts: DetectBestEffortsUseCase,
+    private val detectActivityRecords: DetectActivityRecordsUseCase,
 ) {
     /**
      * @param endTime null -> lấy timestamp điểm GPS cuối (đúng cho buổi bị gián đoạn), fallback now.
@@ -78,6 +79,7 @@ class FinalizeActivityUseCase @Inject constructor(
 
         detectSegmentEfforts(activityId)
         detectBestEfforts(activityId)
+        detectActivityRecords(activityId)
         updateChallengeProgress()
 
         val date = activity.startTime.atZone(ZoneId.systemDefault()).toLocalDate()

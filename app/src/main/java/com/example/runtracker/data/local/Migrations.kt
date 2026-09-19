@@ -52,5 +52,33 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
     }
 }
 
+/**
+ * v4 → v5: bảng `activity_records` mới — kỷ lục toàn-buổi-tập (pace nhanh nhất/quãng đường dài
+ * nhất/độ cao lên nhiều nhất), xem `ActivityRecordEntity`/`ActivityRecordType`.
+ */
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `activity_records` (
+                `id` TEXT NOT NULL,
+                `userId` TEXT NOT NULL,
+                `activityId` TEXT NOT NULL,
+                `recordType` TEXT NOT NULL,
+                `value` REAL NOT NULL,
+                `achievedAt` INTEGER NOT NULL,
+                `rankAtAchievement` INTEGER NOT NULL,
+                `improvedByAtAchievement` REAL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_activity_records_activityId` ON `activity_records` (`activityId`)")
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_activity_records_userId_recordType` ON `activity_records` (`userId`, `recordType`)",
+        )
+    }
+}
+
 /** Mọi migration của DB, theo thứ tự. */
-val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)

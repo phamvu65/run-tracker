@@ -9,6 +9,7 @@ enum class EffortDistance(val meters: Double, val label: String) {
     FIVE_K(5_000.0, "5 km"),
     TEN_K(10_000.0, "10 km"),
     HALF_MARATHON(21_097.5, "Bán marathon"),
+    FULL_MARATHON(42_195.0, "Marathon"),
 }
 
 data class BestEffortWindow(val distance: EffortDistance, val elapsedSeconds: Long)

@@ -1,5 +1,6 @@
 package com.example.runtracker.di
 
+import com.example.runtracker.data.repository.ActivityRecordRepositoryImpl
 import com.example.runtracker.data.repository.ActivityRepositoryImpl
 import com.example.runtracker.data.repository.BestEffortRepositoryImpl
 import com.example.runtracker.data.repository.ChallengeRepositoryImpl
@@ -12,6 +13,7 @@ import com.example.runtracker.data.repository.TrainingLoadRepositoryImpl
 import com.example.runtracker.data.repository.UserRepositoryImpl
 import com.example.runtracker.data.repository.WeatherRepositoryImpl
 import com.example.runtracker.data.repository.ZoneSettingsRepositoryImpl
+import com.example.runtracker.domain.repository.ActivityRecordRepository
 import com.example.runtracker.domain.repository.ActivityRepository
 import com.example.runtracker.domain.repository.BestEffortRepository
 import com.example.runtracker.domain.repository.ChallengeRepository
@@ -83,4 +85,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindGeocodingRepository(impl: GeocodingRepositoryImpl): GeocodingRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindActivityRecordRepository(impl: ActivityRecordRepositoryImpl): ActivityRecordRepository
 }

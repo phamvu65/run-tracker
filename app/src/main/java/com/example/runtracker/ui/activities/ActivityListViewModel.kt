@@ -11,6 +11,7 @@ import com.example.runtracker.domain.repository.ActivityRepository
 import com.example.runtracker.domain.repository.BestEffortRepository
 import com.example.runtracker.domain.repository.UserRepository
 import com.example.runtracker.domain.usecase.FetchActivityLocationUseCase
+import com.example.runtracker.domain.usecase.RecomputeAllActivityRecordsUseCase
 import com.example.runtracker.domain.usecase.RecomputeAllBestEffortsUseCase
 import com.example.runtracker.ui.components.FeedAchievement
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -42,6 +43,7 @@ class ActivityListViewModel @Inject constructor(
     private val bestEffortRepository: BestEffortRepository,
     private val fetchActivityLocation: FetchActivityLocationUseCase,
     private val recomputeAllBestEfforts: RecomputeAllBestEffortsUseCase,
+    private val recomputeAllActivityRecords: RecomputeAllActivityRecordsUseCase,
     userRepository: UserRepository,
 ) : ViewModel() {
 
@@ -90,6 +92,7 @@ class ActivityListViewModel @Inject constructor(
         // Hồi cứu huy chương cho lịch sử đã có trước khi tính năng này ra đời — rẻ ở quy mô cá
         // nhân nên chạy lại mỗi lần mở tab thay vì cần cờ "đã chạy" (xem use case).
         viewModelScope.launch { recomputeAllBestEfforts(LOCAL_USER_ID) }
+        viewModelScope.launch { recomputeAllActivityRecords(LOCAL_USER_ID) }
     }
 
     private companion object {

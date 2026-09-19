@@ -3,6 +3,7 @@ package com.example.runtracker.data.local
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import com.example.runtracker.data.local.dao.ActivityDao
+import com.example.runtracker.data.local.dao.ActivityRecordDao
 import com.example.runtracker.data.local.dao.BestEffortDao
 import com.example.runtracker.data.local.dao.ChallengeDao
 import com.example.runtracker.data.local.dao.DeviceConnectionDao
@@ -14,6 +15,7 @@ import com.example.runtracker.data.local.dao.UserDao
 import com.example.runtracker.data.local.dao.UserZoneSettingsDao
 import com.example.runtracker.data.local.entity.ActivityEntity
 import com.example.runtracker.data.local.entity.ActivityLapEntity
+import com.example.runtracker.data.local.entity.ActivityRecordEntity
 import com.example.runtracker.data.local.entity.BestEffortEntity
 import com.example.runtracker.data.local.entity.ChallengeEntity
 import com.example.runtracker.data.local.entity.ChallengeParticipantEntity
@@ -58,6 +60,7 @@ import com.example.runtracker.data.local.entity.UserZoneSettingsEntity
         ChallengeEntity::class,
         ChallengeParticipantEntity::class,
         BestEffortEntity::class,
+        ActivityRecordEntity::class,
     ],
     version = RunTrackerDatabase.DB_VERSION,
     exportSchema = true
@@ -74,9 +77,10 @@ abstract class RunTrackerDatabase : RoomDatabase() {
     abstract fun deviceConnectionDao(): DeviceConnectionDao
     abstract fun challengeDao(): ChallengeDao
     abstract fun bestEffortDao(): BestEffortDao
+    abstract fun activityRecordDao(): ActivityRecordDao
 
     companion object {
-        const val DB_VERSION = 4
+        const val DB_VERSION = 5
         const val DB_NAME = "runtracker.db"
     }
 }
