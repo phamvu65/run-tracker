@@ -129,6 +129,7 @@ class LocationTrackingService : Service() {
             ACTION_PAUSE -> pause()
             ACTION_RESUME -> resume()
             ACTION_STOP -> stop()
+            ACTION_DISCARD -> discard()
             else -> stopSelf(startId)
         }
         return START_NOT_STICKY
@@ -412,12 +413,7 @@ class LocationTrackingService : Service() {
     }
 
     private fun stop() {
-        locationJob?.cancel()
-        tickerJob?.cancel()
-        heartRateJob?.cancel()
-        barometerJob?.cancel()
-        stepJob?.cancel()
-        releaseWakeLock()
+        stopCollecting()
         scope.launch {
             withContext(NonCancellable) {
                 flushHeartRate()
@@ -427,6 +423,36 @@ class LocationTrackingService : Service() {
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
         }
+    }
+
+    /**
+     * Huỷ buổi đang ghi mà KHÔNG lưu lại — dùng khi người dùng bấm Kết thúc lúc chưa di chuyển gì
+     * (xem [com.example.runtracker.ui.tracking.TrackingScreen], dialog "chưa di chuyển"). Khác
+     * [stop] ở chỗ xoá thẳng activity đã tạo lúc START thay vì chốt số liệu.
+     */
+    private fun discard() {
+        stopCollecting()
+        val id = activityId
+        scope.launch {
+            withContext(NonCancellable) {
+                stopBeacon()
+                id?.let { repository.deleteActivity(it) }
+                stateStore.clear()
+                beaconController.reset()
+            }
+            resetState()
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+        }
+    }
+
+    private fun stopCollecting() {
+        locationJob?.cancel()
+        tickerJob?.cancel()
+        heartRateJob?.cancel()
+        barometerJob?.cancel()
+        stepJob?.cancel()
+        releaseWakeLock()
     }
 
     // ---- Thu thập vị trí ----
@@ -578,7 +604,11 @@ class LocationTrackingService : Service() {
         session.activityFinished(id)
         stateStore.clear()
         beaconController.reset()
+        resetState()
+    }
 
+    /** Đưa mọi state trong bộ nhớ về mốc IDLE — dùng chung cho cả chốt buổi ([finalizeAndReset]) lẫn huỷ ([discard]). */
+    private fun resetState() {
         session.reset()
         session.selectRoute(null)
         activityId = null
@@ -717,6 +747,7 @@ class LocationTrackingService : Service() {
         const val ACTION_PAUSE = "com.example.runtracker.tracking.PAUSE"
         const val ACTION_RESUME = "com.example.runtracker.tracking.RESUME"
         const val ACTION_STOP = "com.example.runtracker.tracking.STOP"
+        const val ACTION_DISCARD = "com.example.runtracker.tracking.DISCARD"
 
         private const val EXTRA_ACTIVITY_ID = "activityId"
         private const val TAG = "LocationTrackingService"
@@ -732,6 +763,7 @@ class LocationTrackingService : Service() {
         fun pause(context: Context) = send(context, ACTION_PAUSE, foreground = false)
         fun resume(context: Context) = send(context, ACTION_RESUME, foreground = false)
         fun stop(context: Context) = send(context, ACTION_STOP, foreground = false)
+        fun discard(context: Context) = send(context, ACTION_DISCARD, foreground = false)
 
         fun restore(context: Context, activityId: String) {
             val intent = Intent(context, LocationTrackingService::class.java)

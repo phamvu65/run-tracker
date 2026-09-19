@@ -180,6 +180,17 @@ fun TrackingScreen(
         )
     }
 
+    var showNoMovementDialog by remember { mutableStateOf(false) }
+    if (showNoMovementDialog) {
+        NoMovementDialog(
+            onContinue = { showNoMovementDialog = false },
+            onDiscard = {
+                showNoMovementDialog = false
+                LocationTrackingService.discard(context)
+            },
+        )
+    }
+
     val plannedRoute = remember(selectedRoute) { selectedRoute?.polyline.orEmpty() }
     val current = state.lastLatitude?.let { lat ->
         state.lastLongitude?.let { lng -> GeoPoint(lat, lng) }
@@ -246,7 +257,13 @@ fun TrackingScreen(
             },
             onPause = { LocationTrackingService.pause(context) },
             onResume = { LocationTrackingService.resume(context) },
-            onStop = { LocationTrackingService.stop(context) },
+            onStop = {
+                if (state.movingTimeSeconds == 0L) {
+                    showNoMovementDialog = true
+                } else {
+                    LocationTrackingService.stop(context)
+                }
+            },
             onPickSport = { showSportPicker = true },
             onPickRoute = { showRoutePicker = true },
             onToggleBeacon = viewModel::setBeaconSharing,
@@ -674,6 +691,22 @@ private fun InterruptedRunDialog(
                 TextButton(onClick = onDiscard) { Text("Xoá") }
             }
         },
+    )
+}
+
+/**
+ * Chặn "Kết thúc" khi chưa ghi nhận di chuyển gì (xem điều kiện gọi ở [RecordPanel]'s `onStop`) —
+ * một buổi 0 quãng đường không có ý nghĩa để lưu vào lịch sử. Không có nút "Kết thúc" bình thường:
+ * chỉ được tiếp tục ghi, hoặc xoá hẳn buổi này.
+ */
+@Composable
+private fun NoMovementDialog(onContinue: () -> Unit, onDiscard: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onContinue,
+        title = { Text("Chưa ghi nhận di chuyển") },
+        text = { Text("Bạn chưa di chuyển trong buổi này nên chưa thể kết thúc. Tiếp tục ghi hoặc xoá buổi tập này.") },
+        confirmButton = { TextButton(onClick = onContinue) { Text("Tiếp tục ghi") } },
+        dismissButton = { TextButton(onClick = onDiscard) { Text("Xoá buổi tập") } },
     )
 }
 
