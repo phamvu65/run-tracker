@@ -52,6 +52,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.runtracker.core.hasLocationPermission
 import com.example.runtracker.domain.model.GeoPoint
 import com.google.android.gms.location.LocationServices
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.osmdroid.events.MapEventsReceiver
@@ -311,6 +312,40 @@ suspend fun lastKnownLocation(context: Context): GeoPoint? {
             .addOnFailureListener { cont.resume(null) }
     }
 }
+
+/**
+ * Có đang nhận được fix GPS/vị trí thật hay không, cập nhật liên tục qua FusedLocation (không
+ * phải one-shot như [lastKnownLocation]). Dùng cho banner trạng thái lúc IDLE — đáng tin cậy hơn
+ * `MyLocationNewOverlay.myLocation` của osmdroid, vốn chỉ đăng ký các provider ĐANG bật tại thời
+ * điểm bắt đầu nên không nhận lại tín hiệu nếu người dùng bật GPS SAU khi đã mở màn này.
+ */
+@SuppressLint("MissingPermission")
+fun observeLocationFix(context: Context): kotlinx.coroutines.flow.Flow<Boolean> =
+    kotlinx.coroutines.flow.callbackFlow {
+        if (!context.hasLocationPermission()) {
+            trySend(false)
+            awaitClose { }
+            return@callbackFlow
+        }
+        val client = LocationServices.getFusedLocationProviderClient(context)
+        val request = com.google.android.gms.location.LocationRequest
+            .Builder(com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY, 2_000L)
+            .setMinUpdateIntervalMillis(1_000L)
+            .setWaitForAccurateLocation(false)
+            .build()
+        val callback = object : com.google.android.gms.location.LocationCallback() {
+            override fun onLocationResult(result: com.google.android.gms.location.LocationResult) {
+                if (result.locations.isNotEmpty()) trySend(true)
+            }
+            override fun onLocationAvailability(
+                availability: com.google.android.gms.location.LocationAvailability,
+            ) {
+                trySend(availability.isLocationAvailable)
+            }
+        }
+        client.requestLocationUpdates(request, callback, android.os.Looper.getMainLooper())
+        awaitClose { client.removeLocationUpdates(callback) }
+    }
 
 /**
  * Cụm nút nổi góc phải bản đồ: đổi kiểu (đường phố / vệ tinh) và về vị trí của tôi.

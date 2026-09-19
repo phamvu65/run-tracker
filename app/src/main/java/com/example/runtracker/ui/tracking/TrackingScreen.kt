@@ -176,6 +176,7 @@ fun TrackingScreen(
             trace = liveTrace,
             current = current,
             follow = state.status != TrackingStatus.IDLE,
+            hasPermission = hasPermission,
             modifier = Modifier.fillMaxSize(),
             controlsAlignment = BiasAlignment(horizontalBias = 1f, verticalBias = -0.15f),
             onFixAvailable = { idleGpsFix = it },
