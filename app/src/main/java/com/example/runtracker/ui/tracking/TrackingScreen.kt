@@ -1,5 +1,11 @@
 package com.example.runtracker.ui.tracking
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.location.LocationManager
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -30,7 +36,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -46,12 +54,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.runtracker.core.BatteryOptimization
 import com.example.runtracker.core.formatClock
 import com.example.runtracker.core.formatDistanceKm
 import com.example.runtracker.core.formatPace
 import com.example.runtracker.core.hasLocationPermission
+import com.example.runtracker.core.isLocationEnabled
 import com.example.runtracker.core.trackingPermissions
 import com.example.runtracker.domain.model.ActivityType
 import com.example.runtracker.domain.model.GeoPoint
@@ -124,6 +137,11 @@ fun TrackingScreen(
             pendingAction = action
             permissionLauncher.launch(trackingPermissions())
         }
+    }
+
+    val locationEnabled by rememberLocationEnabled()
+    fun openLocationSettings() {
+        context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
     }
 
     if (showRoutePicker) {
@@ -213,13 +231,19 @@ fun TrackingScreen(
         RecordPanel(
             state = state,
             hasPermission = hasPermission,
+            locationEnabled = locationEnabled,
             hasIdleGpsFix = idleGpsFix,
             plannedType = plannedType,
             selectedRoute = selectedRoute,
             beaconSharing = beacon.sharing,
             beaconCode = beacon.code,
             onRequestPermission = { withPermission {} },
-            onStart = { withPermission { LocationTrackingService.start(context) } },
+            onEnableLocation = ::openLocationSettings,
+            onStart = {
+                withPermission {
+                    if (locationEnabled) LocationTrackingService.start(context) else openLocationSettings()
+                }
+            },
             onPause = { LocationTrackingService.pause(context) },
             onResume = { LocationTrackingService.resume(context) },
             onStop = { LocationTrackingService.stop(context) },
@@ -231,16 +255,55 @@ fun TrackingScreen(
     }
 }
 
+/**
+ * Công tắc định vị hệ thống (khác quyền ứng dụng) — cập nhật qua broadcast
+ * [LocationManager.PROVIDERS_CHANGED_ACTION] (bật/tắt từ Cài đặt nhanh không cần rời app) + lúc
+ * quay lại màn (ON_RESUME, phòng khi broadcast bị OEM chặn nền).
+ */
+@Composable
+private fun rememberLocationEnabled(): State<Boolean> {
+    val context = LocalContext.current
+    val state = remember { mutableStateOf(context.isLocationEnabled()) }
+
+    DisposableEffect(context) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(c: Context?, intent: Intent?) {
+                state.value = context.isLocationEnabled()
+            }
+        }
+        ContextCompat.registerReceiver(
+            context,
+            receiver,
+            IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        onDispose { context.unregisterReceiver(receiver) }
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) state.value = context.isLocationEnabled()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    return state
+}
+
 @Composable
 private fun RecordPanel(
     state: TrackingState,
     hasPermission: Boolean,
+    locationEnabled: Boolean,
     hasIdleGpsFix: Boolean,
     plannedType: ActivityType,
     selectedRoute: Route?,
     beaconSharing: Boolean,
     beaconCode: String?,
     onRequestPermission: () -> Unit,
+    onEnableLocation: () -> Unit,
     onStart: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
@@ -278,8 +341,10 @@ private fun RecordPanel(
             GpsStrip(
                 state = state,
                 hasPermission = hasPermission,
+                locationEnabled = locationEnabled,
                 hasIdleGpsFix = hasIdleGpsFix,
                 onRequestPermission = onRequestPermission,
+                onEnableLocation = onEnableLocation,
             )
             Spacer(Modifier.height(Spacing.lg))
 
@@ -391,18 +456,20 @@ private fun RecordPanel(
 }
 
 /**
- * 3 trạng thái: thiếu quyền vị trí / đang chờ (hoặc mất) tín hiệu GPS / đã có tín hiệu tốt.
- * Lúc TRACKING dựa vào [TrackingState.gpsSignalOk] + số điểm đã nhận (service tự theo dõi độ trễ
- * fix). Lúc IDLE service chưa chạy nên không có gì để hỏi — dùng [hasIdleGpsFix] (tín hiệu fix
- * thật lấy trực tiếp từ osmdroid, xem [TrackingMap]) thay vì mặc định coi là "ổn". Lúc PAUSED giữ
- * nguyên coi ổn vì buổi TRACKING trước đó chắc chắn đã có fix.
+ * 4 trạng thái: thiếu quyền vị trí / công tắc định vị hệ thống đang tắt / đang chờ (hoặc mất) tín
+ * hiệu GPS / đã có tín hiệu tốt. Lúc TRACKING dựa vào [TrackingState.gpsSignalOk] + số điểm đã
+ * nhận (service tự theo dõi độ trễ fix). Lúc IDLE service chưa chạy nên không có gì để hỏi — dùng
+ * [hasIdleGpsFix] (tín hiệu fix thật qua FusedLocation, xem [TrackingMap]) thay vì mặc định coi là
+ * "ổn". Lúc PAUSED giữ nguyên coi ổn vì buổi TRACKING trước đó chắc chắn đã có fix.
  */
 @Composable
 private fun GpsStrip(
     state: TrackingState,
     hasPermission: Boolean,
+    locationEnabled: Boolean,
     hasIdleGpsFix: Boolean,
     onRequestPermission: () -> Unit,
+    onEnableLocation: () -> Unit,
 ) {
     val waitingForFix = when (state.status) {
         TrackingStatus.TRACKING -> state.pointCount == 0 || !state.gpsSignalOk
@@ -412,25 +479,31 @@ private fun GpsStrip(
     val bg: Color
     val fg: Color
     val label: String
-    val requestable: Boolean
+    val onClick: (() -> Unit)?
     when {
         !hasPermission -> {
             bg = MaterialTheme.colorScheme.errorContainer
             fg = MaterialTheme.colorScheme.onErrorContainer
             label = "⚠  Cần quyền vị trí — chạm để cấp"
-            requestable = true
+            onClick = onRequestPermission
+        }
+        !locationEnabled -> {
+            bg = MaterialTheme.colorScheme.errorContainer
+            fg = MaterialTheme.colorScheme.onErrorContainer
+            label = "📍  GPS đang tắt — chạm để bật"
+            onClick = onEnableLocation
         }
         waitingForFix -> {
             bg = Color(0xFF3A2E1B)
             fg = Color(0xFFE2C08D)
             label = "📡  Đang chờ tín hiệu GPS…"
-            requestable = false
+            onClick = null
         }
         else -> {
             bg = Color(0xFF1B3A1E)
             fg = Color(0xFF9BE29E)
             label = "📶  Đã kết nối GPS"
-            requestable = false
+            onClick = null
         }
     }
     Row(
@@ -438,7 +511,7 @@ private fun GpsStrip(
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.small)
             .background(bg)
-            .clickable(enabled = requestable, onClick = onRequestPermission)
+            .clickable(enabled = onClick != null, onClick = onClick ?: {})
             .padding(vertical = Spacing.sm, horizontal = Spacing.md),
         horizontalArrangement = Arrangement.Center,
     ) {
