@@ -8,9 +8,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.DirectionsRun
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -93,7 +90,8 @@ fun ActivityListScreen(
                             StatCell("Nhịp độ", formatPace(a.avgPaceSecPerKm)),
                             StatCell("Thời gian", formatClock(a.movingTime.inWholeSeconds)),
                         ),
-                        statIcons = listOf(Icons.Filled.DirectionsRun, Icons.Filled.Speed, Icons.Filled.Timer),
+                        locationText = a.locationName,
+                        achievement = item.achievement,
                         routePoints = item.routePoints,
                         onClick = { onActivityClick(a.id) },
                     )

@@ -45,6 +45,7 @@ fun ActivityEntity.toDomain(): Activity = Activity(
         )
     },
     gpxRawPath = gpxRawPath,
+    locationName = locationName,
 )
 
 /**
@@ -77,6 +78,7 @@ fun Activity.toEntity(updatedAt: Long, isSynced: Boolean = false): ActivityEntit
     weatherCode = weather?.weatherCode,
     perceivedExertion = perceivedExertion,
     gpxRawPath = gpxRawPath,
+    locationName = locationName,
     isSynced = isSynced,
     updatedAt = updatedAt,
 )

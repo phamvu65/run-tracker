@@ -20,3 +20,11 @@ fun formatPace(secPerKm: Double): String {
     val total = secPerKm.roundToInt()
     return "%d:%02d /km".format(total / 60, total % 60)
 }
+
+/** Giây -> "Xphút Ygiây" kiểu Strava (chỉ "Ygiây" nếu dưới 1 phút). */
+fun formatMinutesSeconds(totalSeconds: Long): String {
+    val s = totalSeconds.coerceAtLeast(0)
+    val m = s / 60
+    val sec = s % 60
+    return if (m > 0) "${m}phút ${sec}giây" else "${sec}giây"
+}

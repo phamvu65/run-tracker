@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -584,9 +585,14 @@ fun AthleteAvatar(name: String, modifier: Modifier = Modifier, size: androidx.co
     }
 }
 
+/** Nền "bản đồ" cố định (không theo theme) — gợi tả tile bản đồ tối kiểu Strava thay vì màu surface phẳng. */
+private val RouteThumbnailBackground = Color(0xFF1E2B33)
+
 /**
- * Hình thu nhỏ đường chạy — vẽ polyline bằng Canvas (nhẹ, hợp danh sách cuộn,
- * không dùng MapView). Chuẩn hoá điểm về khung, giữ tỉ lệ.
+ * Hình thu nhỏ đường chạy — vẽ polyline bằng Canvas (nhẹ, hợp danh sách cuộn, không dùng MapView
+ * thật — xem CLAUDE.md, quyết định có chủ đích để tránh giật khi cuộn danh sách dài). Chuẩn hoá
+ * điểm về khung, giữ tỉ lệ. Nền tối cố định + mốc đầu/cuối riêng biệt để gợi cảm giác bản đồ thật
+ * dù không có tile đường phố.
  */
 @Composable
 fun RouteThumbnail(
@@ -594,8 +600,7 @@ fun RouteThumbnail(
     modifier: Modifier = Modifier,
 ) {
     val line = MaterialTheme.colorScheme.primary
-    val bg = MaterialTheme.colorScheme.surfaceContainerHigh
-    Box(modifier.background(bg)) {
+    Box(modifier.background(RouteThumbnailBackground)) {
         if (points.size >= 2) {
             Canvas(Modifier.fillMaxWidth().fillMaxHeight().padding(Spacing.lg)) {
                 val lats = points.map { it.latitude }
@@ -610,30 +615,45 @@ fun RouteThumbnail(
                 val drawH = spanLat * scale
                 val offX = (size.width - drawW) / 2.0
                 val offY = (size.height - drawH) / 2.0
+                fun toOffset(p: GeoPoint) = Offset(
+                    (offX + (p.longitude - minLng) * scale).toFloat(),
+                    (offY + (maxLat - p.latitude) * scale).toFloat(),
+                )
                 val path = Path()
                 points.forEachIndexed { i, p ->
-                    val x = (offX + (p.longitude - minLng) * scale).toFloat()
-                    val y = (offY + (maxLat - p.latitude) * scale).toFloat()
-                    if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                    val o = toOffset(p)
+                    if (i == 0) path.moveTo(o.x, o.y) else path.lineTo(o.x, o.y)
                 }
                 drawPath(
                     path,
                     color = line,
-                    style = Stroke(width = 6f, cap = StrokeCap.Round, join = StrokeJoin.Round),
+                    style = Stroke(width = 10f, cap = StrokeCap.Round, join = StrokeJoin.Round),
                 )
-                points.firstOrNull()?.let {
-                    val x = (offX + (it.longitude - minLng) * scale).toFloat()
-                    val y = (offY + (maxLat - it.latitude) * scale).toFloat()
-                    drawCircle(line, radius = 7f, center = Offset(x, y))
-                }
+                val start = toOffset(points.first())
+                val end = toOffset(points.last())
+                drawCircle(Color.White, radius = 10f, center = start)
+                drawCircle(line, radius = 6.5f, center = start)
+                drawCircle(Color.White, radius = 10f, center = end)
+                drawCircle(Color.Black, radius = 6.5f, center = end)
             }
         }
     }
 }
 
+/** Huy chương thành tích cho một thẻ feed — xem `ActivityListViewModel.toFeedAchievement`. */
+data class FeedAchievement(
+    val medalCount: Int,
+    val bestMedalEmoji: String,
+    val bannerText: String,
+    val improvedText: String?,
+)
+
 /**
- * Thẻ feed một buổi tập kiểu trang chủ Strava: avatar + tên + thời gian, tiêu đề lớn,
- * dải số liệu, (huy hiệu thành tích), bản đồ tràn viền, rồi kẻ ngăn mảnh.
+ * Thẻ feed một buổi tập kiểu trang chủ Strava: avatar + tên + giờ + vị trí, tiêu đề lớn, dải số
+ * liệu (nhãn trên/giá trị đậm dưới, kiểu Strava — khác [StatColumn] value-trước dùng ở màn khác)
+ * cùng huy chương thành tích ở cuối hàng, banner thành tích (nếu có), bản đồ tràn viền, kẻ ngăn dày
+ * phân cách các thẻ. KHÔNG có hàng nút Thích/Bình luận/Chia sẻ — app chưa làm mạng xã hội
+ * (xem CLAUDE.md), chỉ có 1 người dùng local nên các nút đó sẽ không có ý nghĩa gì.
  */
 @Composable
 fun FeedActivityCard(
@@ -644,9 +664,9 @@ fun FeedActivityCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
-    achievementText: String? = null,
+    locationText: String? = null,
+    achievement: FeedAchievement? = null,
     routePoints: List<GeoPoint> = emptyList(),
-    statIcons: List<ImageVector> = emptyList(),
 ) {
     Column(
         modifier
@@ -656,7 +676,7 @@ fun FeedActivityCard(
     ) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = Spacing.screen),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Top,
         ) {
             AthleteAvatar(athleteName)
             Spacer(Modifier.width(Spacing.md))
@@ -674,6 +694,22 @@ fun FeedActivityCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                if (locationText != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Filled.LocationOn,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(14.dp),
+                        )
+                        Spacer(Modifier.width(2.dp))
+                        Text(
+                            locationText,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
         }
 
@@ -687,24 +723,28 @@ fun FeedActivityCard(
                 .padding(top = Spacing.md),
         )
 
-        if (statIcons.size == stats.size && stats.isNotEmpty()) {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = Spacing.screen, vertical = Spacing.md),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
-            ) {
-                stats.forEachIndexed { index, cell ->
-                    IconStatChip(statIcons[index], "${cell.value} · ${cell.label}")
-                }
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.screen, vertical = Spacing.md),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(Spacing.xl)) {
+                stats.forEach { cell -> FeedStatColumn(cell) }
             }
-        } else {
-            Box(Modifier.padding(horizontal = Spacing.screen, vertical = Spacing.md)) {
-                StatStrip(stats)
+            if (achievement != null) {
+                Column(horizontalAlignment = Alignment.End) {
+                    StravaLabel("Thành tích")
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        "${achievement.bestMedalEmoji} ${achievement.medalCount}",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                }
             }
         }
 
-        if (achievementText != null) {
+        if (achievement != null) {
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -715,13 +755,30 @@ fun FeedActivityCard(
                     .padding(Spacing.md),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("🏅", style = MaterialTheme.typography.titleMedium)
+                Text(achievement.bestMedalEmoji, style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.width(Spacing.md))
-                Text(
-                    achievementText,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer,
-                )
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        achievement.bannerText,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    )
+                    if (achievement.improvedText != null) {
+                        Spacer(Modifier.height(4.dp))
+                        Box(
+                            Modifier
+                                .clip(MaterialTheme.shapes.extraSmall)
+                                .background(MaterialTheme.colorScheme.tertiary)
+                                .padding(horizontal = Spacing.sm, vertical = 2.dp),
+                        ) {
+                            Text(
+                                achievement.improvedText,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onTertiary,
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -734,6 +791,20 @@ fun FeedActivityCard(
 
         Spacer(Modifier.height(Spacing.lg))
         HorizontalDivider(thickness = 8.dp, color = MaterialTheme.colorScheme.surfaceContainerLow)
+    }
+}
+
+/** Cột số liệu kiểu Strava cho [FeedActivityCard]: nhãn nhỏ TRÊN, giá trị đậm DƯỚI. */
+@Composable
+private fun FeedStatColumn(cell: StatCell, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        Text(
+            cell.label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(cell.value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
     }
 }
 

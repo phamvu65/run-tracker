@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.example.runtracker.data.local.ALL_MIGRATIONS
 import com.example.runtracker.data.local.RunTrackerDatabase
 import com.example.runtracker.data.local.dao.ActivityDao
+import com.example.runtracker.data.local.dao.BestEffortDao
 import com.example.runtracker.data.local.dao.ChallengeDao
 import com.example.runtracker.data.local.dao.DeviceConnectionDao
 import com.example.runtracker.data.local.dao.PerformancePredictionDao
@@ -53,4 +54,6 @@ object DatabaseModule {
         db.deviceConnectionDao()
 
     @Provides fun provideChallengeDao(db: RunTrackerDatabase): ChallengeDao = db.challengeDao()
+
+    @Provides fun provideBestEffortDao(db: RunTrackerDatabase): BestEffortDao = db.bestEffortDao()
 }

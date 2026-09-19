@@ -27,6 +27,8 @@ data class Activity(
     val perceivedExertion: Int?,   // RPE 1-10, fallback cho TRIMP khi thiếu HR
     val weather: ActivityWeather?,
     val gpxRawPath: String?,
+    /** Tên khu vực (quận/huyện, tỉnh/thành) qua reverse-geocoding điểm xuất phát; null nếu chưa lấy được. */
+    val locationName: String? = null,
 )
 
 /**

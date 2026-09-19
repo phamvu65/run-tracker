@@ -38,6 +38,7 @@ data class ActivityEntity(
     val weatherCode: Int? = null,
     val perceivedExertion: Int?,    // RPE 1-10, fallback TRIMP khi không có HR
     val gpxRawPath: String?,        // file gốc nếu cần export/backup
+    val locationName: String? = null,   // reverse-geocode điểm xuất phát (Nominatim), null = chưa lấy
     val isSynced: Boolean = false,
     val updatedAt: Long
 )
