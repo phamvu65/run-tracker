@@ -52,7 +52,9 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.runtracker.core.hasLocationPermission
 import com.example.runtracker.domain.model.GeoPoint
 import com.google.android.gms.location.LocationServices
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.osmdroid.events.MapEventsReceiver
@@ -313,11 +315,20 @@ suspend fun lastKnownLocation(context: Context): GeoPoint? {
     }
 }
 
+/** Không có fix mới trong ngần này => coi là mất tín hiệu (banner IDLE chuyển "đang chờ"). */
+private const val LOCATION_FIX_TIMEOUT_MS = 8_000L
+
 /**
  * Có đang nhận được fix GPS/vị trí thật hay không, cập nhật liên tục qua FusedLocation (không
  * phải one-shot như [lastKnownLocation]). Dùng cho banner trạng thái lúc IDLE — đáng tin cậy hơn
  * `MyLocationNewOverlay.myLocation` của osmdroid, vốn chỉ đăng ký các provider ĐANG bật tại thời
  * điểm bắt đầu nên không nhận lại tín hiệu nếu người dùng bật GPS SAU khi đã mở màn này.
+ *
+ * CHỦ Ý bỏ qua `LocationCallback.onLocationAvailability`: bit này khá nhạy và có thể nhảy
+ * true/false liên tục ngay cả khi fix vẫn tới đều — dùng nó trực tiếp làm banner "nháy" liên tục
+ * dù GPS đang kết nối tốt. Thay vào đó tự tính mất tín hiệu bằng timeout tính từ fix THẬT gần
+ * nhất ([LOCATION_FIX_TIMEOUT_MS]) — cùng tinh thần với `GPS_STALE_THRESHOLD_SECONDS` phía
+ * service lúc đang ghi, chỉ khác là tính trực tiếp trong Flow thay vì qua ticker riêng.
  */
 @SuppressLint("MissingPermission")
 fun observeLocationFix(context: Context): kotlinx.coroutines.flow.Flow<Boolean> =
@@ -333,18 +344,29 @@ fun observeLocationFix(context: Context): kotlinx.coroutines.flow.Flow<Boolean> 
             .setMinUpdateIntervalMillis(1_000L)
             .setWaitForAccurateLocation(false)
             .build()
+
+        var lostSignalJob: Job? = null
+        fun scheduleLostSignal() {
+            lostSignalJob?.cancel()
+            lostSignalJob = launch {
+                delay(LOCATION_FIX_TIMEOUT_MS)
+                trySend(false)
+            }
+        }
+
         val callback = object : com.google.android.gms.location.LocationCallback() {
             override fun onLocationResult(result: com.google.android.gms.location.LocationResult) {
-                if (result.locations.isNotEmpty()) trySend(true)
-            }
-            override fun onLocationAvailability(
-                availability: com.google.android.gms.location.LocationAvailability,
-            ) {
-                trySend(availability.isLocationAvailable)
+                if (result.locations.isNotEmpty()) {
+                    trySend(true)
+                    scheduleLostSignal()
+                }
             }
         }
         client.requestLocationUpdates(request, callback, android.os.Looper.getMainLooper())
-        awaitClose { client.removeLocationUpdates(callback) }
+        awaitClose {
+            lostSignalJob?.cancel()
+            client.removeLocationUpdates(callback)
+        }
     }
 
 /**

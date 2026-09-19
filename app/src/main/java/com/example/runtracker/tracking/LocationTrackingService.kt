@@ -468,8 +468,11 @@ class LocationTrackingService : Service() {
                 .collect { event ->
                     when (event) {
                         is LocationEvent.Fix -> onLocation(event.location)
-                        is LocationEvent.Availability ->
-                            if (!event.available) session.update { it.copy(gpsSignalOk = false) }
+                        // Bỏ qua: `isLocationAvailable` khá nhạy, có thể nhảy true/false liên tục
+                        // dù fix vẫn tới đều — dùng trực tiếp làm banner nháy liên tục dù GPS đang
+                        // kết nối tốt. Mất tín hiệu thật đã được [startTicker] phát hiện ổn định
+                        // hơn qua "quá GPS_STALE_THRESHOLD_SECONDS giây không có fix mới".
+                        is LocationEvent.Availability -> Unit
                     }
                 }
         }
