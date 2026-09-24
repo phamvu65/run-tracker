@@ -29,6 +29,8 @@ data class TrackingState(
     val gpsSignalOk: Boolean = true,
     /** Nhịp tim live từ đai BLE (null nếu không kết nối). */
     val liveHeartRateBpm: Int? = null,
+    /** Nhịp bước/phút, tính theo cửa sổ trượt ngắn từ cảm biến bước chân (null nếu chưa đủ dữ liệu). */
+    val liveCadenceSpm: Int? = null,
     // Turn-by-turn navigation (null nếu không theo route nào)
     val navRouteName: String? = null,
     val navInstruction: String? = null,

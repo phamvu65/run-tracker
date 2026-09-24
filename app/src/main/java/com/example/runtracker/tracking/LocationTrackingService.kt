@@ -52,6 +52,7 @@ import java.time.Duration
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
+import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 
 /**
@@ -115,6 +116,11 @@ class LocationTrackingService : Service() {
     private var lastStepCumulative: Int? = null
     private var stepsAccumulated: Int = 0
 
+    // Nhịp bước/phút live — cửa sổ trượt (thời điểm, tổng bước tích luỹ) để tính tốc độ bước gần đây.
+    private val cadenceWindow = ArrayDeque<Pair<Instant, Int>>()
+    private var cadenceSum: Long = 0
+    private var cadenceSampleCount: Int = 0
+
     // Điều hướng turn-by-turn (rỗng nếu không theo route)
     private var navSteps: List<RouteWaypoint> = emptyList()
     private var navPolyline: List<GeoPoint> = emptyList()
@@ -168,6 +174,9 @@ class LocationTrackingService : Service() {
         lastMovingAt = now
         lastStepCumulative = null
         stepsAccumulated = 0
+        cadenceWindow.clear()
+        cadenceSum = 0
+        cadenceSampleCount = 0
         stateStore.markActive(id)
 
         startAsForeground(TrackingStatus.TRACKING)
@@ -220,11 +229,38 @@ class LocationTrackingService : Service() {
                 .collect { total ->
                     val prev = lastStepCumulative
                     lastStepCumulative = total
-                    if (prev != null && session.state.value.status == TrackingStatus.TRACKING) {
-                        stepsAccumulated += (total - prev).coerceAtLeast(0)
+                    if (session.state.value.status != TrackingStatus.TRACKING) {
+                        // Đứng/tạm dừng: bỏ cửa sổ cadence cũ (khoảng lặng sẽ làm sai tốc độ bước
+                        // tính tiếp) và ẩn số cadence live, KHÔNG cộng dồn bước.
+                        cadenceWindow.clear()
+                        if (session.state.value.liveCadenceSpm != null) {
+                            session.update { it.copy(liveCadenceSpm = null) }
+                        }
+                        return@collect
                     }
+                    if (prev != null) stepsAccumulated += (total - prev).coerceAtLeast(0)
+                    updateCadence(total)
                 }
         }
+    }
+
+    /** Nhịp bước/phút gần đây, từ cửa sổ trượt [CADENCE_WINDOW_SECONDS]. */
+    private fun updateCadence(totalSteps: Int) {
+        val now = Instant.now()
+        cadenceWindow.addLast(now to totalSteps)
+        val cutoff = now.minusSeconds(CADENCE_WINDOW_SECONDS)
+        while (cadenceWindow.size > 1 && cadenceWindow.first().first.isBefore(cutoff)) {
+            cadenceWindow.removeFirst()
+        }
+        val oldest = cadenceWindow.first()
+        val elapsedSeconds = Duration.between(oldest.first, now).seconds
+        if (elapsedSeconds < MIN_CADENCE_WINDOW_SECONDS) return
+
+        val stepsInWindow = totalSteps - oldest.second
+        val cadence = (stepsInWindow * 60.0 / elapsedSeconds).roundToInt().coerceAtLeast(0)
+        cadenceSum += cadence
+        cadenceSampleCount++
+        session.update { it.copy(liveCadenceSpm = cadence) }
     }
 
     /**
@@ -658,12 +694,14 @@ class LocationTrackingService : Service() {
 
     private suspend fun finalizeAndReset() {
         val id = activityId ?: return
+        val avgCadence = if (cadenceSampleCount > 0) (cadenceSum / cadenceSampleCount).toInt() else null
         // Tính lại aggregate + lap từ trace đã lưu (số liệu chuẩn, không lệ thuộc state bộ nhớ).
         finalizeActivityUseCase(
             id,
             endTime = Instant.now(),
             pausedSeconds = pausedAccumSeconds,
             steps = stepsAccumulated,
+            avgCadence = avgCadence,
         )
         session.activityFinished(id)
         stateStore.clear()
@@ -690,6 +728,9 @@ class LocationTrackingService : Service() {
         seaLevelPressureHpa = null
         lastStepCumulative = null
         stepsAccumulated = 0
+        cadenceWindow.clear()
+        cadenceSum = 0
+        cadenceSampleCount = 0
     }
 
     // ---- Notification ----
@@ -822,6 +863,8 @@ class LocationTrackingService : Service() {
         private const val LOCATION_INTERVAL_MS = 3_000L
         private const val GPS_STALE_THRESHOLD_SECONDS = 12L // ~4x chu kỳ cập nhật vị trí
         private const val AUTO_PAUSE_IDLE_SECONDS = 15L
+        private const val CADENCE_WINDOW_SECONDS = 10L
+        private const val MIN_CADENCE_WINDOW_SECONDS = 5L
         private const val HEART_RATE_FLUSH_SIZE = 10
         private const val HEART_RATE_RECONNECT_DELAY_MS = 5_000L
         private const val MAX_WAKE_LOCK_MS = 6L * 60 * 60 * 1000 // 6h an toàn
