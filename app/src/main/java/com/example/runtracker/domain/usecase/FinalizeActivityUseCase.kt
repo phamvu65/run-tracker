@@ -31,12 +31,14 @@ class FinalizeActivityUseCase @Inject constructor(
      * @param pausedSeconds tổng thời gian đã tạm dừng, trừ khỏi tổng thời gian.
      * @param steps số bước đếm được từ cảm biến trong buổi tập (null nếu không có, ví dụ buổi bị
      *   gián đoạn kết thúc thủ công — không có nguồn persisted để tính lại như route points).
+     * @param avgCadence nhịp bước/phút trung bình các mẫu tính được trong buổi (null nếu không có).
      */
     suspend operator fun invoke(
         activityId: String,
         endTime: Instant? = null,
         pausedSeconds: Long = 0,
         steps: Int? = null,
+        avgCadence: Int? = null,
     ) {
         val activity = repository.getActivity(activityId) ?: return
         val points = correctElevation(activityId, repository.getRoutePoints(activityId))
@@ -74,6 +76,7 @@ class FinalizeActivityUseCase @Inject constructor(
                 elevationLossMeters = aggregate.elevationLossMeters,
                 calories = calories ?: activity.calories,
                 steps = steps ?: activity.steps,
+                avgCadence = avgCadence ?: activity.avgCadence,
             ),
         )
         repository.replaceLaps(activityId, LapCalculator.splitByDistance(points))

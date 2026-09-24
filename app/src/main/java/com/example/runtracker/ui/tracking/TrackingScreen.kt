@@ -392,6 +392,7 @@ private fun RecordPanel(
                 )
                 add(StatCell("Quãng đường", formatDistanceKm(state.distanceMeters)))
                 state.liveHeartRateBpm?.let { add(StatCell("Nhịp tim", "$it")) }
+                state.liveCadenceSpm?.let { add(StatCell("Cadence", "$it spm")) }
             }
             StatStrip(stats)
             Spacer(Modifier.height(Spacing.xl))

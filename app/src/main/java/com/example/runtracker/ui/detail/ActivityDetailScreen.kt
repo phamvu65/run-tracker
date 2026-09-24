@@ -186,6 +186,7 @@ private fun LoadedContent(
                 activity.maxHeartRate?.let { LabeledValue("Nhịp tim tối đa", "$it bpm") }
                 activity.calories?.let { LabeledValue("Calo", "$it kcal") }
                 activity.steps?.let { LabeledValue("Số bước", "$it") }
+                activity.avgCadence?.let { LabeledValue("Cadence TB", "$it spm") }
                 LabeledValue("Điểm GPS", state.routePoints.size.toString())
             }
 
