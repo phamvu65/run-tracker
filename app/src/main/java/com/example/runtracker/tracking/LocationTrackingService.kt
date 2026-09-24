@@ -19,6 +19,7 @@ import com.example.runtracker.MainActivity
 import com.example.runtracker.core.LOCAL_USER_ID
 import com.example.runtracker.core.formatClock
 import com.example.runtracker.data.health.BleHeartRateStore
+import com.example.runtracker.data.settings.AppSettingsStore
 import com.example.runtracker.domain.beacon.LiveLocationTransport
 import com.example.runtracker.domain.health.BarometerSource
 import com.example.runtracker.domain.health.LiveHeartRateSource
@@ -79,6 +80,7 @@ class LocationTrackingService : Service() {
     @Inject lateinit var liveLocationTransport: LiveLocationTransport
     @Inject lateinit var barometerSource: BarometerSource
     @Inject lateinit var stepCounterSource: StepCounterSource
+    @Inject lateinit var settingsStore: AppSettingsStore
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var locationJob: Job? = null
@@ -101,6 +103,9 @@ class LocationTrackingService : Service() {
     // Mốc thời gian nhận fix GPS gần nhất — dùng để phát hiện mất tín hiệu giữa buổi
     // (khác lastAccepted.timestamp vì đó là giờ GPS, có thể lệch giờ hệ thống).
     private var lastFixAt: Instant? = null
+
+    // Mốc lần cuối phát hiện đang di chuyển thật (tốc độ tức thời ≥ ngưỡng) — dùng cho auto-pause.
+    private var lastMovingAt: Instant? = null
 
     // Độ cao từ khí áp (chính xác hơn GPS altitude), hiệu chỉnh 1 lần theo GPS altitude điểm đầu.
     private var latestPressureHpa: Float? = null
@@ -160,6 +165,7 @@ class LocationTrackingService : Service() {
         pausedAccumSeconds = 0
         pausedAt = null
         lastFixAt = now
+        lastMovingAt = now
         lastStepCumulative = null
         stepsAccumulated = 0
         stateStore.markActive(id)
@@ -308,6 +314,7 @@ class LocationTrackingService : Service() {
             pausedAccumSeconds = 0
             pausedAt = null
             lastFixAt = Instant.now()
+            lastMovingAt = Instant.now()
             // Steps không có nguồn persisted để tính lại như route points -> bắt đầu lại từ 0
             // sau khi Service bị OS kill (cùng giới hạn với nav route/beacon, xem CLAUDE.md).
             lastStepCumulative = null
@@ -396,7 +403,7 @@ class LocationTrackingService : Service() {
         pausedAt = Instant.now()
         locationJob?.cancel()
         locationJob = null
-        session.update { it.copy(status = TrackingStatus.PAUSED) }
+        session.update { it.copy(status = TrackingStatus.PAUSED, autoPaused = false) }
         updateNotification()
         publishBeacon()
     }
@@ -406,8 +413,33 @@ class LocationTrackingService : Service() {
         pausedAt?.let { pausedAccumSeconds += Duration.between(it, Instant.now()).seconds }
         pausedAt = null
         lastFixAt = Instant.now()
-        session.update { it.copy(status = TrackingStatus.TRACKING, gpsSignalOk = true) }
+        lastMovingAt = Instant.now()
+        session.update { it.copy(status = TrackingStatus.TRACKING, gpsSignalOk = true, autoPaused = false) }
+        // Job có thể đã sống sẵn nếu vừa tự động tạm dừng (xem [autoPause]) — khởi động lại vẫn an
+        // toàn (huỷ job cũ trước khi mở job mới).
         startLocationCollection()
+        updateNotification()
+        publishBeacon()
+    }
+
+    /**
+     * Tự tạm dừng khi đứng yên quá [AUTO_PAUSE_IDLE_SECONDS] (bật trong Cài đặt) — KHÁC [pause] ở
+     * chỗ KHÔNG huỷ [locationJob]: vẫn phải nhận GPS để tự phát hiện lúc di chuyển lại ([onLocation]
+     * gọi [autoResume] khi đó) — điểm nhận được trong lúc này KHÔNG lưu vào trace (xem [onLocation]),
+     * giống hệt cách tạm dừng tay không ghi điểm nào cả.
+     */
+    private fun autoPause() {
+        pausedAt = Instant.now()
+        session.update { it.copy(status = TrackingStatus.PAUSED, autoPaused = true) }
+        updateNotification()
+        publishBeacon()
+    }
+
+    private fun autoResume() {
+        pausedAt?.let { pausedAccumSeconds += Duration.between(it, Instant.now()).seconds }
+        pausedAt = null
+        lastMovingAt = Instant.now()
+        session.update { it.copy(status = TrackingStatus.TRACKING, autoPaused = false, gpsSignalOk = true) }
         updateNotification()
         publishBeacon()
     }
@@ -478,30 +510,51 @@ class LocationTrackingService : Service() {
         }
     }
 
+    private data class MovementDelta(
+        val meters: Double,
+        val dtSeconds: Double,
+        val dAlt: Double,
+        val moving: Boolean,
+    )
+
+    private fun movementBetween(prev: RoutePoint, next: RoutePoint): MovementDelta {
+        val meters = GeoMath.distanceMeters(prev.latitude, prev.longitude, next.latitude, next.longitude)
+        val dtSeconds = (next.timestamp.toEpochMilli() - prev.timestamp.toEpochMilli()) / 1000.0
+        val dAlt = next.altitude - prev.altitude
+        val moving = dtSeconds > 0 && meters / dtSeconds >= RunAggregator.MOVING_SPEED_MPS
+        return MovementDelta(meters, dtSeconds, dAlt, moving)
+    }
+
     private suspend fun onLocation(location: Location) {
         val id = activityId ?: return
-        val stored = repository.appendRoutePoints(id, listOf(location.toRoutePoint()))
-        val accepted = stored.lastOrNull() ?: return
+        val point = location.toRoutePoint()
         lastFixAt = Instant.now()
+
+        // Chỉ auto-pause mới còn nhận fix lúc PAUSED (tạm dừng tay huỷ locationJob) — điểm đứng
+        // yên trong lúc này KHÔNG lưu vào trace, chỉ dùng để dò lúc di chuyển lại rồi tự resume.
+        if (session.state.value.status == TrackingStatus.PAUSED) {
+            val prev = lastAccepted
+            if (prev != null && !movementBetween(prev, point).moving) return
+            autoResume()
+        }
+
+        val stored = repository.appendRoutePoints(id, listOf(point))
+        val accepted = stored.lastOrNull() ?: return
 
         val prev = lastAccepted
         if (prev != null) {
-            val meters = GeoMath.distanceMeters(
-                prev.latitude, prev.longitude, accepted.latitude, accepted.longitude,
-            )
-            val dtSeconds = (accepted.timestamp.toEpochMilli() - prev.timestamp.toEpochMilli()) / 1000.0
-            val dAlt = accepted.altitude - prev.altitude
-            val moving = dtSeconds > 0 && meters / dtSeconds >= RunAggregator.MOVING_SPEED_MPS
+            val delta = movementBetween(prev, accepted)
+            if (delta.moving) lastMovingAt = Instant.now()
 
             session.update { s ->
                 s.copy(
-                    distanceMeters = s.distanceMeters + meters,
+                    distanceMeters = s.distanceMeters + delta.meters,
                     movingTimeSeconds = s.movingTimeSeconds +
-                        if (moving) dtSeconds.roundToLong() else 0,
+                        if (delta.moving) delta.dtSeconds.roundToLong() else 0,
                     elevationGainMeters = s.elevationGainMeters +
-                        if (dAlt > RunAggregator.ELEVATION_THRESHOLD_M) dAlt else 0.0,
+                        if (delta.dAlt > RunAggregator.ELEVATION_THRESHOLD_M) delta.dAlt else 0.0,
                     elevationLossMeters = s.elevationLossMeters +
-                        if (dAlt < -RunAggregator.ELEVATION_THRESHOLD_M) -dAlt else 0.0,
+                        if (delta.dAlt < -RunAggregator.ELEVATION_THRESHOLD_M) -delta.dAlt else 0.0,
                     pointCount = s.pointCount + 1,
                     lastLatitude = accepted.latitude,
                     lastLongitude = accepted.longitude,
@@ -510,6 +563,7 @@ class LocationTrackingService : Service() {
                 )
             }
         } else {
+            lastMovingAt = Instant.now()
             session.update { s ->
                 s.copy(
                     pointCount = s.pointCount + 1,
@@ -566,6 +620,13 @@ class LocationTrackingService : Service() {
                     )
                 }
                 updateNotification()
+
+                if (settingsStore.autoPauseEnabled.value) {
+                    val idleSeconds = lastMovingAt?.let {
+                        Duration.between(it, Instant.now()).seconds
+                    } ?: 0L
+                    if (idleSeconds >= AUTO_PAUSE_IDLE_SECONDS) autoPause()
+                }
             }
         }
     }
@@ -620,6 +681,7 @@ class LocationTrackingService : Service() {
         pausedAccumSeconds = 0
         pausedAt = null
         lastFixAt = null
+        lastMovingAt = null
         navSteps = emptyList()
         navPolyline = emptyList()
         navStepIndex = 0
@@ -650,8 +712,9 @@ class LocationTrackingService : Service() {
     private fun buildNotification(status: TrackingStatus): Notification {
         val s = session.state.value
         val km = s.distanceMeters / 1000.0
-        val title = when (status) {
-            TrackingStatus.PAUSED -> "Đã tạm dừng"
+        val title = when {
+            status == TrackingStatus.PAUSED && s.autoPaused -> "Tự động tạm dừng"
+            status == TrackingStatus.PAUSED -> "Đã tạm dừng"
             else -> "Đang ghi hoạt động"
         }
         val text = buildString {
@@ -758,6 +821,7 @@ class LocationTrackingService : Service() {
         private const val NOTIF_ID = 1001
         private const val LOCATION_INTERVAL_MS = 3_000L
         private const val GPS_STALE_THRESHOLD_SECONDS = 12L // ~4x chu kỳ cập nhật vị trí
+        private const val AUTO_PAUSE_IDLE_SECONDS = 15L
         private const val HEART_RATE_FLUSH_SIZE = 10
         private const val HEART_RATE_RECONNECT_DELAY_MS = 5_000L
         private const val MAX_WAKE_LOCK_MS = 6L * 60 * 60 * 1000 // 6h an toàn

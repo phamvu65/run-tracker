@@ -15,4 +15,8 @@ class SettingsViewModel @Inject constructor(
     val themeMode: StateFlow<ThemeMode> = settingsStore.themeMode
 
     fun setThemeMode(mode: ThemeMode) = settingsStore.setThemeMode(mode)
+
+    val autoPauseEnabled: StateFlow<Boolean> = settingsStore.autoPauseEnabled
+
+    fun setAutoPauseEnabled(enabled: Boolean) = settingsStore.setAutoPauseEnabled(enabled)
 }
