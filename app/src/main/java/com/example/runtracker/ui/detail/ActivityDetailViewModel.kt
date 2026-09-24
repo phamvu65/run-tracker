@@ -18,6 +18,7 @@ import com.example.runtracker.domain.repository.ZoneSettingsRepository
 import com.example.runtracker.domain.training.TrimpCalculator
 import com.example.runtracker.domain.training.ZoneDistribution
 import com.example.runtracker.domain.training.ZoneTime
+import com.example.runtracker.domain.usecase.ExportActivityGpxUseCase
 import com.example.runtracker.domain.usecase.FetchActivityWeatherUseCase
 import com.example.runtracker.domain.usecase.ImportHeartRateUseCase
 import com.example.runtracker.domain.usecase.RefreshTrainingMetricsUseCase
@@ -47,6 +48,7 @@ class ActivityDetailViewModel @Inject constructor(
     private val heartRateSource: HeartRateSource,
     private val importHeartRate: ImportHeartRateUseCase,
     private val fetchActivityWeather: FetchActivityWeatherUseCase,
+    private val exportActivityGpx: ExportActivityGpxUseCase,
 ) : ViewModel() {
 
     private val activityId: String = checkNotNull(savedStateHandle[ARG_ACTIVITY_ID])
@@ -147,6 +149,8 @@ class ActivityDetailViewModel @Inject constructor(
     fun onHeartRatePermissionGranted() {
         viewModelScope.launch { runImport() }
     }
+
+    suspend fun exportGpx(): String? = exportActivityGpx(activityId)
 
     private suspend fun runImport() {
         importMessage = "Đang đồng bộ nhịp tim…"

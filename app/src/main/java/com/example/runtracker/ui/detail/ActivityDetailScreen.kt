@@ -1,5 +1,6 @@
 package com.example.runtracker.ui.detail
 
+import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -33,12 +34,15 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.health.connect.client.PermissionController
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.formatClock
@@ -52,6 +56,8 @@ import com.example.runtracker.ui.components.SectionHeader
 import com.example.runtracker.ui.components.StatCell
 import com.example.runtracker.ui.components.StatStrip
 import com.example.runtracker.ui.theme.Spacing
+import kotlinx.coroutines.launch
+import java.io.File
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
@@ -78,6 +84,9 @@ fun ActivityDetailScreen(
             viewModel.onHeartRatePermissionGranted()
         }
     }
+
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
     Scaffold(
         modifier = modifier,
@@ -107,6 +116,11 @@ fun ActivityDetailScreen(
                     onSetRpe = viewModel::setPerceivedExertion,
                     onRefreshWeather = viewModel::refreshWeather,
                     onCreateSegment = onCreateSegment,
+                    onExportGpx = {
+                        coroutineScope.launch {
+                            viewModel.exportGpx()?.let { gpx -> shareGpx(context, s.activity.id, gpx) }
+                        }
+                    },
                 )
             }
         }
@@ -129,6 +143,7 @@ private fun LoadedContent(
     onSetRpe: (Int) -> Unit,
     onRefreshWeather: () -> Unit,
     onCreateSegment: () -> Unit,
+    onExportGpx: () -> Unit,
 ) {
     val activity = state.activity
     Column(
@@ -188,6 +203,10 @@ private fun LoadedContent(
                 activity.steps?.let { LabeledValue("Số bước", "$it") }
                 activity.avgCadence?.let { LabeledValue("Cadence TB", "$it spm") }
                 LabeledValue("Điểm GPS", state.routePoints.size.toString())
+            }
+
+            if (state.routePoints.isNotEmpty()) {
+                OutlinedButton(onClick = onExportGpx) { Text("Xuất GPX") }
             }
 
             if (state.canEnterRpe) {
@@ -350,6 +369,21 @@ private fun SegmentSection(
     }
     Spacer(Modifier.height(Spacing.xs))
     OutlinedButton(onClick = onCreateSegment) { Text("Tạo segment từ buổi này") }
+}
+
+/** Ghi file GPX ra cache rồi mở bảng chia sẻ chuẩn Android — cần `content://` qua FileProvider,
+ * `file://` trực tiếp bị chặn (FileUriExposedException) từ Android 7+. */
+private fun shareGpx(context: android.content.Context, activityId: String, gpxContent: String) {
+    val dir = File(context.cacheDir, "gpx").apply { mkdirs() }
+    val file = File(dir, "activity_$activityId.gpx")
+    file.writeText(gpxContent)
+    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+    val intent = Intent(Intent.ACTION_SEND).apply {
+        type = "application/gpx+xml"
+        putExtra(Intent.EXTRA_STREAM, uri)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    context.startActivity(Intent.createChooser(intent, "Xuất GPX"))
 }
 
 /** Nút back tròn nổi trên bản đồ — cùng kiểu "Map Guide" (nền tối trong suốt + viền mảnh) với
