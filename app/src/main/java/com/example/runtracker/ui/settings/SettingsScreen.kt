@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -16,12 +17,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.data.settings.ThemeMode
@@ -37,6 +40,7 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val themeMode by viewModel.themeMode.collectAsState()
+    val autoPauseEnabled by viewModel.autoPauseEnabled.collectAsState()
 
     Scaffold(
         modifier = modifier,
@@ -73,6 +77,26 @@ fun SettingsScreen(
                     ThemeChip("Tối", ThemeMode.DARK, themeMode, viewModel::setThemeMode)
                     ThemeChip("Sáng", ThemeMode.LIGHT, themeMode, viewModel::setThemeMode)
                     ThemeChip("Theo hệ thống", ThemeMode.SYSTEM, themeMode, viewModel::setThemeMode)
+                }
+            }
+
+            SectionHeader("Ghi hoạt động")
+            FlatCard {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Tự động tạm dừng", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            "Tự tạm dừng khi đứng yên, tự tiếp tục khi di chuyển lại",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Spacer(Modifier.width(Spacing.sm))
+                    Switch(checked = autoPauseEnabled, onCheckedChange = viewModel::setAutoPauseEnabled)
                 }
             }
         }

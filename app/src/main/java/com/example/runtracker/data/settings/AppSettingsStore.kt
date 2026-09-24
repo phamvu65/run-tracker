@@ -35,7 +35,17 @@ class AppSettingsStore @Inject constructor(
         return runCatching { ThemeMode.valueOf(raw) }.getOrDefault(ThemeMode.DARK)
     }
 
+    /** Tự tạm dừng khi đứng yên quá lâu lúc đang ghi — mặc định TẮT, không đổi hành vi người dùng cũ. */
+    private val _autoPauseEnabled = MutableStateFlow(prefs.getBoolean(KEY_AUTO_PAUSE, false))
+    val autoPauseEnabled: StateFlow<Boolean> = _autoPauseEnabled.asStateFlow()
+
+    fun setAutoPauseEnabled(enabled: Boolean) {
+        prefs.edit { putBoolean(KEY_AUTO_PAUSE, enabled) }
+        _autoPauseEnabled.value = enabled
+    }
+
     private companion object {
         const val KEY_THEME_MODE = "theme_mode"
+        const val KEY_AUTO_PAUSE = "auto_pause_enabled"
     }
 }

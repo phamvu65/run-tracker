@@ -36,6 +36,8 @@ data class TrackingState(
     val navOffRoute: Boolean = false,
     val navStepIndex: Int = 0,
     val navStepCount: Int = 0,
+    /** true khi [status] == PAUSED do tự động phát hiện đứng yên (khác tạm dừng bằng nút bấm). */
+    val autoPaused: Boolean = false,
 ) {
     val isActive: Boolean get() = status != TrackingStatus.IDLE
 

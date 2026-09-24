@@ -363,6 +363,23 @@ private fun RecordPanel(
                 onRequestPermission = onRequestPermission,
                 onEnableLocation = onEnableLocation,
             )
+            if (paused && state.autoPaused) {
+                Spacer(Modifier.height(Spacing.sm))
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(MaterialTheme.shapes.small)
+                        .background(Color(0xFF3A2E1B))
+                        .padding(vertical = Spacing.sm, horizontal = Spacing.md),
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    Text(
+                        "⏸  Tự động tạm dừng — di chuyển tiếp để ghi lại",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color(0xFFE2C08D),
+                    )
+                }
+            }
             Spacer(Modifier.height(Spacing.lg))
 
             val stats = buildList {
