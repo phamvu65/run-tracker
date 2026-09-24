@@ -49,6 +49,7 @@ import com.example.runtracker.ui.segments.ARG_SEGMENT_ID
 import com.example.runtracker.ui.segments.SegmentCreateScreen
 import com.example.runtracker.ui.segments.SegmentDetailScreen
 import com.example.runtracker.ui.segments.SegmentListScreen
+import com.example.runtracker.ui.settings.SettingsScreen
 import com.example.runtracker.ui.tracking.TrackingScreen
 import com.example.runtracker.ui.zones.ZoneSettingsScreen
 
@@ -60,6 +61,7 @@ private object Routes {
     const val FITNESS = "fitness"
     const val TRAINING_PLAN = "training_plan"
     const val RECORDS = "records"
+    const val SETTINGS = "settings"
     const val ZONES = "zones"
     const val HR_SENSOR = "hr_sensor"
     const val BEACON_VIEWER = "beacon_viewer"
@@ -178,10 +180,14 @@ fun RunTrackerNavHost(modifier: Modifier = Modifier) {
                     onOpenRoutes = { navController.navigate(Routes.ROUTES) },
                     onOpenHrSensor = { navController.navigate(Routes.HR_SENSOR) },
                     onOpenBeacon = { navController.navigate(Routes.BEACON_VIEWER) },
+                    onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                 )
             }
             composable(Routes.PROFILE_INFO) {
                 ProfileInfoScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Routes.SETTINGS) {
+                SettingsScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.RECORDS) {
                 PersonalRecordsScreen(
