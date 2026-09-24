@@ -93,6 +93,17 @@
             android:exported="false"
             android:foregroundServiceType="location" />
 
+        <!-- Chia sẻ file GPX xuất từ 1 buổi tập qua Intent.ACTION_SEND (cần content:// URI). -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <!-- Tự khởi tạo WorkManager qua Hilt (RunTrackerApp là Configuration.Provider). -->
         <provider
             android:name="androidx.startup.InitializationProvider"
