@@ -10,6 +10,7 @@ import com.example.runtracker.domain.model.Route
 import com.example.runtracker.domain.repository.ActivityRepository
 import com.example.runtracker.domain.repository.RouteRepository
 import com.example.runtracker.domain.usecase.FinalizeActivityUseCase
+import com.example.runtracker.domain.usecase.isMeaningful
 import com.example.runtracker.tracking.BeaconController
 import com.example.runtracker.tracking.BeaconShareState
 import com.example.runtracker.tracking.TrackingSession
@@ -104,13 +105,23 @@ class TrackingViewModel @Inject constructor(
 
     fun consumeJustFinishedActivity() = session.consumeJustFinishedActivity()
 
-    /** Chốt số liệu buổi bị gián đoạn từ trace đã lưu (endTime = điểm GPS cuối). */
+    /**
+     * Chốt số liệu buổi bị gián đoạn từ trace đã lưu (endTime = điểm GPS cuối). Đường này KHÔNG
+     * đi qua guard "chưa di chuyển" của `TrackingScreen` (guard đó chỉ chặn nút Kết thúc lúc đang
+     * ghi trực tiếp) — nên tự kiểm tra lại sau khi chốt: buổi không có di chuyển thật thì xoá
+     * thẳng thay vì lưu vào lịch sử, không điều hướng sang màn "Hoàn thành buổi tập".
+     */
     fun finalizeInterrupted() {
         val id = _interruptedActivityId.value ?: return
         _interruptedActivityId.value = null
         viewModelScope.launch {
             finalizeActivityUseCase(id)
-            session.activityFinished(id)
+            val activity = repository.getActivity(id)
+            if (activity != null && !activity.isMeaningful()) {
+                repository.deleteActivity(id)
+            } else {
+                session.activityFinished(id)
+            }
             stateStore.clear()
         }
     }

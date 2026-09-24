@@ -651,9 +651,12 @@ data class FeedAchievement(
 /**
  * Thẻ feed một buổi tập kiểu trang chủ Strava: avatar + tên + giờ + vị trí, tiêu đề lớn, dải số
  * liệu (nhãn trên/giá trị đậm dưới, kiểu Strava — khác [StatColumn] value-trước dùng ở màn khác)
- * cùng huy chương thành tích ở cuối hàng, banner thành tích (nếu có), bản đồ tràn viền, kẻ ngăn dày
- * phân cách các thẻ. KHÔNG có hàng nút Thích/Bình luận/Chia sẻ — app chưa làm mạng xã hội
- * (xem CLAUDE.md), chỉ có 1 người dùng local nên các nút đó sẽ không có ý nghĩa gì.
+ * cùng huy chương thành tích ở cuối hàng, banner thành tích (nếu có), bản đồ tràn viền. Nền thẻ
+ * dùng `surfaceContainer` (sáng hơn nền đen của màn) thay vì chỉ 1 đường kẻ mảnh — cùng với
+ * khoảng cách giữa các thẻ do `LazyColumn` chừa ra (xem `ActivityListScreen`), tạo ranh giới rõ
+ * ràng giữa các buổi tập thay vì các thẻ dính liền nhau (user phản hồi feed cũ "chia chưa rõ ràng").
+ * KHÔNG có hàng nút Thích/Bình luận/Chia sẻ — app chưa làm mạng xã hội (xem CLAUDE.md), chỉ có 1
+ * người dùng local nên các nút đó sẽ không có ý nghĩa gì.
  */
 @Composable
 fun FeedActivityCard(
@@ -671,6 +674,8 @@ fun FeedActivityCard(
     Column(
         modifier
             .fillMaxWidth()
+            .clip(MaterialTheme.shapes.large)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
             .clickable(onClick = onClick)
             .padding(top = Spacing.lg),
     ) {
@@ -729,7 +734,10 @@ fun FeedActivityCard(
                 .padding(horizontal = Spacing.screen, vertical = Spacing.md),
             verticalAlignment = Alignment.Top,
         ) {
-            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(Spacing.xl)) {
+            Row(
+                Modifier.weight(1f).padding(end = Spacing.sm),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
+            ) {
                 stats.forEach { cell -> FeedStatColumn(cell) }
             }
             if (achievement != null) {
@@ -790,11 +798,15 @@ fun FeedActivityCard(
         }
 
         Spacer(Modifier.height(Spacing.lg))
-        HorizontalDivider(thickness = 8.dp, color = MaterialTheme.colorScheme.surfaceContainerLow)
     }
 }
 
-/** Cột số liệu kiểu Strava cho [FeedActivityCard]: nhãn nhỏ TRÊN, giá trị đậm DƯỚI. */
+/**
+ * Cột số liệu kiểu Strava cho [FeedActivityCard]: nhãn nhỏ TRÊN, giá trị đậm DƯỚI, 1 dòng — không
+ * bao giờ wrap xuống dòng 2. Dùng `TextOverflow.Ellipsis` (không phải clip trần) khi quá hẹp: một
+ * con số bị CẮT CỤT giữa chừng ("36:1" thay vì "36:10") dễ đọc nhầm thành giá trị khác — "…" báo rõ
+ * là bị rút gọn thay vì trông như số liệu thật.
+ */
 @Composable
 private fun FeedStatColumn(cell: StatCell, modifier: Modifier = Modifier) {
     Column(modifier) {
@@ -802,9 +814,17 @@ private fun FeedStatColumn(cell: StatCell, modifier: Modifier = Modifier) {
             cell.label,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
         Spacer(Modifier.height(2.dp))
-        Text(cell.value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text(
+            cell.value,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

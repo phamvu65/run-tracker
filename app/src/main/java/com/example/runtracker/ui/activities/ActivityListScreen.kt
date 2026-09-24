@@ -1,5 +1,6 @@
 package com.example.runtracker.ui.activities
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,7 +22,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.formatClock
 import com.example.runtracker.core.formatDistanceKm
@@ -30,6 +30,7 @@ import com.example.runtracker.domain.model.Activity
 import com.example.runtracker.ui.components.EmptyState
 import com.example.runtracker.ui.components.FeedActivityCard
 import com.example.runtracker.ui.components.StatCell
+import com.example.runtracker.ui.theme.Spacing
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -77,7 +78,8 @@ fun ActivityListScreen(
         } else {
             LazyColumn(
                 Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(bottom = 24.dp),
+                contentPadding = PaddingValues(horizontal = Spacing.screen, vertical = Spacing.md),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md),
             ) {
                 items(feed, key = { it.activity.id }) { item ->
                     val a = item.activity

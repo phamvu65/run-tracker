@@ -10,6 +10,7 @@ import com.example.runtracker.domain.model.GeoPoint
 import com.example.runtracker.domain.repository.ActivityRepository
 import com.example.runtracker.domain.repository.BestEffortRepository
 import com.example.runtracker.domain.repository.UserRepository
+import com.example.runtracker.domain.usecase.DeleteEmptyActivitiesUseCase
 import com.example.runtracker.domain.usecase.FetchActivityLocationUseCase
 import com.example.runtracker.domain.usecase.RecomputeAllActivityRecordsUseCase
 import com.example.runtracker.domain.usecase.RecomputeAllBestEffortsUseCase
@@ -44,6 +45,7 @@ class ActivityListViewModel @Inject constructor(
     private val fetchActivityLocation: FetchActivityLocationUseCase,
     private val recomputeAllBestEfforts: RecomputeAllBestEffortsUseCase,
     private val recomputeAllActivityRecords: RecomputeAllActivityRecordsUseCase,
+    private val deleteEmptyActivities: DeleteEmptyActivitiesUseCase,
     userRepository: UserRepository,
 ) : ViewModel() {
 
@@ -89,10 +91,14 @@ class ActivityListViewModel @Inject constructor(
             }
             .launchIn(viewModelScope)
 
-        // Hồi cứu huy chương cho lịch sử đã có trước khi tính năng này ra đời — rẻ ở quy mô cá
-        // nhân nên chạy lại mỗi lần mở tab thay vì cần cờ "đã chạy" (xem use case).
-        viewModelScope.launch { recomputeAllBestEfforts(LOCAL_USER_ID) }
-        viewModelScope.launch { recomputeAllActivityRecords(LOCAL_USER_ID) }
+        // Dọn activity không có di chuyển thật TRƯỚC, rồi mới hồi cứu huy chương/kỷ lục — tuần tự
+        // trong CÙNG coroutine để tránh việc hồi cứu xử lý nhầm 1 activity vừa bị xoá (race nếu
+        // chạy song song). Rẻ ở quy mô cá nhân nên chạy lại mỗi lần mở tab, không cần cờ "đã chạy".
+        viewModelScope.launch {
+            deleteEmptyActivities(LOCAL_USER_ID)
+            recomputeAllBestEfforts(LOCAL_USER_ID)
+            recomputeAllActivityRecords(LOCAL_USER_ID)
+        }
     }
 
     private companion object {
@@ -120,9 +126,11 @@ private fun List<BestEffort>.toFeedAchievement(): FeedAchievement? {
         2 -> "🥈"
         else -> "🥉"
     }
+    // Chữ rõ nghĩa thay vì chỉ 1 mũi tên + số giây trần trụi (user phản hồi không hiểu "▼ 20giây" là gì) —
+    // đọc tiếp câu banner phía trên ("...nhanh thứ N của bạn!") nên hiểu là nhanh hơn buổi từng giữ đúng hạng N đó.
     val improvedText = best.improvedBySeconds
         ?.takeIf { it > 0 }
-        ?.let { "▼ ${formatMinutesSeconds(it)}" }
+        ?.let { "Nhanh hơn ${formatMinutesSeconds(it)}" }
     return FeedAchievement(
         medalCount = medalWorthy.size,
         bestMedalEmoji = emoji,
