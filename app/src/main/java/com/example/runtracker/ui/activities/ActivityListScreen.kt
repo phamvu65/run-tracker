@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,6 +44,7 @@ private val FEED_TIME: DateTimeFormatter =
 fun ActivityListScreen(
     onActivityClick: (String) -> Unit,
     onBack: (() -> Unit)? = null,
+    onAddManual: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: ActivityListViewModel = hiltViewModel(),
 ) {
@@ -60,6 +62,11 @@ fun ActivityListScreen(
                         IconButton(onClick = onBack) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
                         }
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onAddManual) {
+                        Icon(Icons.Filled.Add, contentDescription = "Nhập buổi tập thủ công")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

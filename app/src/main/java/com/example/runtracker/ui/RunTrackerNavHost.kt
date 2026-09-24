@@ -37,6 +37,7 @@ import com.example.runtracker.ui.detail.ARG_ACTIVITY_ID
 import com.example.runtracker.ui.detail.ActivityDetailScreen
 import com.example.runtracker.ui.fitness.FitnessScreen
 import com.example.runtracker.ui.hrsensor.HrSensorScreen
+import com.example.runtracker.ui.manual.ManualActivityScreen
 import com.example.runtracker.ui.plan.TrainingPlanScreen
 import com.example.runtracker.ui.profile.ProfileInfoScreen
 import com.example.runtracker.ui.profile.ProfileScreen
@@ -62,6 +63,7 @@ private object Routes {
     const val TRAINING_PLAN = "training_plan"
     const val RECORDS = "records"
     const val SETTINGS = "settings"
+    const val MANUAL_ACTIVITY = "manual_activity"
     const val ZONES = "zones"
     const val HR_SENSOR = "hr_sensor"
     const val BEACON_VIEWER = "beacon_viewer"
@@ -168,6 +170,16 @@ fun RunTrackerNavHost(modifier: Modifier = Modifier) {
                 ActivityListScreen(
                     onActivityClick = { navController.navigate(Routes.detail(it)) },
                     onBack = null,
+                    onAddManual = { navController.navigate(Routes.MANUAL_ACTIVITY) },
+                )
+            }
+            composable(Routes.MANUAL_ACTIVITY) {
+                ManualActivityScreen(
+                    onBack = { navController.popBackStack() },
+                    onCreated = { id ->
+                        navController.popBackStack()
+                        navController.navigate(Routes.detail(id))
+                    },
                 )
             }
             composable(Routes.PROFILE) {
