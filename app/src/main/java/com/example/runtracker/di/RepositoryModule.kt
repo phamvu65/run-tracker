@@ -5,6 +5,7 @@ import com.example.runtracker.data.repository.ActivityRepositoryImpl
 import com.example.runtracker.data.repository.BestEffortRepositoryImpl
 import com.example.runtracker.data.repository.ChallengeRepositoryImpl
 import com.example.runtracker.data.repository.DirectionsRepositoryImpl
+import com.example.runtracker.data.repository.ElevationRepositoryImpl
 import com.example.runtracker.data.repository.GeocodingRepositoryImpl
 import com.example.runtracker.data.repository.PerformancePredictionRepositoryImpl
 import com.example.runtracker.data.repository.RouteRepositoryImpl
@@ -18,6 +19,7 @@ import com.example.runtracker.domain.repository.ActivityRepository
 import com.example.runtracker.domain.repository.BestEffortRepository
 import com.example.runtracker.domain.repository.ChallengeRepository
 import com.example.runtracker.domain.repository.DirectionsRepository
+import com.example.runtracker.domain.repository.ElevationRepository
 import com.example.runtracker.domain.repository.GeocodingRepository
 import com.example.runtracker.domain.repository.PerformancePredictionRepository
 import com.example.runtracker.domain.repository.RouteRepository
@@ -89,4 +91,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindActivityRecordRepository(impl: ActivityRecordRepositoryImpl): ActivityRecordRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindElevationRepository(impl: ElevationRepositoryImpl): ElevationRepository
 }

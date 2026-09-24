@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import androidx.room.Update
 import androidx.room.Upsert
 import com.example.runtracker.data.local.entity.ActivityEntity
 import com.example.runtracker.data.local.entity.ActivityLapEntity
@@ -65,6 +66,10 @@ interface ActivityDao {
 
     @Query("SELECT * FROM route_points WHERE activityId = :activityId ORDER BY timestamp ASC")
     fun observeRoutePoints(activityId: String): Flow<List<RoutePointEntity>>
+
+    /** Ghi đè các cột (chỉ dùng để hiệu chỉnh lại altitude — xem `CorrectElevationUseCase`), khớp theo id. */
+    @Update
+    suspend fun updateRoutePoints(points: List<RoutePointEntity>)
 
     // ---- HeartRateSample ----
 

@@ -97,6 +97,11 @@ class ActivityRepositoryImpl @Inject constructor(
         activityDao.insertHeartRateSamples(samples.map { it.toEntity(activityId) })
     }
 
+    override suspend fun updateRoutePoints(activityId: String, points: List<RoutePoint>) {
+        if (points.isEmpty()) return
+        activityDao.updateRoutePoints(points.map { it.toEntity(activityId) })
+    }
+
     override suspend fun replaceLaps(activityId: String, laps: List<ActivityLap>) {
         activityDao.replaceLaps(activityId, laps.map { it.toEntity(activityId) })
     }

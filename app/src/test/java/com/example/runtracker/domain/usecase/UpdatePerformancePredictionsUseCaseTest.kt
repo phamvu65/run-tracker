@@ -102,6 +102,7 @@ class UpdatePerformancePredictionsUseCaseTest {
         override suspend fun appendRoutePoints(activityId: String, points: List<RoutePoint>) = unused()
         override suspend fun appendHeartRateSamples(activityId: String, samples: List<HeartRateSample>) =
             unused()
+        override suspend fun updateRoutePoints(activityId: String, points: List<RoutePoint>) = unused()
         override suspend fun replaceLaps(activityId: String, laps: List<ActivityLap>) = unused()
         override suspend fun deleteActivity(activityId: String) = unused()
 

@@ -24,6 +24,7 @@ class FinalizeActivityUseCase @Inject constructor(
     private val updateChallengeProgress: UpdateChallengeProgressUseCase,
     private val detectBestEfforts: DetectBestEffortsUseCase,
     private val detectActivityRecords: DetectActivityRecordsUseCase,
+    private val correctElevation: CorrectElevationUseCase,
 ) {
     /**
      * @param endTime null -> lấy timestamp điểm GPS cuối (đúng cho buổi bị gián đoạn), fallback now.
@@ -38,7 +39,7 @@ class FinalizeActivityUseCase @Inject constructor(
         steps: Int? = null,
     ) {
         val activity = repository.getActivity(activityId) ?: return
-        val points = repository.getRoutePoints(activityId)
+        val points = correctElevation(activityId, repository.getRoutePoints(activityId))
         val aggregate = RunAggregator.fromPoints(points)
         val hr = repository.getHeartRateSamples(activityId).summary()
         val end = endTime ?: points.lastOrNull()?.timestamp ?: Instant.now()

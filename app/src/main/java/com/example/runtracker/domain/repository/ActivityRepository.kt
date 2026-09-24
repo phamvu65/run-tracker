@@ -48,6 +48,9 @@ interface ActivityRepository {
 
     suspend fun appendHeartRateSamples(activityId: String, samples: List<HeartRateSample>)
 
+    /** Ghi đè các điểm đã lưu (khớp theo `RoutePoint.id`) — chỉ dùng để hiệu chỉnh lại altitude. */
+    suspend fun updateRoutePoints(activityId: String, points: List<RoutePoint>)
+
     suspend fun replaceLaps(activityId: String, laps: List<ActivityLap>)
 
     suspend fun deleteActivity(activityId: String)
