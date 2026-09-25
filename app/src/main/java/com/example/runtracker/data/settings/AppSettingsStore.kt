@@ -2,6 +2,7 @@ package com.example.runtracker.data.settings
 
 import android.content.Context
 import androidx.core.content.edit
+import com.example.runtracker.work.TrainingReminderWorker
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,7 +22,7 @@ enum class UnitSystem { METRIC, IMPERIAL }
  */
 @Singleton
 class AppSettingsStore @Inject constructor(
-    @ApplicationContext context: Context,
+    @ApplicationContext private val context: Context,
 ) {
     private val prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
 
@@ -60,9 +61,21 @@ class AppSettingsStore @Inject constructor(
         return runCatching { UnitSystem.valueOf(raw) }.getOrDefault(UnitSystem.METRIC)
     }
 
+    /** Nhắc lịch tập theo kế hoạch (nếu đã đặt mục tiêu) — mặc định TẮT, cần quyền thông báo. */
+    private val _trainingReminderEnabled = MutableStateFlow(prefs.getBoolean(KEY_TRAINING_REMINDER, false))
+    val trainingReminderEnabled: StateFlow<Boolean> = _trainingReminderEnabled.asStateFlow()
+
+    /** Bật/tắt job nhắc lịch NGAY (không cần khởi động lại app) — xem [TrainingReminderWorker]. */
+    fun setTrainingReminderEnabled(enabled: Boolean) {
+        prefs.edit { putBoolean(KEY_TRAINING_REMINDER, enabled) }
+        _trainingReminderEnabled.value = enabled
+        if (enabled) TrainingReminderWorker.schedule(context) else TrainingReminderWorker.cancel(context)
+    }
+
     private companion object {
         const val KEY_THEME_MODE = "theme_mode"
         const val KEY_AUTO_PAUSE = "auto_pause_enabled"
         const val KEY_UNIT_SYSTEM = "unit_system"
+        const val KEY_TRAINING_REMINDER = "training_reminder_enabled"
     }
 }
