@@ -44,12 +44,45 @@ class RouteBuilderViewModel @Inject constructor(
     var notice by mutableStateOf<String?>(null)
         private set
 
+    /**
+     * Điểm đang chọn để sửa (chỉ ở chế độ chạm điểm — vẽ tay không sửa từng điểm được vì quá
+     * nhiều điểm). Khác null thì [addPoint] (gọi từ tap trên bản đồ) sẽ DI CHUYỂN điểm này thay
+     * vì thêm điểm mới — xem [RouteBuilderScreen] nối `onTap`.
+     */
+    var selectedPointIndex by mutableStateOf<Int?>(null)
+        private set
+
     fun toggleDrawMode() {
         drawMode = !drawMode
+        selectedPointIndex = null
     }
 
     fun addPoint(point: GeoPoint) {
-        tappedPoints = tappedPoints + point
+        val selected = selectedPointIndex
+        if (selected != null && selected in tappedPoints.indices) {
+            tappedPoints = tappedPoints.toMutableList().apply { set(selected, point) }
+            selectedPointIndex = null
+        } else {
+            tappedPoints = tappedPoints + point
+        }
+        planned = null
+    }
+
+    /** Chọn 1 điểm đã chấm để sửa — tap tiếp theo trên bản đồ sẽ dời điểm này tới đó. */
+    fun selectPoint(index: Int) {
+        selectedPointIndex = if (selectedPointIndex == index) null else index
+    }
+
+    fun clearSelection() {
+        selectedPointIndex = null
+    }
+
+    /** Xoá hẳn điểm đang chọn (thay vì dời). */
+    fun deleteSelectedPoint() {
+        val index = selectedPointIndex ?: return
+        if (index !in tappedPoints.indices) return
+        tappedPoints = tappedPoints.toMutableList().apply { removeAt(index) }
+        selectedPointIndex = null
         planned = null
     }
 
@@ -123,6 +156,7 @@ class RouteBuilderViewModel @Inject constructor(
         if (tappedPoints.isNotEmpty()) {
             tappedPoints = tappedPoints.dropLast(1)
             planned = null
+            selectedPointIndex = null
         }
     }
 
@@ -131,6 +165,7 @@ class RouteBuilderViewModel @Inject constructor(
         planned = null
         lastSketch = emptyList()
         notice = null
+        selectedPointIndex = null
     }
 
     fun selectMode(newMode: TravelMode) {
