@@ -81,6 +81,7 @@ private fun RecordEntry.historyTitle(): String = when (this) {
 fun PersonalRecordsScreen(
     onBack: () -> Unit,
     onActivityClick: (String) -> Unit,
+    onOpenProgress: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: PersonalRecordsViewModel = hiltViewModel(),
 ) {
@@ -109,6 +110,9 @@ fun PersonalRecordsScreen(
                 EmptyState(
                     title = "Chưa có kỷ lục nào",
                     message = "Chạy liên tục đủ 1km trở lên trong một buổi tập để bắt đầu ghi nhận kỷ lục cá nhân.",
+                    action = {
+                        AppListCard(title = "Xem tiến độ theo tuần/tháng/năm", onClick = onOpenProgress)
+                    },
                 )
             }
             return@Scaffold
@@ -119,6 +123,10 @@ fun PersonalRecordsScreen(
             contentPadding = PaddingValues(Spacing.screen),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
+            item {
+                AppListCard(title = "Xem tiến độ theo tuần/tháng/năm", onClick = onOpenProgress)
+                Spacer(Modifier.height(Spacing.sm))
+            }
             item {
                 Column {
                     SectionHeader("Kỷ lục cá nhân")
