@@ -3,15 +3,22 @@ package com.example.runtracker.ui.records
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -25,8 +32,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.formatClock
+import com.example.runtracker.domain.model.BadgeType
 import com.example.runtracker.domain.training.ActivityRecordType
 import com.example.runtracker.ui.components.AppListCard
 import com.example.runtracker.ui.components.EmptyState
@@ -76,7 +86,35 @@ private fun RecordEntry.historyTitle(): String = when (this) {
     is RecordEntry.Whole -> "${record.type.label} thứ ${record.rank}"
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BadgeChip(type: BadgeType, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier.width(96.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        shape = MaterialTheme.shapes.large,
+    ) {
+        Column(
+            Modifier.padding(Spacing.sm),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Icon(
+                Icons.Filled.EmojiEvents,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.width(28.dp),
+            )
+            Spacer(Modifier.height(Spacing.xs))
+            Text(
+                type.title,
+                style = MaterialTheme.typography.labelMedium,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.widthIn(min = 0.dp),
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun PersonalRecordsScreen(
     onBack: () -> Unit,
@@ -87,6 +125,7 @@ fun PersonalRecordsScreen(
 ) {
     val currentRecords by viewModel.currentRecords.collectAsState()
     val history by viewModel.history.collectAsState()
+    val badges by viewModel.badges.collectAsState()
 
     Scaffold(
         modifier = modifier,
@@ -105,7 +144,7 @@ fun PersonalRecordsScreen(
             )
         },
     ) { padding ->
-        if (currentRecords.isEmpty()) {
+        if (currentRecords.isEmpty() && badges.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 EmptyState(
                     title = "Chưa có kỷ lục nào",
@@ -127,10 +166,26 @@ fun PersonalRecordsScreen(
                 AppListCard(title = "Xem tiến độ theo tuần/tháng/năm", onClick = onOpenProgress)
                 Spacer(Modifier.height(Spacing.sm))
             }
-            item {
-                Column {
-                    SectionHeader("Kỷ lục cá nhân")
-                    Spacer(Modifier.height(Spacing.xs))
+
+            if (badges.isNotEmpty()) {
+                item {
+                    Column {
+                        SectionHeader("Huy hiệu")
+                        Spacer(Modifier.height(Spacing.xs))
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                            badges.forEach { badge -> BadgeChip(badge.type) }
+                        }
+                        Spacer(Modifier.height(Spacing.md))
+                    }
+                }
+            }
+
+            if (currentRecords.isNotEmpty()) {
+                item {
+                    Column {
+                        SectionHeader("Kỷ lục cá nhân")
+                        Spacer(Modifier.height(Spacing.xs))
+                    }
                 }
             }
             items(currentRecords, key = { "record_${it.title()}" }) { entry ->
