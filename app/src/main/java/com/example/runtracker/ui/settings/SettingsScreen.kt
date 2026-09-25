@@ -1,5 +1,9 @@
 package com.example.runtracker.ui.settings
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,7 +30,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.runtracker.core.hasNotificationPermission
 import com.example.runtracker.data.settings.ThemeMode
 import com.example.runtracker.data.settings.UnitSystem
 import com.example.runtracker.ui.components.FlatCard
@@ -43,6 +49,20 @@ fun SettingsScreen(
     val themeMode by viewModel.themeMode.collectAsState()
     val autoPauseEnabled by viewModel.autoPauseEnabled.collectAsState()
     val unitSystem by viewModel.unitSystem.collectAsState()
+    val trainingReminderEnabled by viewModel.trainingReminderEnabled.collectAsState()
+
+    val context = LocalContext.current
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted -> if (granted) viewModel.setTrainingReminderEnabled(true) }
+
+    fun onToggleReminder(enabled: Boolean) {
+        if (!enabled || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || context.hasNotificationPermission()) {
+            viewModel.setTrainingReminderEnabled(enabled)
+        } else {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 
     Scaffold(
         modifier = modifier,
@@ -112,6 +132,26 @@ fun SettingsScreen(
                     }
                     Spacer(Modifier.width(Spacing.sm))
                     Switch(checked = autoPauseEnabled, onCheckedChange = viewModel::setAutoPauseEnabled)
+                }
+            }
+
+            SectionHeader("Kế hoạch tập luyện")
+            FlatCard {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Nhắc lịch tập", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            "Báo mỗi sáng nếu hôm nay có buổi tập theo kế hoạch chưa hoàn thành",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Spacer(Modifier.width(Spacing.sm))
+                    Switch(checked = trainingReminderEnabled, onCheckedChange = ::onToggleReminder)
                 }
             }
         }

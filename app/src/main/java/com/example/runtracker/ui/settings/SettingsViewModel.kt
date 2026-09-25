@@ -24,4 +24,8 @@ class SettingsViewModel @Inject constructor(
     val unitSystem: StateFlow<UnitSystem> = settingsStore.unitSystem
 
     fun setUnitSystem(unit: UnitSystem) = settingsStore.setUnitSystem(unit)
+
+    val trainingReminderEnabled: StateFlow<Boolean> = settingsStore.trainingReminderEnabled
+
+    fun setTrainingReminderEnabled(enabled: Boolean) = settingsStore.setTrainingReminderEnabled(enabled)
 }
