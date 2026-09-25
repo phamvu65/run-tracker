@@ -18,6 +18,8 @@ import kotlin.time.Duration.Companion.seconds
  * ghi GPS bình thường. Không có route points nên KHÔNG dò segment/best-effort (cả hai cần trace);
  * vẫn tính kỷ lục toàn-buổi (pace/quãng đường/độ cao — chỉ cần field Activity) và cập nhật training
  * load như buổi tập thật, để không tạo ra "vùng tối" trong Fitness/Thành tích chỉ vì thiếu GPS.
+ * Vẫn xét huy hiệu (mốc quãng đường/chuỗi ngày/marathon/chim sớm — chỉ cần field Activity, không
+ * cần route points).
  */
 class CreateManualActivityUseCase @Inject constructor(
     private val activityRepository: ActivityRepository,
@@ -25,6 +27,7 @@ class CreateManualActivityUseCase @Inject constructor(
     private val refreshTrainingMetrics: RefreshTrainingMetricsUseCase,
     private val detectActivityRecords: DetectActivityRecordsUseCase,
     private val updateChallengeProgress: UpdateChallengeProgressUseCase,
+    private val detectNewBadges: DetectNewBadgesUseCase,
 ) {
     suspend operator fun invoke(
         type: ActivityType,
@@ -72,6 +75,7 @@ class CreateManualActivityUseCase @Inject constructor(
         )
 
         detectActivityRecords(id)
+        detectNewBadges(id)
         updateChallengeProgress()
         refreshTrainingMetrics(startTime.atZone(ZoneId.systemDefault()).toLocalDate())
         return id

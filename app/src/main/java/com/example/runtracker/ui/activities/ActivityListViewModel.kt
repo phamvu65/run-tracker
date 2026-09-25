@@ -13,6 +13,7 @@ import com.example.runtracker.domain.repository.UserRepository
 import com.example.runtracker.domain.usecase.DeleteEmptyActivitiesUseCase
 import com.example.runtracker.domain.usecase.FetchActivityLocationUseCase
 import com.example.runtracker.domain.usecase.RecomputeAllActivityRecordsUseCase
+import com.example.runtracker.domain.usecase.RecomputeAllBadgesUseCase
 import com.example.runtracker.domain.usecase.RecomputeAllBestEffortsUseCase
 import com.example.runtracker.ui.components.FeedAchievement
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -45,6 +46,7 @@ class ActivityListViewModel @Inject constructor(
     private val fetchActivityLocation: FetchActivityLocationUseCase,
     private val recomputeAllBestEfforts: RecomputeAllBestEffortsUseCase,
     private val recomputeAllActivityRecords: RecomputeAllActivityRecordsUseCase,
+    private val recomputeAllBadges: RecomputeAllBadgesUseCase,
     private val deleteEmptyActivities: DeleteEmptyActivitiesUseCase,
     userRepository: UserRepository,
 ) : ViewModel() {
@@ -98,6 +100,7 @@ class ActivityListViewModel @Inject constructor(
             deleteEmptyActivities(LOCAL_USER_ID)
             recomputeAllBestEfforts(LOCAL_USER_ID)
             recomputeAllActivityRecords(LOCAL_USER_ID)
+            recomputeAllBadges(LOCAL_USER_ID)
         }
     }
 

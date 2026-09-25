@@ -5,7 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.example.runtracker.core.LOCAL_USER_ID
 import com.example.runtracker.domain.model.ActivityRecord
 import com.example.runtracker.domain.model.BestEffort
+import com.example.runtracker.domain.model.UnlockedBadge
 import com.example.runtracker.domain.repository.ActivityRecordRepository
+import com.example.runtracker.domain.repository.BadgeRepository
 import com.example.runtracker.domain.repository.BestEffortRepository
 import com.example.runtracker.domain.training.ActivityRecordType
 import com.example.runtracker.domain.training.EffortDistance
@@ -41,12 +43,16 @@ sealed interface RecordEntry {
 class PersonalRecordsViewModel @Inject constructor(
     bestEffortRepository: BestEffortRepository,
     activityRecordRepository: ActivityRecordRepository,
+    badgeRepository: BadgeRepository,
 ) : ViewModel() {
 
     private val allEfforts: StateFlow<List<BestEffort>> = bestEffortRepository.observeAllForUser(LOCAL_USER_ID)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val allRecords: StateFlow<List<ActivityRecord>> = activityRecordRepository.observeAllForUser(LOCAL_USER_ID)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val badges: StateFlow<List<UnlockedBadge>> = badgeRepository.observeForUser(LOCAL_USER_ID)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /**

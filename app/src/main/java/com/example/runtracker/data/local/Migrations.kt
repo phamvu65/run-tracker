@@ -80,5 +80,31 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
     }
 }
 
+/**
+ * v5 → v6: bảng `unlocked_badges` mới — huy hiệu đã mở khoá (mốc quãng đường, chuỗi ngày, marathon
+ * đầu tiên...), xem `UnlockedBadgeEntity`/`BadgeType`.
+ */
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `unlocked_badges` (
+                `id` TEXT NOT NULL,
+                `userId` TEXT NOT NULL,
+                `badgeType` TEXT NOT NULL,
+                `activityId` TEXT NOT NULL,
+                `unlockedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_unlocked_badges_userId_badgeType` " +
+                "ON `unlocked_badges` (`userId`, `badgeType`)",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_unlocked_badges_activityId` ON `unlocked_badges` (`activityId`)")
+    }
+}
+
 /** Mọi migration của DB, theo thứ tự. */
-val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
