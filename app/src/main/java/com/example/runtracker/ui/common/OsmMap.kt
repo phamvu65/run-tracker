@@ -449,11 +449,15 @@ fun OsmMap(
      * trị liên tục (mỗi tick phát lại) sẽ animate camera theo từng bước.
      */
     followTrail: List<GeoPoint>? = null,
+    /** Gọi 1 lần khi `MapView` sẵn sàng — dùng khi caller cần thao tác trực tiếp (VD tải tile
+     * offline qua `CacheManager`, xem `RouteDetailScreen`). Không dùng cho render thông thường. */
+    onMapViewReady: ((MapView) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current.density
     val scope = rememberCoroutineScope()
     val mapView = rememberOsmMapView()
+    LaunchedEffect(mapView) { onMapViewReady?.invoke(mapView) }
     val latestOnTap by rememberUpdatedState(onTap)
     val tapHandler: ((GeoPoint) -> Unit)? =
         if (onTap != null) { p -> latestOnTap?.invoke(p) } else null
@@ -596,6 +600,7 @@ fun PathMap(
     markEndpoints: Boolean = true,
     showMyLocation: Boolean = false,
     showDirection: Boolean = true,
+    onMapViewReady: ((MapView) -> Unit)? = null,
 ) {
     val primary = MaterialTheme.colorScheme.primary
     val lines = remember(points, primary, showDirection) {
@@ -614,5 +619,6 @@ fun PathMap(
         markers = markers,
         fitToLines = true,
         showMyLocation = showMyLocation,
+        onMapViewReady = onMapViewReady,
     )
 }
