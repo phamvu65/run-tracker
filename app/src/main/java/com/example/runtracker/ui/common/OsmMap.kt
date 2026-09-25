@@ -104,6 +104,8 @@ data class MapMarker(
     val style: MarkerStyle = MarkerStyle.PIN,
     val color: Color = Color.Unspecified,
     val label: String? = null,
+    /** Khác null: marker bắt tap riêng (chọn để sửa/xoá) — nuốt tap, KHÔNG rơi xuống [onTap] của map. */
+    val onClick: (() -> Unit)? = null,
 )
 
 private fun GeoPoint.toOsm() = OsmPoint(latitude, longitude)
@@ -237,6 +239,9 @@ fun MapView.renderPath(
                 }
                 title = m.title
                 setInfoWindow(null)
+                if (m.onClick != null) {
+                    setOnMarkerClickListener { _, _ -> m.onClick.invoke(); true }
+                }
             },
         )
     }

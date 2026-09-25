@@ -50,6 +50,7 @@ import com.example.runtracker.domain.model.GeoPoint
 import com.example.runtracker.domain.model.TravelMode
 import com.example.runtracker.ui.common.MapLine
 import com.example.runtracker.ui.common.MapMarker
+import com.example.runtracker.ui.common.MarkerStyle
 import com.example.runtracker.ui.common.OsmMap
 import com.example.runtracker.ui.common.startFinishMarkers
 import com.example.runtracker.ui.components.SuccessCheckModal
@@ -118,11 +119,21 @@ fun RouteBuilderScreen(
                     }
                 },
                 markers = when {
-                    // Đã có route: chỉ cần mốc xuất phát / về đích, mũi tên lo phần chiều đi.
-                    previewLine.size >= 2 && (planned != null || drawMode) ->
-                        startFinishMarkers(previewLine)
-                    drawMode -> emptyList()
-                    else -> tapped.mapIndexed { i, p -> MapMarker(p, "Điểm ${i + 1}") }
+                    // Vẽ tay: quá nhiều điểm để sửa từng cái, chỉ cần mốc xuất phát/về đích.
+                    drawMode -> if (previewLine.size >= 2) startFinishMarkers(previewLine) else emptyList()
+                    // Chạm điểm: LUÔN hiện từng điểm đã chấm (kể cả sau khi đã tính đường) để
+                    // còn chọn sửa/xoá — khác trước đây (ẩn hết, chỉ còn mốc đầu/cuối sau khi tính).
+                    else -> tapped.mapIndexed { i, p ->
+                        val selected = i == viewModel.selectedPointIndex
+                        MapMarker(
+                            point = p,
+                            title = "Điểm ${i + 1}",
+                            style = MarkerStyle.BADGE,
+                            color = if (selected) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                            label = "${i + 1}",
+                            onClick = { viewModel.selectPoint(i) },
+                        )
+                    }
                 },
                 onTap = if (drawMode) null else ({ viewModel.addPoint(it) }),
                 fitToLines = false,
@@ -198,6 +209,19 @@ fun RouteBuilderScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error,
                         )
+                    }
+
+                    val selectedIndex = viewModel.selectedPointIndex
+                    if (selectedIndex != null) {
+                        Text(
+                            "Đã chọn điểm ${selectedIndex + 1} — chạm bản đồ để dời tới đó",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                            OutlinedButton(onClick = viewModel::deleteSelectedPoint) { Text("Xoá điểm này") }
+                            OutlinedButton(onClick = viewModel::clearSelection) { Text("Bỏ chọn") }
+                        }
                     }
 
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
