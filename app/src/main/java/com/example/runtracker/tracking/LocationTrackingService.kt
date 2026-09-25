@@ -30,11 +30,13 @@ import com.example.runtracker.domain.model.HeartRateSample
 import com.example.runtracker.domain.model.LiveLocationUpdate
 import com.example.runtracker.domain.model.RoutePoint
 import com.example.runtracker.domain.model.RouteWaypoint
+import com.example.runtracker.domain.model.TravelMode
 import com.example.runtracker.domain.navigation.RouteNavigator
 import com.example.runtracker.domain.repository.ActivityRepository
 import com.example.runtracker.domain.tracking.BarometerAltitude
 import com.example.runtracker.domain.tracking.GeoMath
 import com.example.runtracker.domain.tracking.RunAggregator
+import com.example.runtracker.domain.usecase.BuildRouteUseCase
 import com.example.runtracker.domain.usecase.FinalizeActivityUseCase
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -82,6 +84,7 @@ class LocationTrackingService : Service() {
     @Inject lateinit var barometerSource: BarometerSource
     @Inject lateinit var stepCounterSource: StepCounterSource
     @Inject lateinit var settingsStore: AppSettingsStore
+    @Inject lateinit var buildRouteUseCase: BuildRouteUseCase
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var locationJob: Job? = null
@@ -125,6 +128,10 @@ class LocationTrackingService : Service() {
     private var navSteps: List<RouteWaypoint> = emptyList()
     private var navPolyline: List<GeoPoint> = emptyList()
     private var navStepIndex: Int = 0
+
+    // Rerouting: mốc bắt đầu lệch tuyến liên tục + lần gọi Directions gần nhất (debounce).
+    private var offRouteSince: Instant? = null
+    private var lastRerouteAttemptAt: Instant? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -185,6 +192,8 @@ class LocationTrackingService : Service() {
         val route = session.selectedRoute.value
         navPolyline = route?.polyline.orEmpty()
         navStepIndex = 0
+        offRouteSince = null
+        lastRerouteAttemptAt = null
         navSteps = when {
             route == null -> emptyList()
             route.waypoints.any { !it.instruction.isNullOrBlank() } ->
@@ -636,6 +645,54 @@ class LocationTrackingService : Service() {
                 navStepIndex = progress.stepIndex,
             )
         }
+        maybeReroute(progress.offRoute, progress.arrived, point)
+    }
+
+    /**
+     * Theo dõi thời gian lệch tuyến LIÊN TỤC — chỉ gọi lại Directions khi đã lệch quá
+     * [REROUTE_TRIGGER_SECONDS] (tránh gọi API vì lệch thoáng qua do nhiễu GPS), cách lần gọi
+     * trước ít nhất [REROUTE_DEBOUNCE_SECONDS] (tránh spam API nếu vẫn tiếp tục lệch/mất mạng).
+     */
+    private fun maybeReroute(offRoute: Boolean, arrived: Boolean, point: RoutePoint) {
+        if (!offRoute || arrived) {
+            offRouteSince = null
+            return
+        }
+        val now = Instant.now()
+        val since = offRouteSince ?: now.also { offRouteSince = it }
+        val last = lastRerouteAttemptAt
+        val idleLongEnough = Duration.between(since, now).seconds >= REROUTE_TRIGGER_SECONDS
+        val debounceOk = last == null || Duration.between(last, now).seconds >= REROUTE_DEBOUNCE_SECONDS
+        if (idleLongEnough && debounceOk) {
+            lastRerouteAttemptAt = now
+            scope.launch { reroute(point) }
+        }
+    }
+
+    /**
+     * Tính lại đường từ vị trí hiện tại tới các bước rẽ CÒN LẠI của route đang dẫn đường (đi bộ —
+     * hoạt động đang ghi trong app này luôn là đi bộ/chạy, không phải xe đạp). Lỗi mạng/không tìm
+     * được đường -> [BuildRouteUseCase] tự rơi về đường thẳng (`snappedToRoads = false`) — coi
+     * như thất bại, GIỮ NGUYÊN route cũ, không chặn tracking; lần lệch tuyến tiếp theo sẽ thử lại
+     * (tôn trọng [REROUTE_DEBOUNCE_SECONDS]).
+     */
+    private suspend fun reroute(current: RoutePoint) {
+        val remaining = navSteps.drop(navStepIndex).map { it.location }
+        if (remaining.isEmpty()) return
+        val waypoints = listOf(GeoPoint(current.latitude, current.longitude)) + remaining
+
+        val planned = buildRouteUseCase(waypoints, TravelMode.WALKING)
+        if (!planned.snappedToRoads || planned.polyline.size < 2) return
+
+        navPolyline = planned.polyline
+        navSteps = if (planned.steps.isNotEmpty()) {
+            planned.steps.mapIndexed { i, step -> RouteWaypoint(i, step.location, step.instruction) }
+        } else {
+            listOf(RouteWaypoint(0, planned.polyline.last(), "Về đích"))
+        }
+        navStepIndex = 0
+        offRouteSince = null
+        session.update { it.copy(navStepCount = navSteps.size, navStepIndex = 0, navOffRoute = false) }
     }
 
     private fun startTicker() {
@@ -723,6 +780,8 @@ class LocationTrackingService : Service() {
         navSteps = emptyList()
         navPolyline = emptyList()
         navStepIndex = 0
+        offRouteSince = null
+        lastRerouteAttemptAt = null
         heartRateBuffer.clear()
         latestPressureHpa = null
         seaLevelPressureHpa = null
@@ -863,6 +922,8 @@ class LocationTrackingService : Service() {
         private const val LOCATION_INTERVAL_MS = 3_000L
         private const val GPS_STALE_THRESHOLD_SECONDS = 12L // ~4x chu kỳ cập nhật vị trí
         private const val AUTO_PAUSE_IDLE_SECONDS = 15L
+        private const val REROUTE_TRIGGER_SECONDS = 20L
+        private const val REROUTE_DEBOUNCE_SECONDS = 25L
         private const val CADENCE_WINDOW_SECONDS = 10L
         private const val MIN_CADENCE_WINDOW_SECONDS = 5L
         private const val HEART_RATE_FLUSH_SIZE = 10
