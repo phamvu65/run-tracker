@@ -12,6 +12,9 @@ import javax.inject.Singleton
 /** Chế độ giao diện. `SYSTEM` theo `isSystemInDarkTheme()`; mặc định `DARK` — giữ đúng hành vi cũ. */
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
+/** Đơn vị hiển thị quãng đường/pace — dữ liệu/tính toán trong DB luôn giữ mét, chỉ đổi tầng hiển thị. */
+enum class UnitSystem { METRIC, IMPERIAL }
+
 /**
  * Lưu bền các cài đặt chung của app (không gắn với 1 activity/dữ liệu cụ thể) — cùng khuôn với
  * `TrainingGoalStore`/`BleHeartRateStore`: `SharedPreferences` riêng, expose `StateFlow` cho UI.
@@ -44,8 +47,22 @@ class AppSettingsStore @Inject constructor(
         _autoPauseEnabled.value = enabled
     }
 
+    private val _unitSystem = MutableStateFlow(readUnitSystem())
+    val unitSystem: StateFlow<UnitSystem> = _unitSystem.asStateFlow()
+
+    fun setUnitSystem(unit: UnitSystem) {
+        prefs.edit { putString(KEY_UNIT_SYSTEM, unit.name) }
+        _unitSystem.value = unit
+    }
+
+    private fun readUnitSystem(): UnitSystem {
+        val raw = prefs.getString(KEY_UNIT_SYSTEM, null) ?: return UnitSystem.METRIC
+        return runCatching { UnitSystem.valueOf(raw) }.getOrDefault(UnitSystem.METRIC)
+    }
+
     private companion object {
         const val KEY_THEME_MODE = "theme_mode"
         const val KEY_AUTO_PAUSE = "auto_pause_enabled"
+        const val KEY_UNIT_SYSTEM = "unit_system"
     }
 }

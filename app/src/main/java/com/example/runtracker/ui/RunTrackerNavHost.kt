@@ -15,8 +15,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -51,6 +54,8 @@ import com.example.runtracker.ui.segments.SegmentCreateScreen
 import com.example.runtracker.ui.segments.SegmentDetailScreen
 import com.example.runtracker.ui.segments.SegmentListScreen
 import com.example.runtracker.ui.settings.SettingsScreen
+import com.example.runtracker.ui.settings.SettingsViewModel
+import com.example.runtracker.ui.theme.LocalUnitSystem
 import com.example.runtracker.ui.tracking.TrackingScreen
 import com.example.runtracker.ui.zones.ZoneSettingsScreen
 
@@ -100,6 +105,12 @@ fun RunTrackerNavHost(modifier: Modifier = Modifier) {
     val currentRoute by navController.currentBackStackEntryAsState()
     val currentDest = currentRoute?.destination?.route
 
+    // SettingsViewModel không gắn 1 màn cụ thể — dùng chung ở gốc để mọi màn con đọc được đơn vị
+    // hiển thị đã lưu qua LocalUnitSystem, không cần truyền tham số qua từng layer điều hướng.
+    val settingsViewModel: SettingsViewModel = hiltViewModel()
+    val unitSystem by settingsViewModel.unitSystem.collectAsState()
+
+    CompositionLocalProvider(LocalUnitSystem provides unitSystem) {
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.background,
@@ -306,5 +317,6 @@ fun RunTrackerNavHost(modifier: Modifier = Modifier) {
                 )
             }
         }
+    }
     }
 }

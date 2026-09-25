@@ -41,7 +41,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.formatClock
-import com.example.runtracker.core.formatPace
+import com.example.runtracker.ui.theme.formatPaceUnit
 import com.example.runtracker.domain.model.DailySuggestion
 import com.example.runtracker.domain.model.PerformancePrediction
 import com.example.runtracker.domain.training.RaceDistance
@@ -238,7 +238,7 @@ private fun PredictionSection(predictions: List<PerformancePrediction>) {
                     modifier = Modifier.weight(1f),
                 )
                 Text(
-                    formatPace(p.predictedSeconds / (race.meters / 1000.0)),
+                    formatPaceUnit(p.predictedSeconds / (race.meters / 1000.0)),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.End,

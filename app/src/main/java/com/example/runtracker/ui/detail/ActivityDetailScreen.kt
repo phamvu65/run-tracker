@@ -46,8 +46,6 @@ import androidx.core.content.FileProvider
 import androidx.health.connect.client.PermissionController
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.formatClock
-import com.example.runtracker.core.formatDistanceKm
-import com.example.runtracker.core.formatPace
 import com.example.runtracker.domain.model.ActivityWeather
 import com.example.runtracker.domain.training.ZoneTime
 import com.example.runtracker.ui.components.FlatCard
@@ -56,6 +54,9 @@ import com.example.runtracker.ui.components.SectionHeader
 import com.example.runtracker.ui.components.StatCell
 import com.example.runtracker.ui.components.StatStrip
 import com.example.runtracker.ui.theme.Spacing
+import com.example.runtracker.ui.theme.formatDistanceUnit
+import com.example.runtracker.ui.theme.formatPaceUnit
+import com.example.runtracker.ui.theme.formatSpeedUnit
 import kotlinx.coroutines.launch
 import java.io.File
 import java.time.ZoneId
@@ -181,8 +182,8 @@ private fun LoadedContent(
             FlatCard {
                 StatStrip(
                     listOf(
-                        StatCell("Quãng đường", formatDistanceKm(activity.distanceMeters)),
-                        StatCell("Pace", formatPace(activity.avgPaceSecPerKm)),
+                        StatCell("Quãng đường", formatDistanceUnit(activity.distanceMeters)),
+                        StatCell("Pace", formatPaceUnit(activity.avgPaceSecPerKm)),
                         StatCell("Thời gian di chuyển", formatClock(activity.movingTime.inWholeSeconds)),
                     ),
                 )
@@ -191,7 +192,7 @@ private fun LoadedContent(
                     color = MaterialTheme.colorScheme.outlineVariant,
                 )
                 LabeledValue("Thời gian tổng", formatClock(activity.duration.inWholeSeconds))
-                LabeledValue("Tốc độ TB", "%.1f km/h".format(activity.avgSpeedKmh))
+                LabeledValue("Tốc độ TB", formatSpeedUnit(activity.avgSpeedKmh))
                 LabeledValue(
                     "Độ cao lên / xuống",
                     "${activity.elevationGainMeters.roundToInt()} / ${activity.elevationLossMeters.roundToInt()} m",

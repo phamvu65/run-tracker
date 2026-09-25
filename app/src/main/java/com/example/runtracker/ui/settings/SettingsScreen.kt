@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.data.settings.ThemeMode
+import com.example.runtracker.data.settings.UnitSystem
 import com.example.runtracker.ui.components.FlatCard
 import com.example.runtracker.ui.components.SectionHeader
 import com.example.runtracker.ui.theme.Spacing
@@ -41,6 +42,7 @@ fun SettingsScreen(
 ) {
     val themeMode by viewModel.themeMode.collectAsState()
     val autoPauseEnabled by viewModel.autoPauseEnabled.collectAsState()
+    val unitSystem by viewModel.unitSystem.collectAsState()
 
     Scaffold(
         modifier = modifier,
@@ -80,6 +82,19 @@ fun SettingsScreen(
                 }
             }
 
+            SectionHeader("Đơn vị")
+            FlatCard {
+                Text("Quãng đường & pace", style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(Spacing.xs))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                ) {
+                    UnitChip("Km", UnitSystem.METRIC, unitSystem, viewModel::setUnitSystem)
+                    UnitChip("Dặm (mi)", UnitSystem.IMPERIAL, unitSystem, viewModel::setUnitSystem)
+                }
+            }
+
             SectionHeader("Ghi hoạt động")
             FlatCard {
                 Row(
@@ -109,6 +124,20 @@ private fun ThemeChip(
     value: ThemeMode,
     current: ThemeMode,
     onSelect: (ThemeMode) -> Unit,
+) {
+    FilterChip(
+        selected = current == value,
+        onClick = { onSelect(value) },
+        label = { Text(label) },
+    )
+}
+
+@Composable
+private fun UnitChip(
+    label: String,
+    value: UnitSystem,
+    current: UnitSystem,
+    onSelect: (UnitSystem) -> Unit,
 ) {
     FilterChip(
         selected = current == value,

@@ -25,8 +25,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.formatClock
-import com.example.runtracker.core.formatDistanceKm
-import com.example.runtracker.core.formatPace
+import com.example.runtracker.ui.theme.formatDistanceUnit
+import com.example.runtracker.ui.theme.formatPaceUnit
 import com.example.runtracker.domain.model.Activity
 import com.example.runtracker.ui.components.EmptyState
 import com.example.runtracker.ui.components.FeedActivityCard
@@ -95,8 +95,8 @@ fun ActivityListScreen(
                         timeText = a.startTime.atZone(ZoneId.systemDefault()).format(FEED_TIME),
                         title = activityTitle(a),
                         stats = listOf(
-                            StatCell("Quãng đường", formatDistanceKm(a.distanceMeters)),
-                            StatCell("Nhịp độ", formatPace(a.avgPaceSecPerKm)),
+                            StatCell("Quãng đường", formatDistanceUnit(a.distanceMeters)),
+                            StatCell("Nhịp độ", formatPaceUnit(a.avgPaceSecPerKm)),
                             StatCell("Thời gian", formatClock(a.movingTime.inWholeSeconds)),
                         ),
                         locationText = a.locationName,

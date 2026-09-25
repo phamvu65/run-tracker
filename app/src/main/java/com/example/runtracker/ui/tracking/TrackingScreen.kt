@@ -61,8 +61,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.runtracker.core.BatteryOptimization
 import com.example.runtracker.core.formatClock
-import com.example.runtracker.core.formatDistanceKm
-import com.example.runtracker.core.formatPace
+import com.example.runtracker.ui.theme.formatDistanceUnit
+import com.example.runtracker.ui.theme.formatPaceUnit
 import com.example.runtracker.core.hasLocationPermission
 import com.example.runtracker.core.isLocationEnabled
 import com.example.runtracker.core.trackingPermissions
@@ -387,10 +387,10 @@ private fun RecordPanel(
                 add(
                     StatCell(
                         if (plannedType == ActivityType.CYCLING) "Tốc độ" else "Nhịp độ",
-                        formatPace(state.avgPaceSecPerKm),
+                        formatPaceUnit(state.avgPaceSecPerKm),
                     ),
                 )
-                add(StatCell("Quãng đường", formatDistanceKm(state.distanceMeters)))
+                add(StatCell("Quãng đường", formatDistanceUnit(state.distanceMeters)))
                 state.liveHeartRateBpm?.let { add(StatCell("Nhịp tim", "$it")) }
                 state.liveCadenceSpm?.let { add(StatCell("Cadence", "$it spm")) }
             }

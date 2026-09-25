@@ -27,13 +27,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.formatClock
-import com.example.runtracker.core.formatDistanceKm
-import com.example.runtracker.core.formatPace
 import com.example.runtracker.domain.training.ActivityRecordType
 import com.example.runtracker.ui.components.AppListCard
 import com.example.runtracker.ui.components.EmptyState
 import com.example.runtracker.ui.components.SectionHeader
 import com.example.runtracker.ui.theme.Spacing
+import com.example.runtracker.ui.theme.formatDistanceUnit
+import com.example.runtracker.ui.theme.formatPaceUnit
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -54,18 +54,20 @@ private fun RecordEntry.title(): String = when (this) {
 }
 
 /** Giá trị chính hiển thị bên phải thẻ — thời gian (cự ly chuẩn) hoặc pace/km/mét (toàn buổi). */
+@Composable
 private fun RecordEntry.primaryValueText(): String = when (this) {
     is RecordEntry.Distance -> formatClock(effort.elapsedSeconds)
     is RecordEntry.Whole -> when (record.type) {
-        ActivityRecordType.FASTEST_PACE -> formatPace(record.value)
-        ActivityRecordType.LONGEST_DISTANCE -> formatDistanceKm(record.value)
+        ActivityRecordType.FASTEST_PACE -> formatPaceUnit(record.value)
+        ActivityRecordType.LONGEST_DISTANCE -> formatDistanceUnit(record.value)
         ActivityRecordType.MOST_ELEVATION_GAIN -> "${record.value.roundToInt()} m"
     }
 }
 
 /** Subtitle phụ ở dòng kỷ lục hiện tại — chỉ cự ly chuẩn mới có pace tương ứng để hiện thêm. */
+@Composable
 private fun RecordEntry.subtitleText(): String? = when (this) {
-    is RecordEntry.Distance -> formatPace(effort.elapsedSeconds / (effort.distance.meters / 1000.0))
+    is RecordEntry.Distance -> formatPaceUnit(effort.elapsedSeconds / (effort.distance.meters / 1000.0))
     is RecordEntry.Whole -> null
 }
 
