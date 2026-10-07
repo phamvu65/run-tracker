@@ -266,7 +266,11 @@ data class RouteEntity(
     val elevationGainMeters: Double,
     val polyline: String,
     val isPublic: Boolean = false,
-    val createdAt: Long
+    val createdAt: Long,
+    val travelMode: String? = null,       // WALKING / CYCLING; null với route cũ
+    val sourcePolyline: String? = null,   // điểm người dùng chấm hoặc nét vẽ gốc, polyline 1e-5
+    @ColumnInfo(defaultValue = "0") val drawnFromSketch: Boolean = false,
+    @ColumnInfo(defaultValue = "0") val snappedToRoads: Boolean = false,
 )
 
 @Entity(
@@ -286,6 +290,8 @@ data class RouteWaypointEntity(
     val instruction: String?   // "Rẽ trái vào Nguyễn Trãi", dùng cho navigation
 )
 ```
+
+> Migration 6→7 bổ sung bốn cột trên, giữ nguyên route/waypoint cũ. Không suy đoán chế độ hoặc độ tin cậy của dữ liệu cũ: người dùng mở Sửa, chọn chế độ và tính đường lại trước khi dẫn đường. `route_waypoints` vẫn lưu chỉ dẫn rẽ; `sourcePolyline` giữ riêng đầu vào để chỉnh sửa. Chỉ route bám đường thành công mới được lưu mới/cập nhật.
 
 ### 3.6 PerformancePrediction
 

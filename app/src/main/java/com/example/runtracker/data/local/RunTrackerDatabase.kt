@@ -84,7 +84,7 @@ abstract class RunTrackerDatabase : RoomDatabase() {
     abstract fun badgeDao(): BadgeDao
 
     companion object {
-        const val DB_VERSION = 6
+        const val DB_VERSION = 7
         const val DB_NAME = "runtracker.db"
     }
 }

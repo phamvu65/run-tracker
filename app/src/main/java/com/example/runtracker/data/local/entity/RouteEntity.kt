@@ -1,6 +1,7 @@
 package com.example.runtracker.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.ColumnInfo
 import androidx.room.PrimaryKey
 
 /**
@@ -15,5 +16,9 @@ data class RouteEntity(
     val elevationGainMeters: Double,
     val polyline: String,
     val isPublic: Boolean = false,
-    val createdAt: Long
+    val createdAt: Long,
+    val travelMode: String? = null,
+    val sourcePolyline: String? = null,
+    @ColumnInfo(defaultValue = "0") val drawnFromSketch: Boolean = false,
+    @ColumnInfo(defaultValue = "0") val snappedToRoads: Boolean = false,
 )
