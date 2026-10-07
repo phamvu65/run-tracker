@@ -6,11 +6,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -32,8 +32,6 @@ import com.example.runtracker.ui.common.rememberOsmMapView
 import com.example.runtracker.ui.common.renderPath
 import com.example.runtracker.ui.common.startFinishMarkers
 import com.example.runtracker.ui.common.tileSourceFor
-import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
-import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 import org.osmdroid.util.GeoPoint as OsmPoint
 
 /**
@@ -72,37 +70,29 @@ fun TrackingMap(
         }
     }
 
-    // Chấm "vị trí của tôi" của osmdroid (chỉ bật khi có quyền).
-    val myLocationOverlay = remember(mapView, hasPermission) {
-        if (hasPermission) {
-            MyLocationNewOverlay(GpsMyLocationProvider(context), mapView).apply { disableFollowLocation() }
-        } else {
-            null
-        }
-    }
-    DisposableEffect(myLocationOverlay) {
-        myLocationOverlay?.enableMyLocation()
-        onDispose { myLocationOverlay?.disableMyLocation() }
-    }
-
-    // `current` (điểm GPS service đã ghi) là fix đáng tin nhất khi đang ghi; lúc IDLE service chưa
-    // chạy nên dùng FusedLocation trực tiếp — KHÔNG dùng `myLocationOverlay.myLocation` của osmdroid
-    // ở đây: provider đó chỉ đăng ký các nguồn vị trí ĐANG bật tại lúc khởi tạo overlay nên không
-    // tự nhận lại tín hiệu nếu người dùng bật GPS system sau khi đã mở màn này.
-    LaunchedEffect(hasPermission, current) {
+    // Use the same live fix for the GPS banner, marker and camera.
+    var liveLocation by remember { mutableStateOf<GeoPoint?>(null) }
+    val reportFix by rememberUpdatedState(onFixAvailable)
+    LaunchedEffect(hasPermission, current != null) {
         if (current != null) {
-            onFixAvailable(true)
+            reportFix(true)
             return@LaunchedEffect
         }
+        reportFix(false)
         if (!hasPermission) {
-            onFixAvailable(false)
+            liveLocation = null
             return@LaunchedEffect
         }
-        observeLocationFix(context).collect(onFixAvailable)
+        observeLocationFix(context).collect { fix ->
+            if (fix != null) liveLocation = fix
+            reportFix(fix != null)
+        }
     }
+    val displayedLocation = current ?: liveLocation
 
     var cameraInitialized by remember { mutableStateOf(false) }
-    LaunchedEffect(current, lastKnown, plannedRoute, follow) {
+    var liveCameraInitialized by remember { mutableStateOf(false) }
+    LaunchedEffect(current, liveLocation, lastKnown, plannedRoute, follow) {
         when {
             follow && current != null -> {
                 if (!cameraInitialized) {
@@ -111,12 +101,18 @@ fun TrackingMap(
                 }
                 mapView.controller.animateTo(OsmPoint(current.latitude, current.longitude))
             }
+            !liveCameraInitialized && displayedLocation != null && plannedRoute.isEmpty() -> {
+                mapView.controller.setZoom(16.0)
+                mapView.controller.setCenter(OsmPoint(displayedLocation.latitude, displayedLocation.longitude))
+                cameraInitialized = true
+                liveCameraInitialized = true
+            }
             !cameraInitialized && plannedRoute.size >= 2 -> {
                 mapView.fitToPoints(plannedRoute, (32 * density).toInt())
                 cameraInitialized = true
             }
             !cameraInitialized -> {
-                (current ?: lastKnown)?.let {
+                (displayedLocation ?: lastKnown)?.let {
                     mapView.controller.setZoom(16.0)
                     mapView.controller.setCenter(OsmPoint(it.latitude, it.longitude))
                     cameraInitialized = true
@@ -132,14 +128,12 @@ fun TrackingMap(
     }
     val markers = buildList {
         addAll(startFinishMarkers(plannedRoute))
-        current?.let { add(MapMarker(it, "Vị trí hiện tại")) }
+        displayedLocation?.let { add(MapMarker(it, "Vị trí hiện tại")) }
     }
 
     val recenter: (() -> Unit)? = if (hasPermission) {
         {
-            val fix = current?.let { OsmPoint(it.latitude, it.longitude) }
-                ?: myLocationOverlay?.myLocation
-                ?: lastKnown?.let { OsmPoint(it.latitude, it.longitude) }
+            val fix = (displayedLocation ?: lastKnown)?.let { OsmPoint(it.latitude, it.longitude) }
             fix?.let {
                 mapView.controller.animateTo(it)
                 mapView.controller.setZoom(16.0)
@@ -159,7 +153,6 @@ fun TrackingMap(
                     markers = markers,
                     onTap = null,
                     density = density,
-                    extraOverlays = listOfNotNull(myLocationOverlay),
                 )
             },
         )

@@ -30,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.runtracker.core.FeatureFlags
 import com.example.runtracker.domain.model.Sex
 import com.example.runtracker.ui.components.FlatCard
 import com.example.runtracker.ui.components.SectionHeader
@@ -107,17 +108,19 @@ fun ProfileInfoScreen(
 
                     NumberField(birthYear, { birthYear = it }, "Năm sinh")
                     NumberField(weight, { weight = it }, "Cân nặng (kg)", decimal = true)
-                    NumberField(restingHr, { restingHr = it }, "Nhịp tim nghỉ (bpm)")
-                    NumberField(
-                        maxHr,
-                        { maxHr = it },
-                        "Nhịp tim tối đa (bpm)",
-                        supporting = when {
-                            maxHr.isNotBlank() -> "Dùng giá trị đo thực tế này"
-                            estimatedMaxHr != null -> "Bỏ trống → ước tính $estimatedMaxHr (220 - tuổi)"
-                            else -> "Bỏ trống → cần năm sinh để ước tính"
-                        },
-                    )
+                    if (FeatureFlags.HEART_RATE_INTEGRATION) {
+                        NumberField(restingHr, { restingHr = it }, "Nhịp tim nghỉ (bpm)")
+                        NumberField(
+                            maxHr,
+                            { maxHr = it },
+                            "Nhịp tim tối đa (bpm)",
+                            supporting = when {
+                                maxHr.isNotBlank() -> "Dùng giá trị đo thực tế này"
+                                estimatedMaxHr != null -> "Bỏ trống → ước tính $estimatedMaxHr (220 - tuổi)"
+                                else -> "Bỏ trống → cần năm sinh để ước tính"
+                            },
+                        )
+                    }
 
                     Button(
                         onClick = {

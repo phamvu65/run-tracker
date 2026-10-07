@@ -59,6 +59,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.runtracker.core.FeatureFlags
 import com.example.runtracker.core.BatteryOptimization
 import com.example.runtracker.core.formatClock
 import com.example.runtracker.ui.theme.formatDistanceUnit
@@ -81,6 +82,8 @@ import com.example.runtracker.ui.theme.Spacing
 fun TrackingScreen(
     modifier: Modifier = Modifier,
     onRunComplete: (activityId: String) -> Unit = {},
+    onCreateRoute: () -> Unit = {},
+    onEditRoute: (String) -> Unit = {},
     viewModel: TrackingViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
@@ -107,15 +110,22 @@ fun TrackingScreen(
     val speak = rememberRouteVoice()
     var lastSpokenStep by remember { mutableIntStateOf(-1) }
     var lastOffRoute by remember { mutableStateOf(false) }
-    LaunchedEffect(state.navStepIndex, state.navOffRoute, state.navRouteName, voiceEnabled) {
+    var lastSpokenPolyline by remember { mutableStateOf<List<GeoPoint>>(emptyList()) }
+    LaunchedEffect(state.navStepIndex, state.navOffRoute, state.navRouteName, state.navPolyline, state.status, voiceEnabled) {
+        if (state.status == TrackingStatus.IDLE) {
+            lastSpokenStep = -1
+            lastSpokenPolyline = emptyList()
+            lastOffRoute = false
+        }
         if (!voiceEnabled || state.status == TrackingStatus.IDLE || state.navRouteName == null) {
             return@LaunchedEffect
         }
         if (state.navOffRoute) {
             if (!lastOffRoute) speak("Đã đi chệch tuyến đường")
-        } else if (state.navStepIndex != lastSpokenStep) {
+        } else if (state.navStepIndex != lastSpokenStep || state.navPolyline != lastSpokenPolyline) {
             state.navInstruction?.let { speak(it) }
             lastSpokenStep = state.navStepIndex
+            lastSpokenPolyline = state.navPolyline
         }
         lastOffRoute = state.navOffRoute
     }
@@ -153,6 +163,8 @@ fun TrackingScreen(
                 showRoutePicker = false
             },
             onDismiss = { showRoutePicker = false },
+            onCreate = { showRoutePicker = false; onCreateRoute() },
+            onEdit = { showRoutePicker = false; onEditRoute(it) },
         )
     }
 
@@ -191,7 +203,7 @@ fun TrackingScreen(
         )
     }
 
-    val plannedRoute = remember(selectedRoute) { selectedRoute?.polyline.orEmpty() }
+    val plannedRoute = if (state.isActive) state.navPolyline else selectedRoute?.polyline.orEmpty()
     val current = state.lastLatitude?.let { lat ->
         state.lastLongitude?.let { lng -> GeoPoint(lat, lng) }
     }
@@ -224,6 +236,7 @@ fun TrackingScreen(
                 BatteryOptimizationBanner(context)
             }
             if (state.navRouteName != null) {
+                if (state.navRerouting) Text("Đang tính đường quay lại lộ trình…")
                 NavigationCard(
                     routeName = state.navRouteName!!,
                     instruction = state.navInstruction,
@@ -391,7 +404,7 @@ private fun RecordPanel(
                     ),
                 )
                 add(StatCell("Quãng đường", formatDistanceUnit(state.distanceMeters)))
-                state.liveHeartRateBpm?.let { add(StatCell("Nhịp tim", "$it")) }
+                state.liveHeartRateBpm?.takeIf { FeatureFlags.HEART_RATE_INTEGRATION }?.let { add(StatCell("Nhịp tim", "$it")) }
                 state.liveCadenceSpm?.let { add(StatCell("Cadence", "$it spm")) }
             }
             StatStrip(stats)
@@ -579,7 +592,7 @@ private fun CircleAction(
     bg: Color = MaterialTheme.colorScheme.surfaceContainerHighest,
 ) {
     Column(
-        modifier.width(84.dp),
+        modifier.width(84.dp).clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(Spacing.xs),
     ) {
@@ -770,28 +783,32 @@ private fun NavigationCard(
 }
 
 @Composable
-private fun RoutePickerDialog(
+internal fun RoutePickerDialog(
     routes: List<Route>,
     selectedId: String?,
     onSelect: (String?) -> Unit,
     onDismiss: () -> Unit,
+    onCreate: () -> Unit,
+    onEdit: (String) -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Chọn route") },
+        title = { Text("Chọn lộ trình") },
         text = {
-            if (routes.isEmpty()) {
-                Text("Chưa có route. Dựng route ở màn Hồ sơ → Routes đã lưu.")
-            } else {
-                Column(Modifier.verticalScroll(rememberScrollState())) {
-                    TextButton(onClick = { onSelect(null) }) { Text("Không dẫn đường") }
-                    routes.forEach { route ->
-                        TextButton(onClick = { onSelect(route.id) }) {
-                            Text(
-                                (if (route.id == selectedId) "✓ " else "") +
-                                    "${route.name} · ${route.distanceMeters.toInt() / 1000.0} km",
-                            )
-                        }
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                TextButton(onClick = { onSelect(null) }) { Text("Không dẫn đường") }
+                TextButton(onClick = onCreate) { Text("Tạo lộ trình mới") }
+                if (routes.isEmpty()) Text("Chưa có lộ trình đã lưu. Tạo lộ trình để bắt đầu.")
+                routes.forEach { route ->
+                    val canNavigate = route.snappedToRoads && route.travelMode != null
+                    TextButton(onClick = {
+                        if (canNavigate) onSelect(route.id) else onEdit(route.id)
+                    }) {
+                        Text(
+                            (if (route.id == selectedId) "✓ " else "") +
+                                "${route.name} · ${route.distanceMeters.toInt() / 1000.0} km" +
+                                if (!canNavigate) " — Sửa và tính đường lại" else "",
+                        )
                     }
                 }
             }

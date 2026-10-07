@@ -14,6 +14,7 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
@@ -29,6 +30,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.runtracker.core.FeatureFlags
 import com.example.runtracker.ui.activities.ActivityListScreen
 import com.example.runtracker.ui.beacon.BeaconViewerScreen
 import com.example.runtracker.ui.challenges.ARG_CHALLENGE_ID
@@ -58,6 +60,7 @@ import com.example.runtracker.ui.settings.SettingsScreen
 import com.example.runtracker.ui.settings.SettingsViewModel
 import com.example.runtracker.ui.theme.LocalUnitSystem
 import com.example.runtracker.ui.tracking.TrackingScreen
+import com.example.runtracker.ui.tracking.TrackingViewModel
 import com.example.runtracker.ui.zones.ZoneSettingsScreen
 
 private object Routes {
@@ -80,6 +83,7 @@ private object Routes {
     fun segmentCreate(activityId: String) = "segment_create/$activityId"
     const val ROUTES = "routes"
     const val ROUTE_BUILDER = "route_builder"
+    const val ROUTE_EDIT = "route_edit/{editRouteId}"
     const val ROUTE_DETAIL = "route/{$ARG_ROUTE_ID}"
     const val CHALLENGES = "challenges"
     const val CHALLENGE_CREATE = "challenge_create"
@@ -164,8 +168,22 @@ fun RunTrackerNavHost(modifier: Modifier = Modifier) {
             startDestination = Routes.TRACKING,
             modifier = Modifier.padding(innerPadding),
         ) {
-            composable(Routes.TRACKING) {
-                TrackingScreen(onRunComplete = { navController.navigate(Routes.runComplete(it)) })
+            composable(Routes.TRACKING) { entry ->
+                val trackingViewModel: TrackingViewModel = hiltViewModel()
+                val savedRouteId by entry.savedStateHandle
+                    .getStateFlow<String?>("savedRouteId", null).collectAsState()
+                LaunchedEffect(savedRouteId) {
+                    savedRouteId?.let {
+                        trackingViewModel.selectRoute(it)
+                        entry.savedStateHandle["savedRouteId"] = null
+                    }
+                }
+                TrackingScreen(
+                    onRunComplete = { navController.navigate(Routes.runComplete(it)) },
+                    onCreateRoute = { navController.navigate(Routes.ROUTE_BUILDER) },
+                    onEditRoute = { navController.navigate("route_edit/$it") },
+                    viewModel = trackingViewModel,
+                )
             }
             composable(
                 route = Routes.RUN_COMPLETE,
@@ -224,8 +242,10 @@ fun RunTrackerNavHost(modifier: Modifier = Modifier) {
             composable(Routes.PROGRESS) {
                 ProgressScreen(onBack = { navController.popBackStack() })
             }
-            composable(Routes.HR_SENSOR) {
-                HrSensorScreen(onBack = { navController.popBackStack() })
+            if (FeatureFlags.HEART_RATE_INTEGRATION) {
+                composable(Routes.HR_SENSOR) {
+                    HrSensorScreen(onBack = { navController.popBackStack() })
+                }
             }
             composable(Routes.BEACON_VIEWER) {
                 BeaconViewerScreen(onBack = { navController.popBackStack() })
@@ -239,8 +259,10 @@ fun RunTrackerNavHost(modifier: Modifier = Modifier) {
             composable(Routes.TRAINING_PLAN) {
                 TrainingPlanScreen(onBack = { navController.popBackStack() })
             }
-            composable(Routes.ZONES) {
-                ZoneSettingsScreen(onBack = { navController.popBackStack() })
+            if (FeatureFlags.HEART_RATE_INTEGRATION) {
+                composable(Routes.ZONES) {
+                    ZoneSettingsScreen(onBack = { navController.popBackStack() })
+                }
             }
             composable(Routes.SEGMENTS) {
                 SegmentListScreen(
@@ -265,8 +287,13 @@ fun RunTrackerNavHost(modifier: Modifier = Modifier) {
                 RouteBuilderScreen(
                     onBack = { navController.popBackStack() },
                     onSaved = { routeId ->
-                        navController.popBackStack()
-                        navController.navigate(Routes.route(routeId))
+                        if (navController.previousBackStackEntry?.destination?.route == Routes.TRACKING) {
+                            navController.previousBackStackEntry?.savedStateHandle?.set("savedRouteId", routeId)
+                            navController.popBackStack()
+                        } else {
+                            navController.popBackStack()
+                            navController.navigate(Routes.route(routeId))
+                        }
                     },
                 )
             }
@@ -274,7 +301,24 @@ fun RunTrackerNavHost(modifier: Modifier = Modifier) {
                 route = Routes.ROUTE_DETAIL,
                 arguments = listOf(navArgument(ARG_ROUTE_ID) { type = NavType.StringType }),
             ) {
-                RouteDetailScreen(onBack = { navController.popBackStack() })
+                RouteDetailScreen(onBack = { navController.popBackStack() },
+                    onEdit = { navController.navigate("route_edit/$it") })
+            }
+            composable(Routes.ROUTE_EDIT,
+                arguments = listOf(navArgument("editRouteId") { type = NavType.StringType }),
+            ) {
+                RouteBuilderScreen(
+                    onBack = { navController.popBackStack() },
+                    onSaved = { id ->
+                        if (navController.previousBackStackEntry?.destination?.route == Routes.TRACKING) {
+                            navController.previousBackStackEntry?.savedStateHandle?.set("savedRouteId", id)
+                            navController.popBackStack()
+                        } else {
+                            navController.popBackStack(Routes.ROUTES, inclusive = false)
+                            navController.navigate(Routes.route(id))
+                        }
+                    },
+                )
             }
             composable(Routes.CHALLENGES) {
                 ChallengeListScreen(

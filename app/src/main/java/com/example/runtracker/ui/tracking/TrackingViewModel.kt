@@ -78,7 +78,8 @@ class TrackingViewModel @Inject constructor(
 
     fun selectRoute(routeId: String?) {
         viewModelScope.launch {
-            session.selectRoute(routeId?.let { routeRepository.getRoute(it) })
+            session.selectRoute(routeId?.let { routeRepository.getRoute(it) }
+                ?.takeIf { it.snappedToRoads && it.travelMode != null })
         }
     }
 

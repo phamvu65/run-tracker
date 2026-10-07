@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -49,6 +50,7 @@ import org.osmdroid.util.GeoPoint as OsmGeoPoint
 @Composable
 fun RouteDetailScreen(
     onBack: () -> Unit,
+    onEdit: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: RouteDetailViewModel = hiltViewModel(),
 ) {
@@ -72,6 +74,9 @@ fun RouteDetailScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { route?.let { onEdit(it.id) } }) {
+                        Icon(Icons.Filled.Edit, contentDescription = "Sửa lộ trình")
+                    }
                     IconButton(
                         onClick = {
                             route?.polyline?.let { startOfflineDownload(context, mapView, it, downloadState) }
@@ -101,6 +106,12 @@ fun RouteDetailScreen(
                 verticalArrangement = Arrangement.spacedBy(Spacing.sm),
             ) {
                 Text(formatDistanceKm(r.distanceMeters), style = MaterialTheme.typography.titleLarge)
+                if (!r.snappedToRoads || r.travelMode == null) {
+                    Text("Lộ trình cũ chưa được xác minh. Bấm Sửa để chọn chế độ và tính đường lại trước khi dẫn đường.",
+                        color = MaterialTheme.colorScheme.error)
+                } else {
+                    Text(if (r.travelMode == com.example.runtracker.domain.model.TravelMode.CYCLING) "Đạp xe" else "Đi bộ / chạy bộ")
+                }
 
                 val steps = r.waypoints.filter { !it.instruction.isNullOrBlank() }
                 if (steps.isNotEmpty()) {

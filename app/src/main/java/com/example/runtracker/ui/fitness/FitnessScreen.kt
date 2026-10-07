@@ -133,7 +133,7 @@ fun FitnessScreen(
                 FlatCard {
                     EmptyState(
                         title = "Chưa có dữ liệu Fitness",
-                        message = "Ghi một buổi tập (nhập RPE hoặc có nhịp tim) để bắt đầu theo dõi CTL/ATL/TSB.",
+                        message = "Ghi một buổi tập và nhập mức gắng sức (RPE) để bắt đầu theo dõi CTL/ATL/TSB.",
                     )
                 }
             }
@@ -173,7 +173,7 @@ private fun TipsSection() {
 private data class FitnessTip(val icon: androidx.compose.ui.graphics.vector.ImageVector, val text: String)
 
 private val FITNESS_TIPS = listOf(
-    FitnessTip(Icons.Filled.Favorite, "Cấu hình đúng vùng nhịp tim để TRIMP và Relative Effort chính xác hơn."),
+    FitnessTip(Icons.Filled.Favorite, "Nhập mức gắng sức (RPE) sau mỗi buổi tập để theo dõi tải tập luyện."),
     FitnessTip(Icons.Filled.LocationOn, "Giữ điện thoại lộ thiên khi chạy để tránh tín hiệu GPS yếu làm lệch quãng đường."),
     FitnessTip(Icons.Filled.TrendingUp, "TSB âm sâu kéo dài là dấu hiệu nên giảm tải, tránh chấn thương."),
     FitnessTip(Icons.Filled.Build, "Một số máy (Xiaomi, Oppo...) tự tắt app nền — nhớ miễn tối ưu pin khi ghi buổi tập."),

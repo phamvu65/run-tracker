@@ -29,22 +29,17 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Place
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.TrendingDown
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.TrendingUp
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -58,6 +53,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.runtracker.core.FeatureFlags
 import com.example.runtracker.core.formatClock
 import com.example.runtracker.core.formatDistanceKm
 import com.example.runtracker.core.formatPace
@@ -76,7 +72,6 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     onOpenInfo: () -> Unit = {},
@@ -104,26 +99,13 @@ fun ProfileScreen(
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            TopAppBar(
-                title = {},
-                actions = {
-                    IconButton(onClick = onOpenInfo) {
-                        Icon(Icons.Filled.Settings, contentDescription = "Thông tin cá nhân")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                ),
-            )
-        },
     ) { padding ->
         Column(
             Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(bottom = Spacing.xl),
+                .padding(top = Spacing.lg, bottom = Spacing.xl),
         ) {
             // ---- Đầu hồ sơ ----
             Row(
@@ -217,12 +199,16 @@ fun ProfileScreen(
             MenuDivider()
             ProfileMenuRow(Icons.Filled.DateRange, "Kế hoạch tập luyện", onOpenPlan)
             MenuDivider()
-            ProfileMenuRow(Icons.Filled.Favorite, "Vùng nhịp tim", onOpenZones)
-            MenuDivider()
+            if (FeatureFlags.HEART_RATE_INTEGRATION) {
+                ProfileMenuRow(Icons.Filled.Favorite, "Vùng nhịp tim", onOpenZones)
+                MenuDivider()
+            }
             ProfileMenuRow(Icons.Filled.LocationOn, "Lộ trình đã lưu", onOpenRoutes)
             MenuDivider()
-            ProfileMenuRow(Icons.Filled.Build, "Đai nhịp tim (BLE)", onOpenHrSensor)
-            MenuDivider()
+            if (FeatureFlags.HEART_RATE_INTEGRATION) {
+                ProfileMenuRow(Icons.Filled.Build, "Đai nhịp tim (BLE)", onOpenHrSensor)
+                MenuDivider()
+            }
             ProfileMenuRow(Icons.Filled.Share, "Theo dõi trực tiếp (Beacon)", onOpenBeacon)
             MenuDivider()
             ProfileMenuRow(Icons.Filled.Tune, "Cài đặt", onOpenSettings)
@@ -261,7 +247,7 @@ private fun WeeklyDiagramCard(stat: PeriodStat, days: List<DayStat>, modifier: M
                 modifier = Modifier.fillMaxWidth(),
             )
         }
-        SixStatGrid(stat)
+        ProfileStatGrid(stat)
     }
 }
 
@@ -318,7 +304,7 @@ private fun MonthlyDiagramCard(
             StravaLabel("6 tháng qua")
             MiniTrendChart(trendKm, modifier = Modifier.fillMaxWidth().height(100.dp))
         }
-        SixStatGrid(stat)
+        ProfileStatGrid(stat)
     }
 }
 
@@ -355,24 +341,24 @@ private fun PeriodIconBadge() {
 }
 
 @Composable
-private fun SixStatGrid(stat: PeriodStat) {
+private fun ProfileStatGrid(stat: PeriodStat) {
     val paceSecPerKm = if (stat.distanceMeters > 0) {
         stat.movingTime.inWholeSeconds / (stat.distanceMeters / 1000.0)
     } else {
         0.0
     }
     IconStatGrid(
-        listOf(
+        listOfNotNull(
             IconStatTileData(Icons.Filled.LocationOn, "Quãng đường", formatDistanceKm(stat.distanceMeters)),
             IconStatTileData(Icons.Filled.DirectionsRun, "Nhịp độ TB", formatPace(paceSecPerKm)),
             IconStatTileData(Icons.Filled.DirectionsWalk, "Bước chân", "%,d".format(stat.steps)),
             IconStatTileData(Icons.Filled.Timer, "Thời gian", formatHours(stat.movingTime.inWholeSeconds)),
-            IconStatTileData(
+            if (FeatureFlags.HEART_RATE_INTEGRATION) IconStatTileData(
                 Icons.Filled.Favorite,
                 "Nhịp tim TB",
                 stat.avgHeartRate?.toString() ?: "—",
                 unit = stat.avgHeartRate?.let { "bpm" },
-            ),
+            ) else null,
             IconStatTileData(
                 Icons.Filled.LocalFireDepartment,
                 "Calo",

@@ -110,12 +110,13 @@ fun RouteBuilderScreen(
                 modifier = Modifier.fillMaxSize(),
                 lines = buildList {
                     if (previewLine.size >= 2) {
-                        add(MapLine(previewLine, lineColor, widthDp = 4.5f, showDirection = true))
-                    }
-                    // Đoạn chưa có dữ liệu đường thật (đã thay bằng đường thẳng theo nét vẽ
-                    // tay) — vẽ nét đứt đè lên để phân biệt với đoạn đã bám đường thật.
-                    planned?.gapPolylines?.forEach { gap ->
-                        if (gap.size >= 2) add(MapLine(gap, lineColor, widthDp = 4.5f, dashed = true))
+                        add(MapLine(
+                            previewLine,
+                            lineColor,
+                            widthDp = 4.5f,
+                            showDirection = planned?.snappedToRoads == true,
+                            dashed = planned?.snappedToRoads != true,
+                        ))
                     }
                 },
                 markers = when {
@@ -137,7 +138,7 @@ fun RouteBuilderScreen(
                 },
                 onTap = if (drawMode) null else ({ viewModel.addPoint(it) }),
                 fitToLines = false,
-                initialCenter = DEFAULT_CAMERA,
+                initialCenter = viewModel.openedRouteCenter ?: DEFAULT_CAMERA,
                 initialZoom = 13.0,
                 showMyLocation = true,
                 drawMode = drawMode,
@@ -154,7 +155,7 @@ fun RouteBuilderScreen(
                     shadowElevation = 4.dp,
                 ) {
                     Text(
-                        "Vẽ tay: khoanh quanh khu vực muốn chạy rồi thả tay",
+                        "Vẽ theo lối đi muốn chạy rồi thả tay",
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm),
@@ -181,23 +182,19 @@ fun RouteBuilderScreen(
                 ) {
                     Text(
                         when {
+                            viewModel.opening -> "Đang mở lộ trình…"
                             viewModel.loading -> "Đang bám đường…"
-                            planned != null -> "${formatDistanceKm(planned.distanceMeters)}" + when {
-                                planned.snappedToRoads -> " (bám đường)"
-                                viewModel.lastSketch.size >= 2 -> " (theo nét vẽ tay)"
-                                else -> " (đường thẳng)"
-                            }
-                            drawMode -> "Khoanh một vòng theo đường bạn muốn chạy rồi thả tay"
+                            planned != null -> "${formatDistanceKm(planned.distanceMeters)} (bám đường)"
+                            drawMode -> "Vẽ theo đường bạn muốn chạy rồi thả tay"
                             tapped.size >= 2 -> "${tapped.size} điểm — bấm \"Tính đường\""
                             else -> "Chạm bản đồ để thêm điểm, hoặc bật \"Vẽ tay\""
                         },
                         style = MaterialTheme.typography.titleSmall,
                     )
 
-                    if (!planned?.gapPolylines.isNullOrEmpty()) {
+                    if (planned == null && tapped.size >= 2 && !viewModel.loading) {
                         Text(
-                            "Nét đứt: đoạn chưa có dữ liệu đường trong OpenStreetMap, " +
-                                "vẽ thẳng theo đúng nét bạn vẽ tay.",
+                            "Nét đứt chỉ là bản nháp, chưa phải lộ trình đi được.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -261,34 +258,26 @@ fun RouteBuilderScreen(
                         }
                     }
 
-                    if (drawMode && planned != null && viewModel.lastSketch.size >= 2) {
-                        if (planned.snappedToRoads) {
-                            OutlinedButton(
-                                onClick = viewModel::useSketchAsRoute,
-                                enabled = !viewModel.loading,
-                                modifier = Modifier.fillMaxWidth(),
-                            ) { Text("Bám sai? Quay lại nét vẽ tay") }
-                        } else {
-                            OutlinedButton(
-                                onClick = viewModel::snapSketchToRoads,
-                                enabled = !viewModel.loading,
-                                modifier = Modifier.fillMaxWidth(),
-                            ) { Text(if (viewModel.loading) "Đang bám đường…" else "Thử bám đường lại") }
-                        }
+                    if (drawMode && viewModel.lastSketch.size >= 2) {
+                        OutlinedButton(
+                            onClick = viewModel::snapSketchToRoads,
+                            enabled = !viewModel.loading && !viewModel.saving && !viewModel.opening,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text(if (viewModel.loading) "Đang bám đường…" else "Thử bám đường lại") }
                     }
 
                     Button(
                         onClick = { showNameDialog = true },
-                        enabled = planned != null,
+                        enabled = viewModel.canSave,
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Lưu route") }
+                    ) { Text(if (viewModel.saving) "Đang lưu…" else "Lưu route") }
                 }
             }
         }
     }
 
     if (showNameDialog) {
-        var name by remember { mutableStateOf("") }
+        var name by remember { mutableStateOf(viewModel.routeName) }
         AlertDialog(
             onDismissRequest = { showNameDialog = false },
             title = { Text("Tên route") },
@@ -301,7 +290,7 @@ fun RouteBuilderScreen(
                 )
             },
             confirmButton = {
-                TextButton(enabled = name.isNotBlank(), onClick = {
+                TextButton(enabled = name.isNotBlank() && viewModel.canSave, onClick = {
                     viewModel.save(name.trim())
                     showNameDialog = false
                 }) { Text("Lưu") }
