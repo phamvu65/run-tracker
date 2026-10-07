@@ -63,4 +63,32 @@ class RouteNavigatorTest {
         assertNull(p.nextInstruction)
         assertFalse(p.arrived)
     }
+
+    @Test fun `advances a turn skipped during a GPS gap`() {
+        val p = RouteNavigator.progress(geo(360.0), steps, polyline, 0, previousAlongMeters = 240.0)
+        assertEquals(1, p.stepIndex)
+        assertEquals(340.0, p.distanceToNextMeters!!, 1.0)
+    }
+
+    @Test fun `distance follows the curved route instead of a chord`() {
+        val corner = GeoPoint(0.001, 0.0)
+        val finish = GeoPoint(0.001, 0.001)
+        val path = listOf(GeoPoint(0.0, 0.0), corner, finish)
+        val p = RouteNavigator.progress(path.first(), listOf(RouteWaypoint(0, finish, "Finish")), path, 0)
+        assertEquals(222.4, p.distanceToNextMeters!!, 1.0)
+    }
+
+    @Test fun `closed loop does not arrive at the start`() {
+        val path = listOf(geo(0.0), geo(300.0), GeoPoint(0.003, geo(300.0).longitude), GeoPoint(0.003, 0.0), geo(0.0))
+        val p = RouteNavigator.progress(path.first(), listOf(RouteWaypoint(0, path.last(), "Finish")), path, 0)
+        assertFalse(p.arrived)
+        assertTrue(p.distanceToNextMeters!! > 1000.0)
+    }
+
+    @Test fun `off-route fix cannot advance a turn`() {
+        val p = RouteNavigator.progress(GeoPoint(0.002, geo(800.0).longitude), steps, polyline, 0, 200.0)
+        assertTrue(p.offRoute)
+        assertEquals(0, p.stepIndex)
+        assertEquals(200.0, p.alongMeters, 0.0)
+    }
 }

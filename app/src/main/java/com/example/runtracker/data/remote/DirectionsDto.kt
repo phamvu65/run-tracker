@@ -25,6 +25,7 @@ data class OsrmLeg(
 
 @Serializable
 data class OsrmStep(
+    val mode: String = "",
     val name: String = "",
     val distance: Double = 0.0,
     val maneuver: OsrmManeuver = OsrmManeuver(),

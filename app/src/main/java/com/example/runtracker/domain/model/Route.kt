@@ -24,16 +24,10 @@ data class RouteLeg(
 )
 
 /**
- * Kết quả dựng route (từ Directions hoặc fallback đường thẳng).
- *
- * [legs]: chỉ có khi bám đường qua OSRM thành công — mỗi phần tử ứng với 1 chặng giữa 2 via
- * point liên tiếp gửi lên. Dùng để phát hiện chặng nào bị router đi vòng xa (do mạng đường
- * OSM thiếu đoạn nối đúng lúc đó, VD lối ven hồ chưa được vẽ hết) và thay bằng đoạn thẳng
- * theo đúng nét vẽ tay thay vì giữ nguyên đường vòng — xem [BuildRouteUseCase.fromSketch].
- *
- * [gapPolylines]: các đoạn thẳng đã thay cho chặng bị vòng ở trên (con của [polyline], chỉ để
- * UI vẽ khác kiểu — VD nét đứt — báo cho người dùng biết đoạn đó chưa có dữ liệu đường thật,
- * không phải app bám sai).
+ * Kết quả dựng lộ trình. [snappedToRoads] chỉ đúng khi toàn bộ hình dạng lấy từ bộ định tuyến.
+ * [legs] là các chặng đường thật giữa những điểm trung gian.
+ * Thất bại trả polyline rỗng và snappedToRoads=false, không tạo đường thẳng thay thế.
+ * [gapPolylines] dành cho kết quả cũ có đoạn chưa xác minh; bộ dựng hiện tại không tạo đoạn này.
  */
 data class PlannedRoute(
     val polyline: List<GeoPoint>,
@@ -55,6 +49,10 @@ data class Route(
     val isPublic: Boolean,
     val createdAt: Long,
     val waypoints: List<RouteWaypoint>,
+    val travelMode: TravelMode? = null,
+    val sourcePoints: List<GeoPoint> = emptyList(),
+    val drawnFromSketch: Boolean = false,
+    val snappedToRoads: Boolean = false,
 )
 
 data class RouteWaypoint(

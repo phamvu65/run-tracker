@@ -27,39 +27,58 @@ object RouteNavigator {
         val distanceToNextMeters: Double?,
         val offRoute: Boolean,
         val arrived: Boolean,
+        val alongMeters: Double = 0.0,
     )
+
+    class PreparedRoute(val steps: List<RouteWaypoint>, val polyline: List<GeoPoint>) {
+        val geometry = RouteGeometry(polyline)
+        val stepDistances: List<Double> = buildList {
+            var floor = 0.0
+            steps.forEachIndexed { index, step ->
+                val distance = if (index == steps.lastIndex) geometry.length
+                    else geometry.project(step.location, floor).along
+                add(distance)
+                floor = distance
+            }
+        }
+    }
 
     fun progress(
         location: GeoPoint,
         steps: List<RouteWaypoint>,
         polyline: List<GeoPoint>,
         currentStepIndex: Int,
+        previousAlongMeters: Double? = null,
+        maxAdvanceMeters: Double = Double.POSITIVE_INFINITY,
+    ): Progress = progress(location, PreparedRoute(steps, polyline), currentStepIndex, previousAlongMeters, maxAdvanceMeters)
+
+    fun progress(
+        location: GeoPoint,
+        route: PreparedRoute,
+        currentStepIndex: Int,
+        previousAlongMeters: Double? = null,
+        maxAdvanceMeters: Double = Double.POSITIVE_INFINITY,
     ): Progress {
-        val offRoute = polyline.size >= 2 &&
-            distanceToPolylineMeters(location, polyline) > OFF_ROUTE_METERS
-
-        if (steps.isEmpty()) {
-            return Progress(currentStepIndex, null, null, offRoute, arrived = false)
-        }
-
+        val geometry = route.geometry
+        val steps = route.steps
+        val previous = (previousAlongMeters ?: 0.0).coerceIn(0.0, geometry.length)
+        val projection = geometry.project(location, max(0.0, previous - 30.0),
+            min(geometry.length, previous + maxAdvanceMeters))
+        val offRoute = projection.distance > OFF_ROUTE_METERS
+        val along = if (offRoute) previous else max(previous, projection.along)
+        if (steps.isEmpty()) return Progress(currentStepIndex, null, null, offRoute, false, along)
         var index = currentStepIndex.coerceIn(0, steps.size)
-        while (index < steps.size &&
-            GeoMath.distanceMeters(location, steps[index].location) <= ADVANCE_RADIUS_METERS
-        ) {
-            index++
+        if (!offRoute) {
+            // Passing a turn advances even when GPS missed its 25 m circle.
+            while (index < steps.lastIndex && route.stepDistances[index] <= along + ADVANCE_RADIUS_METERS) index++
+            val atFinish = geometry.length - along <= ADVANCE_RADIUS_METERS &&
+                GeoMath.distanceMeters(location, route.polyline.last()) <= ADVANCE_RADIUS_METERS
+            if (atFinish) index = steps.size
         }
-
-        if (index >= steps.size) {
-            return Progress(steps.size, null, null, offRoute, arrived = true)
-        }
-
-        return Progress(
-            stepIndex = index,
-            nextInstruction = steps[index].instruction,
-            distanceToNextMeters = GeoMath.distanceMeters(location, steps[index].location),
-            offRoute = offRoute,
-            arrived = false,
-        )
+        if (index >= steps.size) return Progress(steps.size, null, null, offRoute, true, along)
+        return Progress(index, steps[index].instruction,
+            max(0.0, route.stepDistances[index] - along) + if (offRoute) projection.distance else 0.0,
+            offRoute, false, along)
     }
 
     /** Khoảng cách ngắn nhất từ điểm tới đường gấp khúc, mét. */
