@@ -81,4 +81,27 @@ class TrainingPlanGeneratorTest {
         val peak = plan.weeks.filter { it.phase == TrainingPhase.PEAK }.maxOf { it.targetDistanceKm }
         assertTrue(peak >= base)
     }
+
+    @Test
+    fun `custom days per week, long run day and target pace calculations`() {
+        val goal = TrainingGoal(
+            raceDistance = RaceDistance.HALF,
+            raceDate = monday.plusWeeks(12).plusDays(5),
+            targetTimeSeconds = 7140L, // 1h 59m Sub-2 HM (~5:38/km)
+            daysPerWeek = 3,
+            longRunDay = DayOfWeek.SATURDAY,
+        )
+        val plan = TrainingPlanGenerator.generate(goal, monday, currentCtl = 30.0, recentWeeklyKm = 25.0)
+
+        assertEquals(13, plan.weeks.size)
+
+        // Verify Saturday has LONG_RUN
+        val firstWeekSaturday = monday.plusDays(5) // T7
+        val satSession = plan.sessionOn(firstWeekSaturday)
+        assertNotNull(satSession)
+        assertEquals(SessionType.LONG_RUN, satSession!!.type)
+
+        // Verify Target Pace text included in descriptions
+        assertTrue(satSession.description.contains("Pace"))
+    }
 }

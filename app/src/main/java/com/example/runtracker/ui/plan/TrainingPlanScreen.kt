@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.runtracker.core.formatClock
 import com.example.runtracker.domain.model.PlanWeek
 import com.example.runtracker.domain.model.PlannedSession
 import com.example.runtracker.domain.model.TrainingPlan
@@ -79,8 +80,8 @@ fun TrainingPlanScreen(
                 PlanUiState.Loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
 
                 PlanUiState.NoGoal -> GoalForm(
-                    onSave = { d, date ->
-                        viewModel.saveGoal(d, date)
+                    onSave = { d, date, targetTimeSec, days, longRunDay ->
+                        viewModel.saveGoal(d, date, targetTimeSec, days, longRunDay)
                         editing = false
                         justSavedGoal = true
                     },
@@ -89,10 +90,9 @@ fun TrainingPlanScreen(
                 is PlanUiState.Ready -> {
                     if (editing) {
                         GoalForm(
-                            initial = s.plan.goal.raceDistance,
-                            initialDate = s.plan.goal.raceDate,
-                            onSave = { d, date ->
-                                viewModel.saveGoal(d, date)
+                            initialGoal = s.plan.goal,
+                            onSave = { d, date, targetTimeSec, days, longRunDay ->
+                                viewModel.saveGoal(d, date, targetTimeSec, days, longRunDay)
                                 editing = false
                                 justSavedGoal = true
                             },
@@ -196,16 +196,24 @@ private fun SessionRow(session: PlannedSession) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun GoalForm(
-    initial: RaceDistance? = null,
-    initialDate: LocalDate? = null,
-    onSave: (RaceDistance, LocalDate) -> Unit,
+    initialGoal: com.example.runtracker.domain.model.TrainingGoal? = null,
+    onSave: (distance: RaceDistance, date: LocalDate, targetTimeSec: Long?, daysPerWeek: Int, longRunDay: java.time.DayOfWeek) -> Unit,
     onCancel: (() -> Unit)? = null,
 ) {
     val today = remember { LocalDate.now() }
-    var distance by remember { mutableStateOf(initial ?: RaceDistance.TEN_K) }
-    var dateText by remember { mutableStateOf((initialDate ?: today.plusWeeks(12)).toString()) }
+    var distance by remember { mutableStateOf(initialGoal?.raceDistance ?: RaceDistance.TEN_K) }
+    var dateText by remember { mutableStateOf((initialGoal?.raceDate ?: today.plusWeeks(12)).toString()) }
+    var daysPerWeek by remember { mutableStateOf(initialGoal?.daysPerWeek ?: 4) }
+    var longRunDay by remember { mutableStateOf(initialGoal?.longRunDay ?: java.time.DayOfWeek.SUNDAY) }
+    var targetTimeText by remember {
+        mutableStateOf(
+            initialGoal?.targetTimeSeconds?.let { formatClock(it) } ?: "",
+        )
+    }
+
     val parsedDate = remember(dateText) { runCatching { LocalDate.parse(dateText) }.getOrNull() }
     val valid = parsedDate != null && parsedDate.isAfter(today)
+    val parsedTargetTimeSec = remember(targetTimeText) { parseTargetTimeSeconds(targetTimeText) }
 
     Column(
         Modifier.fillMaxSize().padding(16.dp),
@@ -238,6 +246,37 @@ private fun GoalForm(
             }
         }
 
+        Text("Số buổi tập / tuần", style = MaterialTheme.typography.bodyMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(3, 4, 5).forEach { count ->
+                FilterChip(
+                    selected = daysPerWeek == count,
+                    onClick = { daysPerWeek = count },
+                    label = { Text("$count buổi/tuần") },
+                )
+            }
+        }
+
+        Text("Ngày chạy dài (Long Run)", style = MaterialTheme.typography.bodyMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(java.time.DayOfWeek.SATURDAY, java.time.DayOfWeek.SUNDAY).forEach { day ->
+                FilterChip(
+                    selected = longRunDay == day,
+                    onClick = { longRunDay = day },
+                    label = { Text(if (day == java.time.DayOfWeek.SATURDAY) "Thứ 7" else "Chủ Nhật") },
+                )
+            }
+        }
+
+        OutlinedTextField(
+            value = targetTimeText,
+            onValueChange = { targetTimeText = it },
+            label = { Text("Thời gian mục tiêu (hh:mm:ss, tuỳ chọn)") },
+            placeholder = { Text("Ví dụ: 01:55:00 hoặc 00:50:00") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
         if (!valid) {
             Text(
                 "Ngày thi đấu phải sau hôm nay.",
@@ -248,7 +287,11 @@ private fun GoalForm(
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
-                onClick = { parsedDate?.let { onSave(distance, it) } },
+                onClick = {
+                    parsedDate?.let { date ->
+                        onSave(distance, date, parsedTargetTimeSec, daysPerWeek, longRunDay)
+                    }
+                },
                 enabled = valid,
             ) { Text("Lưu mục tiêu") }
             if (onCancel != null) {
@@ -257,11 +300,31 @@ private fun GoalForm(
         }
 
         Text(
-            "Kế hoạch được sinh lại từ fitness hiện tại mỗi lần mở — cứ tập theo sức, điều chỉnh khi cần.",
+            "Kế hoạch áp dụng Quy tắc 10% tuần và sinh lại từ fitness hiện tại mỗi lần mở.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Start,
         )
+    }
+}
+
+private fun parseTargetTimeSeconds(text: String): Long? {
+    val trimmed = text.trim()
+    if (trimmed.isEmpty()) return null
+    val parts = trimmed.split(":")
+    return when (parts.size) {
+        3 -> {
+            val h = parts[0].toLongOrNull() ?: return null
+            val m = parts[1].toLongOrNull() ?: return null
+            val s = parts[2].toLongOrNull() ?: return null
+            h * 3600 + m * 60 + s
+        }
+        2 -> {
+            val m = parts[0].toLongOrNull() ?: return null
+            val s = parts[1].toLongOrNull() ?: return null
+            m * 60 + s
+        }
+        else -> null
     }
 }
 

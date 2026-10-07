@@ -34,8 +34,22 @@ class TrainingPlanViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PlanUiState.Loading)
 
-    fun saveGoal(distance: RaceDistance, raceDate: LocalDate) {
-        goalStore.save(TrainingGoal(distance, raceDate))
+    fun saveGoal(
+        distance: RaceDistance,
+        raceDate: LocalDate,
+        targetTimeSeconds: Long? = null,
+        daysPerWeek: Int = 4,
+        longRunDay: java.time.DayOfWeek = java.time.DayOfWeek.SUNDAY,
+    ) {
+        goalStore.save(
+            TrainingGoal(
+                raceDistance = distance,
+                raceDate = raceDate,
+                targetTimeSeconds = targetTimeSeconds,
+                daysPerWeek = daysPerWeek,
+                longRunDay = longRunDay,
+            ),
+        )
     }
 
     fun clearGoal() {

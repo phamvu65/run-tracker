@@ -1,12 +1,16 @@
 package com.example.runtracker.domain.model
 
 import com.example.runtracker.domain.training.RaceDistance
+import java.time.DayOfWeek
 import java.time.LocalDate
 
 /** Mục tiêu tập luyện của người dùng — chỉ lưu cái này (SharedPreferences), kế hoạch sinh lại mỗi lần. */
 data class TrainingGoal(
     val raceDistance: RaceDistance,
     val raceDate: LocalDate,
+    val targetTimeSeconds: Long? = null,
+    val daysPerWeek: Int = 4,
+    val longRunDay: DayOfWeek = DayOfWeek.SUNDAY,
 )
 
 enum class TrainingPhase { BASE, BUILD, PEAK, TAPER, RACE }
