@@ -1,6 +1,7 @@
 package com.example.runtracker.tracking
 
 import java.time.Instant
+import com.example.runtracker.domain.model.GeoPoint
 
 enum class TrackingStatus { IDLE, TRACKING, PAUSED }
 
@@ -38,6 +39,8 @@ data class TrackingState(
     val navOffRoute: Boolean = false,
     val navStepIndex: Int = 0,
     val navStepCount: Int = 0,
+    val navPolyline: List<GeoPoint> = emptyList(),
+    val navRerouting: Boolean = false,
     /** true khi [status] == PAUSED do tự động phát hiện đứng yên (khác tạm dừng bằng nút bấm). */
     val autoPaused: Boolean = false,
 ) {

@@ -41,5 +41,6 @@ obj/
 
 # Ngữ cảnh riêng cho AI assistant — không public
 CLAUDE.md
+AGENTS.md
 
 docs/

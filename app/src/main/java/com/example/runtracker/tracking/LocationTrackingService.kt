@@ -15,6 +15,7 @@ import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.getSystemService
+import com.example.runtracker.core.FeatureFlags
 import com.example.runtracker.MainActivity
 import com.example.runtracker.core.LOCAL_USER_ID
 import com.example.runtracker.core.formatClock
@@ -29,9 +30,7 @@ import com.example.runtracker.domain.model.GeoPoint
 import com.example.runtracker.domain.model.HeartRateSample
 import com.example.runtracker.domain.model.LiveLocationUpdate
 import com.example.runtracker.domain.model.RoutePoint
-import com.example.runtracker.domain.model.RouteWaypoint
-import com.example.runtracker.domain.model.TravelMode
-import com.example.runtracker.domain.navigation.RouteNavigator
+import com.example.runtracker.domain.navigation.NavigationSession
 import com.example.runtracker.domain.repository.ActivityRepository
 import com.example.runtracker.domain.tracking.BarometerAltitude
 import com.example.runtracker.domain.tracking.GeoMath
@@ -125,9 +124,10 @@ class LocationTrackingService : Service() {
     private var cadenceSampleCount: Int = 0
 
     // Điều hướng turn-by-turn (rỗng nếu không theo route)
-    private var navSteps: List<RouteWaypoint> = emptyList()
-    private var navPolyline: List<GeoPoint> = emptyList()
-    private var navStepIndex: Int = 0
+    private val navigation = NavigationSession()
+    private val navigationLock = Any()
+    private var navigationEnabled = false
+    private var rerouteJob: Job? = null
 
     // Rerouting: mốc bắt đầu lệch tuyến liên tục + lần gọi Directions gần nhất (debounce).
     private var offRouteSince: Instant? = null
@@ -154,6 +154,7 @@ class LocationTrackingService : Service() {
     }
 
     override fun onDestroy() {
+        stopNavigation()
         locationJob?.cancel()
         tickerJob?.cancel()
         heartRateJob?.cancel()
@@ -189,18 +190,14 @@ class LocationTrackingService : Service() {
         startAsForeground(TrackingStatus.TRACKING)
         acquireWakeLock()
 
-        val route = session.selectedRoute.value
-        navPolyline = route?.polyline.orEmpty()
-        navStepIndex = 0
-        offRouteSince = null
-        lastRerouteAttemptAt = null
-        navSteps = when {
-            route == null -> emptyList()
-            route.waypoints.any { !it.instruction.isNullOrBlank() } ->
-                route.waypoints.filter { !it.instruction.isNullOrBlank() }
-            navPolyline.isNotEmpty() ->
-                listOf(RouteWaypoint(0, navPolyline.last(), "Về đích"))
-            else -> emptyList()
+        val route = session.selectedRoute.value?.takeIf { it.snappedToRoads && it.travelMode != null }
+        synchronized(navigationLock) {
+            rerouteJob?.cancel()
+            rerouteJob = null
+            navigation.start(route)
+            navigationEnabled = route != null
+            offRouteSince = null
+            lastRerouteAttemptAt = null
         }
 
         session.reset()
@@ -210,7 +207,8 @@ class LocationTrackingService : Service() {
                 activityId = id,
                 startedAt = now,
                 navRouteName = route?.name,
-                navStepCount = navSteps.size,
+                navStepCount = route?.waypoints?.size ?: 0,
+                navPolyline = route?.polyline.orEmpty(),
             )
         }
 
@@ -294,6 +292,7 @@ class LocationTrackingService : Service() {
      */
     private fun startHeartRateCollection(id: String) {
         heartRateJob?.cancel()
+        if (!FeatureFlags.HEART_RATE_INTEGRATION) return
         val address = bleHeartRateStore.savedAddress() ?: return
         if (!liveHeartRateSource.isSupported() || !liveHeartRateSource.hasPermissions()) return
 
@@ -444,6 +443,8 @@ class LocationTrackingService : Service() {
     }
 
     private fun pause() {
+        cancelReroute()
+        offRouteSince = null
         if (session.state.value.status != TrackingStatus.TRACKING) return
         pausedAt = Instant.now()
         locationJob?.cancel()
@@ -474,6 +475,8 @@ class LocationTrackingService : Service() {
      * giống hệt cách tạm dừng tay không ghi điểm nào cả.
      */
     private fun autoPause() {
+        cancelReroute()
+        offRouteSince = null
         pausedAt = Instant.now()
         session.update { it.copy(status = TrackingStatus.PAUSED, autoPaused = true) }
         updateNotification()
@@ -524,6 +527,7 @@ class LocationTrackingService : Service() {
     }
 
     private fun stopCollecting() {
+        stopNavigation()
         locationJob?.cancel()
         tickerJob?.cancel()
         heartRateJob?.cancel()
@@ -625,74 +629,87 @@ class LocationTrackingService : Service() {
         publishBeacon()
     }
 
-    private fun updateNavigation(point: RoutePoint) {
-        if (navSteps.isEmpty()) return
-        val progress = RouteNavigator.progress(
-            location = GeoPoint(point.latitude, point.longitude),
-            steps = navSteps,
-            polyline = navPolyline,
-            currentStepIndex = navStepIndex,
-        )
-        navStepIndex = progress.stepIndex
-        session.update {
-            it.copy(
-                navInstruction = when {
-                    progress.arrived -> "Đã tới đích"
-                    else -> progress.nextInstruction
-                },
-                navDistanceMeters = progress.distanceToNextMeters,
-                navOffRoute = progress.offRoute,
-                navStepIndex = progress.stepIndex,
-            )
-        }
-        maybeReroute(progress.offRoute, progress.arrived, point)
-    }
-
-    /**
-     * Theo dõi thời gian lệch tuyến LIÊN TỤC — chỉ gọi lại Directions khi đã lệch quá
-     * [REROUTE_TRIGGER_SECONDS] (tránh gọi API vì lệch thoáng qua do nhiễu GPS), cách lần gọi
-     * trước ít nhất [REROUTE_DEBOUNCE_SECONDS] (tránh spam API nếu vẫn tiếp tục lệch/mất mạng).
-     */
-    private fun maybeReroute(offRoute: Boolean, arrived: Boolean, point: RoutePoint) {
-        if (!offRoute || arrived) {
+    private fun updateNavigation(point: RoutePoint) = synchronized(navigationLock) {
+        if (!navigationEnabled || session.state.value.status != TrackingStatus.TRACKING) return@synchronized
+        val update = navigation.update(GeoPoint(point.latitude, point.longitude)) ?: return@synchronized
+        publishNavigation(update)
+        if (!update.progress.offRoute || update.progress.arrived) {
             offRouteSince = null
-            return
+            cancelReroute()
+            return@synchronized
         }
         val now = Instant.now()
         val since = offRouteSince ?: now.also { offRouteSince = it }
         val last = lastRerouteAttemptAt
-        val idleLongEnough = Duration.between(since, now).seconds >= REROUTE_TRIGGER_SECONDS
-        val debounceOk = last == null || Duration.between(last, now).seconds >= REROUTE_DEBOUNCE_SECONDS
-        if (idleLongEnough && debounceOk) {
-            lastRerouteAttemptAt = now
-            scope.launch { reroute(point) }
+        if (rerouteJob?.isActive == true ||
+            Duration.between(since, now).seconds < REROUTE_TRIGGER_SECONDS ||
+            (last != null && Duration.between(last, now).seconds < REROUTE_DEBOUNCE_SECONDS)) return@synchronized
+        val request = navigation.beginReroute() ?: return@synchronized
+        lastRerouteAttemptAt = now
+        session.update { it.copy(navRerouting = true) }
+        val job = scope.launch(start = kotlinx.coroutines.CoroutineStart.LAZY) {
+            try {
+                val result = kotlinx.coroutines.withTimeoutOrNull(25_000) {
+                    buildRouteUseCase(listOf(request.origin, request.destination), request.mode)
+                }
+                synchronized(navigationLock) {
+                    if (result != null && navigationEnabled &&
+                        session.state.value.status == TrackingStatus.TRACKING &&
+                        navigation.applyReroute(request, result)) {
+                        val state = session.state.value
+                        val location = state.lastLatitude?.let { lat ->
+                            state.lastLongitude?.let { lon -> GeoPoint(lat, lon) }
+                        } ?: request.origin
+                        navigation.update(location)?.let(::publishNavigation)
+                        offRouteSince = null
+                    }
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Log.w(TAG, "Rerouting failed", error)
+            } finally {
+                val completingJob = kotlinx.coroutines.currentCoroutineContext()[Job]
+                synchronized(navigationLock) {
+                    // An older job must not clear the loading state of a newer request.
+                    if (rerouteJob === completingJob) {
+                        rerouteJob = null
+                        session.update { it.copy(navRerouting = false) }
+                    }
+                }
+            }
+        }
+        rerouteJob = job
+        job.start()
+    }
+
+    private fun publishNavigation(update: NavigationSession.Update) {
+        val progress = update.progress
+        session.update {
+            it.copy(
+                navInstruction = if (progress.arrived) "Đã tới đích" else progress.nextInstruction,
+                navDistanceMeters = progress.distanceToNextMeters,
+                navOffRoute = progress.offRoute,
+                navStepIndex = progress.stepIndex,
+                navStepCount = update.stepCount,
+                navPolyline = update.polyline,
+            )
         }
     }
 
-    /**
-     * Tính lại đường từ vị trí hiện tại tới các bước rẽ CÒN LẠI của route đang dẫn đường (đi bộ —
-     * hoạt động đang ghi trong app này luôn là đi bộ/chạy, không phải xe đạp). Lỗi mạng/không tìm
-     * được đường -> [BuildRouteUseCase] tự rơi về đường thẳng (`snappedToRoads = false`) — coi
-     * như thất bại, GIỮ NGUYÊN route cũ, không chặn tracking; lần lệch tuyến tiếp theo sẽ thử lại
-     * (tôn trọng [REROUTE_DEBOUNCE_SECONDS]).
-     */
-    private suspend fun reroute(current: RoutePoint) {
-        val remaining = navSteps.drop(navStepIndex).map { it.location }
-        if (remaining.isEmpty()) return
-        val waypoints = listOf(GeoPoint(current.latitude, current.longitude)) + remaining
+    private fun cancelReroute() = synchronized(navigationLock) {
+        navigation.invalidateRequests()
+        rerouteJob?.cancel()
+        rerouteJob = null
+        session.update { it.copy(navRerouting = false) }
+    }
 
-        val planned = buildRouteUseCase(waypoints, TravelMode.WALKING)
-        if (!planned.snappedToRoads || planned.polyline.size < 2) return
-
-        navPolyline = planned.polyline
-        navSteps = if (planned.steps.isNotEmpty()) {
-            planned.steps.mapIndexed { i, step -> RouteWaypoint(i, step.location, step.instruction) }
-        } else {
-            listOf(RouteWaypoint(0, planned.polyline.last(), "Về đích"))
-        }
-        navStepIndex = 0
+    private fun stopNavigation() = synchronized(navigationLock) {
+        navigationEnabled = false
+        cancelReroute()
+        navigation.start(null)
         offRouteSince = null
-        session.update { it.copy(navStepCount = navSteps.size, navStepIndex = 0, navOffRoute = false) }
+        lastRerouteAttemptAt = null
     }
 
     private fun startTicker() {
@@ -777,11 +794,7 @@ class LocationTrackingService : Service() {
         pausedAt = null
         lastFixAt = null
         lastMovingAt = null
-        navSteps = emptyList()
-        navPolyline = emptyList()
-        navStepIndex = 0
-        offRouteSince = null
-        lastRerouteAttemptAt = null
+        stopNavigation()
         heartRateBuffer.clear()
         latestPressureHpa = null
         seaLevelPressureHpa = null

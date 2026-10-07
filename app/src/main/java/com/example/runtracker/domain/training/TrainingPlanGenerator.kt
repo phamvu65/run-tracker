@@ -143,7 +143,7 @@ object TrainingPlanGenerator {
         fun day(offset: Int) = weekStart.plusDays(offset.toLong())
         return listOf(
             PlannedSession(day(0), SessionType.REST, null, "Nghỉ hoặc đi bộ, giãn cơ"),
-            PlannedSession(day(1), SessionType.EASY, easyKm, "Chạy nhẹ $easyKm km, nhịp tim Z2 (nói chuyện được)"),
+            PlannedSession(day(1), SessionType.EASY, easyKm, "Chạy nhẹ $easyKm km, ở mức có thể nói chuyện thoải mái"),
             PlannedSession(day(2), qualityType, qualityKm, qualityDescription(qualityType, qualityKm)),
             PlannedSession(day(3), SessionType.EASY, easyKm, "Chạy nhẹ $easyKm km, thả lỏng"),
             PlannedSession(day(4), SessionType.REST, null, "Nghỉ hoặc bổ trợ (core, sức mạnh nhẹ)"),

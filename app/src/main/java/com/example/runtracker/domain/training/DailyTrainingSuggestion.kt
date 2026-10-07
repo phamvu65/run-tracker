@@ -24,7 +24,7 @@ object DailyTrainingSuggestion {
             return DailySuggestion(
                 type = SessionType.EASY,
                 headline = "Chưa đủ dữ liệu",
-                rationale = "Ghi vài buổi tập có nhịp tim hoặc nhập RPE để nhận gợi ý theo form.",
+                rationale = "Ghi vài buổi tập và nhập mức gắng sức (RPE) để nhận gợi ý theo form.",
             )
         }
 

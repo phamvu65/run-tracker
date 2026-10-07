@@ -45,6 +45,7 @@ android {
         compose = true
         buildConfig = true
     }
+    sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
 }
 
 // Xuất schema Room ra thư mục schemas/ để review thay đổi DB và test migration về sau.
