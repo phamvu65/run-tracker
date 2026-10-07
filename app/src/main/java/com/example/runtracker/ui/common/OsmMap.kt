@@ -276,7 +276,12 @@ private const val METERS_PER_DEGREE_LAT = 111_320.0
  * nhỏ) không bị zoom sát tới mức chỉ thấy vài toà nhà — luôn còn bối cảnh xung quanh — và camera
  * tự "zoom ra" dần khi vệt dài hơn khung tối thiểu, tạo cảm giác vừa bám người vừa bao quát bản đồ.
  */
-fun MapView.followTrail(points: List<GeoPoint>, paddingPx: Int, minSpanMeters: Double = 220.0) {
+fun MapView.followTrail(
+    points: List<GeoPoint>,
+    paddingPx: Int,
+    minSpanMeters: Double = 220.0,
+    animated: Boolean = false,
+) {
     if (points.isEmpty()) return
     val apply = Runnable {
         runCatching {
@@ -301,8 +306,15 @@ fun MapView.followTrail(points: List<GeoPoint>, paddingPx: Int, minSpanMeters: D
                 minLng = centerLng - half
                 maxLng = centerLng + half
             }
+
+            // Nới nhẹ cạnh phía Nam (minLat) xuống 8% latSpan để cân bằng vị trí hiển thị người chạy,
+            // giữ icon người chạy và tuyến đường ở tầm mắt vừa phải, không bị đẩy lên quá cao.
+            val currentLatSpan = maxLat - minLat
+            val southOffset = currentLatSpan * 0.08
+            minLat -= southOffset
+
             val box = BoundingBox(maxLat, maxLng, minLat, minLng)
-            zoomToBoundingBox(box, true, paddingPx)
+            zoomToBoundingBox(box, animated, paddingPx)
         }
     }
     if (width > 0 && height > 0) apply.run() else addOnFirstLayoutListener { _, _, _, _, _ -> apply.run() }
@@ -336,10 +348,10 @@ private const val LOCATION_FIX_TIMEOUT_MS = 8_000L
  * service lúc đang ghi, chỉ khác là tính trực tiếp trong Flow thay vì qua ticker riêng.
  */
 @SuppressLint("MissingPermission")
-fun observeLocationFix(context: Context): kotlinx.coroutines.flow.Flow<Boolean> =
+fun observeLocationFix(context: Context): kotlinx.coroutines.flow.Flow<GeoPoint?> =
     kotlinx.coroutines.flow.callbackFlow {
         if (!context.hasLocationPermission()) {
-            trySend(false)
+            trySend(null)
             awaitClose { }
             return@callbackFlow
         }
@@ -355,19 +367,20 @@ fun observeLocationFix(context: Context): kotlinx.coroutines.flow.Flow<Boolean> 
             lostSignalJob?.cancel()
             lostSignalJob = launch {
                 delay(LOCATION_FIX_TIMEOUT_MS)
-                trySend(false)
+                trySend(null)
             }
         }
 
         val callback = object : com.google.android.gms.location.LocationCallback() {
             override fun onLocationResult(result: com.google.android.gms.location.LocationResult) {
-                if (result.locations.isNotEmpty()) {
-                    trySend(true)
+                result.lastLocation?.let { location ->
+                    trySend(GeoPoint(location.latitude, location.longitude))
                     scheduleLostSignal()
                 }
             }
         }
         client.requestLocationUpdates(request, callback, android.os.Looper.getMainLooper())
+            .addOnFailureListener { trySend(null) }
         awaitClose {
             lostSignalJob?.cancel()
             client.removeLocationUpdates(callback)
@@ -491,13 +504,18 @@ fun OsmMap(
         }
     }
 
-    val fitPoints = if (fitToLines) lines.flatMap { it.points } else emptyList()
+    // Chỉ fit theo toàn bộ đường khi KHÔNG ở chế độ bám vệt chạy (followTrail == null).
+    // Nếu không, fitToPoints (phóng to toàn route) và followTrail (phóng to theo người chạy)
+    // sẽ chạy đè lên nhau ở mỗi tick 120ms làm màn hình bị giật liên hồi.
+    val fitPoints = if (fitToLines && followTrail == null) lines.flatMap { it.points } else emptyList()
     LaunchedEffect(mapView, fitPoints) {
-        if (fitToLines) mapView.fitToPoints(fitPoints, (24 * density).toInt())
+        if (fitToLines && followTrail == null && fitPoints.isNotEmpty()) {
+            mapView.fitToPoints(fitPoints, (24 * density).toInt())
+        }
     }
 
     LaunchedEffect(mapView, followTrail) {
-        followTrail?.let { mapView.followTrail(it, (24 * density).toInt()) }
+        followTrail?.let { mapView.followTrail(it, (32 * density).toInt(), animated = false) }
     }
 
     val recenter: (() -> Unit)? = when {

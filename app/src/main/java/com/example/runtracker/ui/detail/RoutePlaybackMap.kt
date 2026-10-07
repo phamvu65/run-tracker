@@ -1,8 +1,5 @@
 package com.example.runtracker.ui.detail
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -16,7 +13,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -32,7 +28,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.unit.dp
-import com.example.runtracker.core.formatClock
 import com.example.runtracker.domain.model.GeoPoint
 import com.example.runtracker.domain.model.RoutePoint
 import com.example.runtracker.domain.tracking.GeoMath
@@ -124,45 +119,23 @@ fun RoutePlaybackMap(
         )
 
         if (canPlayback) {
-            AnimatedVisibility(
-                visible = playing,
-                enter = fadeIn(),
-                exit = fadeOut(),
-                // Không đặt TopStart: trùng góc với nút back nổi mà ActivityDetailScreen chồng
-                // lên trên RoutePlaybackMap (cả hai cùng full-size nên cùng hệ toạ độ góc).
-                modifier = Modifier.align(Alignment.TopCenter).padding(Spacing.md),
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(50),
-                    color = Color.Black.copy(alpha = 0.55f),
-                ) {
-                    Text(
-                        "${formatClock((progress * totalDurationMs / 1000).toLong())} / " +
-                            formatClock(totalDurationMs / 1000),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White,
-                        modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 6.dp),
-                    )
-                }
-            }
-
-            // Đặt giữa-đáy (không phải góc) — góc phải-đáy đã có 2 nút của OsmMap (đổi kiểu bản
-            // đồ + về vị trí), đặt cùng góc sẽ đè lên nhau.
+            // Đặt góc dưới-trái (BottomStart) để toàn bộ phần trung tâm bản đồ được thông thoáng,
+            // không che khuất icon người chạy hay tuyến đường. Góc dưới-phải dành cho MapControls.
             PlaybackFab(
                 playing = playing,
                 onClick = { playing = !playing },
-                modifier = Modifier.align(Alignment.BottomCenter).padding(Spacing.md),
+                modifier = Modifier.align(Alignment.BottomStart).padding(Spacing.md),
             )
         }
     }
 }
 
-/** Nút tròn nổi kiểu Strava thay cho thanh phát lại full-width cũ — không che bản đồ. */
+/** Nút tròn nổi phát lại — đặt góc dưới-trái gọn gàng, không che bản đồ. */
 @Composable
 private fun PlaybackFab(playing: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
         onClick = onClick,
-        modifier = modifier.size(60.dp),
+        modifier = modifier.size(52.dp),
         shape = CircleShape,
         color = Color.Black.copy(alpha = 0.72f),
         shadowElevation = 6.dp,

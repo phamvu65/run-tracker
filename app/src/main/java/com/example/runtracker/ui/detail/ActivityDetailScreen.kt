@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.health.connect.client.PermissionController
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.runtracker.core.FeatureFlags
 import com.example.runtracker.core.formatClock
 import com.example.runtracker.domain.model.ActivityWeather
 import com.example.runtracker.domain.training.ZoneTime
@@ -78,13 +79,13 @@ fun ActivityDetailScreen(
     val zoneDistribution by viewModel.zoneDistribution.collectAsState()
     val segmentEfforts by viewModel.segmentEfforts.collectAsState()
 
-    val heartRatePermissionLauncher = rememberLauncherForActivityResult(
+    val heartRatePermissionLauncher = if (FeatureFlags.HEART_RATE_INTEGRATION) rememberLauncherForActivityResult(
         contract = PermissionController.createRequestPermissionResultContract(),
     ) { granted ->
         if (granted.containsAll(viewModel.heartRatePermissions)) {
             viewModel.onHeartRatePermissionGranted()
         }
-    }
+    } else null
 
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -111,7 +112,7 @@ fun ActivityDetailScreen(
                     onBack = onBack,
                     onSyncHeartRate = {
                         viewModel.importHeartRateOrRequest {
-                            heartRatePermissionLauncher.launch(viewModel.heartRatePermissions)
+                            heartRatePermissionLauncher?.launch(viewModel.heartRatePermissions)
                         }
                     },
                     onSetRpe = viewModel::setPerceivedExertion,
@@ -198,8 +199,10 @@ private fun LoadedContent(
                     "${activity.elevationGainMeters.roundToInt()} / ${activity.elevationLossMeters.roundToInt()} m",
                 )
                 LabeledValue("Relative Effort (TRIMP)", state.trimp?.roundToInt()?.toString() ?: "—")
-                activity.avgHeartRate?.let { LabeledValue("Nhịp tim TB", "$it bpm") }
-                activity.maxHeartRate?.let { LabeledValue("Nhịp tim tối đa", "$it bpm") }
+                if (FeatureFlags.HEART_RATE_INTEGRATION) {
+                    activity.avgHeartRate?.let { LabeledValue("Nhịp tim TB", "$it bpm") }
+                    activity.maxHeartRate?.let { LabeledValue("Nhịp tim tối đa", "$it bpm") }
+                }
                 activity.calories?.let { LabeledValue("Calo", "$it kcal") }
                 activity.steps?.let { LabeledValue("Số bước", "$it") }
                 activity.avgCadence?.let { LabeledValue("Cadence TB", "$it spm") }
@@ -237,7 +240,7 @@ private fun LoadedContent(
                 ElevationChart(points = state.routePoints, modifier = Modifier.fillMaxWidth())
             }
 
-            if (zoneDistribution.isNotEmpty()) {
+            if (FeatureFlags.HEART_RATE_INTEGRATION && zoneDistribution.isNotEmpty()) {
                 FlatCard {
                     SectionHeader("Thời gian theo vùng nhịp tim")
                     Spacer(Modifier.height(Spacing.sm))
@@ -270,9 +273,9 @@ private fun NoHeartRateSection(
     onSyncHeartRate: () -> Unit,
     onSetRpe: (Int) -> Unit,
 ) {
-    SectionHeader("Chưa có nhịp tim")
+    SectionHeader("Mức độ gắng sức")
     Spacer(Modifier.height(Spacing.sm))
-    if (heartRateAvailable) {
+    if (FeatureFlags.HEART_RATE_INTEGRATION && heartRateAvailable) {
         Text(
             "Đồng bộ nhịp tim từ Health Connect (đồng hồ / vòng đeo), hoặc nhập RPE.",
             style = MaterialTheme.typography.bodyMedium,
@@ -283,7 +286,7 @@ private fun NoHeartRateSection(
         importMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
     } else {
         Text(
-            "Health Connect không khả dụng — nhập RPE (1 rất nhẹ … 10 kiệt sức) để tính TRIMP.",
+            "Đánh giá cảm giác sau buổi tập từ 1 (rất nhẹ) đến 10 (kiệt sức) để tính tải tập luyện.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

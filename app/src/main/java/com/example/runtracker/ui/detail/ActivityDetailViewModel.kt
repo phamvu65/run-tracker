@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.runtracker.core.FeatureFlags
 import com.example.runtracker.core.LOCAL_USER_ID
 import com.example.runtracker.domain.health.HeartRateSource
 import com.example.runtracker.domain.model.Activity
@@ -53,7 +54,8 @@ class ActivityDetailViewModel @Inject constructor(
 
     private val activityId: String = checkNotNull(savedStateHandle[ARG_ACTIVITY_ID])
 
-    val heartRatePermissions: Set<String> = heartRateSource.requiredPermissions()
+    val heartRatePermissions: Set<String> =
+        if (FeatureFlags.HEART_RATE_INTEGRATION) heartRateSource.requiredPermissions() else emptySet()
 
     private val _heartRateAvailable = MutableStateFlow(false)
     val heartRateAvailable: StateFlow<Boolean> = _heartRateAvailable
@@ -105,7 +107,9 @@ class ActivityDetailViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     init {
-        viewModelScope.launch { _heartRateAvailable.value = heartRateSource.isAvailable() }
+        if (FeatureFlags.HEART_RATE_INTEGRATION) {
+            viewModelScope.launch { _heartRateAvailable.value = heartRateSource.isAvailable() }
+        }
         viewModelScope.launch { autoFetchWeather() }
     }
 
@@ -141,12 +145,14 @@ class ActivityDetailViewModel @Inject constructor(
 
     /** Nhập HR nếu đã có quyền; nếu chưa, gọi [onNeedPermission] để màn hình xin quyền. */
     fun importHeartRateOrRequest(onNeedPermission: () -> Unit) {
+        if (!FeatureFlags.HEART_RATE_INTEGRATION) return
         viewModelScope.launch {
             if (heartRateSource.hasPermission()) runImport() else onNeedPermission()
         }
     }
 
     fun onHeartRatePermissionGranted() {
+        if (!FeatureFlags.HEART_RATE_INTEGRATION) return
         viewModelScope.launch { runImport() }
     }
 
