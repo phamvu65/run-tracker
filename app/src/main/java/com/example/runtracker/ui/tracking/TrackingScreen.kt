@@ -465,20 +465,22 @@ private fun RecordPanel(
                             PauseGlyph(MaterialTheme.colorScheme.onPrimary)
                         }
                     }
-                    CircleAction(
-                        label = if (beaconSharing) "Đang chia sẻ" else "Chia sẻ",
-                        onClick = { onToggleBeacon(!beaconSharing) },
-                        bg = if (beaconSharing) {
-                            MaterialTheme.colorScheme.primaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.surfaceContainerHighest
-                        },
-                        content = { Text("📡", style = MaterialTheme.typography.titleMedium) },
-                    )
+                    if (FeatureFlags.BEACON_LOCATION_SHARING) {
+                        CircleAction(
+                            label = if (beaconSharing) "Đang chia sẻ" else "Chia sẻ",
+                            onClick = { onToggleBeacon(!beaconSharing) },
+                            bg = if (beaconSharing) {
+                                MaterialTheme.colorScheme.primaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.surfaceContainerHighest
+                            },
+                            content = { Text("📡", style = MaterialTheme.typography.titleMedium) },
+                        )
+                    }
                 }
             }
 
-            if (beaconSharing && beaconCode != null) {
+            if (FeatureFlags.BEACON_LOCATION_SHARING && beaconSharing && beaconCode != null) {
                 Spacer(Modifier.height(Spacing.md))
                 Text(
                     "Đang chia sẻ vị trí · mã $beaconCode",
@@ -487,7 +489,7 @@ private fun RecordPanel(
                 )
             }
 
-            if (idle) {
+            if (FeatureFlags.BEACON_LOCATION_SHARING && idle) {
                 Spacer(Modifier.height(Spacing.md))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(

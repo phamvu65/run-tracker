@@ -209,8 +209,10 @@ fun ProfileScreen(
                 ProfileMenuRow(Icons.Filled.Build, "Đai nhịp tim (BLE)", onOpenHrSensor)
                 MenuDivider()
             }
-            ProfileMenuRow(Icons.Filled.Share, "Theo dõi trực tiếp (Beacon)", onOpenBeacon)
-            MenuDivider()
+            if (FeatureFlags.BEACON_LOCATION_SHARING) {
+                ProfileMenuRow(Icons.Filled.Share, "Theo dõi trực tiếp (Beacon)", onOpenBeacon)
+                MenuDivider()
+            }
             ProfileMenuRow(Icons.Filled.Tune, "Cài đặt", onOpenSettings)
         }
     }

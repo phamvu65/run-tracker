@@ -1,6 +1,7 @@
 package com.example.runtracker.core
 
-/** Tạm ẩn tích hợp Health Connect/BLE; giữ dữ liệu để có thể bật lại sau. */
+/** Quản lý các tính năng tạm ẩn / bật tắt. */
 object FeatureFlags {
     const val HEART_RATE_INTEGRATION = false
+    const val BEACON_LOCATION_SHARING = false
 }

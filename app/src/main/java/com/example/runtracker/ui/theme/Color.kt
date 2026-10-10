@@ -42,42 +42,42 @@ val LightSurfaceContainer = Color(0xFFFFFFFF)
 val LightSurfaceContainerHigh = Color(0xFFF6F6F8)
 val LightSurfaceContainerHighest = Color(0xFFEFEFF2)
 
-// ---- Dark (kiểu GoRun: nền đen #0D0D12, thẻ xám than #2E2E2F, xanh neon thương hiệu #B9FF8D) ----
-val DarkPrimary = Color(0xFFB9FF8D)        // xanh neon GoRun (Primary-200) — nổi bật trên nền đen
-val DarkOnPrimary = Color(0xFF0D0D12)
-val DarkPrimaryContainer = Color(0xFF1F3316)
-val DarkOnPrimaryContainer = Color(0xFFC7FFA4)
+// ---- Dark Premium Fitness (Nền Deep Charcoal #0B0F14, Thẻ Surface #161C24, Xanh Electric Lime #C7FF3D) ----
+val DarkPrimary = Color(0xFFC7FF3D)        // Electric Lime accent - nổi bật tối đa cho nút chính và chỉ số quan trọng
+val DarkOnPrimary = Color(0xFF0B0F14)
+val DarkPrimaryContainer = Color(0xFF1C2C0D)
+val DarkOnPrimaryContainer = Color(0xFFE2FF8C)
 
-val DarkSecondary = Color(0xFFE6E6E9)
-val DarkOnSecondary = Color(0xFF1B1B1D)
-val DarkSecondaryContainer = Color(0xFF2A2A2D)
-val DarkOnSecondaryContainer = Color(0xFFEDEDF0)
+val DarkSecondary = Color(0xFFE2E8F0)
+val DarkOnSecondary = Color(0xFF0B0F14)
+val DarkSecondaryContainer = Color(0xFF1E293B)
+val DarkOnSecondaryContainer = Color(0xFFF1F5F9)
 
-val DarkTertiary = Color(0xFF9EE1D4)       // teal (Success) — tách biệt khỏi primary cho badge thành tích/PR
-val DarkOnTertiary = Color(0xFF00332C)
-val DarkTertiaryContainer = Color(0xFF12332E)
-val DarkOnTertiaryContainer = Color(0xFF9EE1D4)
+val DarkTertiary = Color(0xFF38BDF8)       // Ocean Cyan cho link / biểu đồ phụ
+val DarkOnTertiary = Color(0xFF032B3A)
+val DarkTertiaryContainer = Color(0xFF07384C)
+val DarkOnTertiaryContainer = Color(0xFFBFEAFE)
 
-val DarkError = Color(0xFFFFB4AB)
-val DarkOnError = Color(0xFF690005)
-val DarkErrorContainer = Color(0xFF93000A)
-val DarkOnErrorContainer = Color(0xFFFFDAD6)
+val DarkError = Color(0xFFFB7185)
+val DarkOnError = Color(0xFF4C0519)
+val DarkErrorContainer = Color(0xFF881337)
+val DarkOnErrorContainer = Color(0xFFFFD1D9)
 
-val DarkBackground = Color(0xFF0D0D12)
-val DarkOnBackground = Color(0xFFF8FAFB)
-val DarkSurface = Color(0xFF17161C)
-val DarkOnSurface = Color(0xFFF8FAFB)
-val DarkSurfaceVariant = Color(0xFF221F29)
-val DarkOnSurfaceVariant = Color(0xFFA4ACB9)
-val DarkOutline = Color(0xFF3A3A3E)
-val DarkOutlineVariant = Color(0xFF2C2C2F)
-val DarkSurfaceContainerLowest = Color(0xFF0D0D12)
-val DarkSurfaceContainerLow = Color(0xFF1C1B22)
-val DarkSurfaceContainer = Color(0xFF221F29)
-val DarkSurfaceContainerHigh = Color(0xFF2E2E2F)
-val DarkSurfaceContainerHighest = Color(0xFF36394A)
+val DarkBackground = Color(0xFF0B0F14)      // Deep Charcoal
+val DarkOnBackground = Color(0xFFF8FAFC)    // Primary Text
+val DarkSurface = Color(0xFF161C24)         // Surface card
+val DarkOnSurface = Color(0xFFF8FAFC)
+val DarkSurfaceVariant = Color(0xFF1E293B)
+val DarkOnSurfaceVariant = Color(0xFF94A3B8)  // Secondary Text
+val DarkOutline = Color(0xFF263238)
+val DarkOutlineVariant = Color(0xFF1E293B)
+val DarkSurfaceContainerLowest = Color(0xFF0B0F14)
+val DarkSurfaceContainerLow = Color(0xFF121820)
+val DarkSurfaceContainer = Color(0xFF161C24)
+val DarkSurfaceContainerHigh = Color(0xFF1E293B)
+val DarkSurfaceContainerHighest = Color(0xFF2A364F)
 
 // ---- Accent phụ cho biểu đồ / trạng thái ----
-val AccentPositive = Color(0xFFB9FF8D)
-val AccentWarning = Color(0xFFFFBE4C)
-val AccentInfo = Color(0xFF0277BD)
+val AccentPositive = Color(0xFFC7FF3D)
+val AccentWarning = Color(0xFFF59E0B)
+val AccentInfo = Color(0xFF38BDF8)
