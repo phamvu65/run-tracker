@@ -1,0 +1,5 @@
+Tool: built-in image_gen
+Asset: runtracker-logo-concept-20261009.png
+Status: logo concept, not installed as the Android launcher icon.
+
+Use case: logo-brand. Design a finished iconic logo for RunTracker, an Android running and route-tracking app. Single square canvas, flat solid near-black #0D0D12 background edge to edge. Center one beautifully proportioned original neon light green #B9FF8D symbol: a bold geometric capital R ingeniously constructed from a continuous running route / track, forward-leaning diagonal leg suggesting speed and progress, generous open counter, precise softened corners. Subtle route endpoint integration only if it strengthens the mark. Minimal, distinctive, sophisticated sports identity; instantly legible at 48px. Symbol occupies approximately 58% of canvas width and height with generous safe margins for Android circular masking. Flat vector-like crisp edges, two colors only, no gradient, no shadow, no 3D, no mockup, no decorative map lines, no small details. No words, no captions, no watermark, no border. Deliver a single strong finished app icon, not a presentation board or alternatives.
