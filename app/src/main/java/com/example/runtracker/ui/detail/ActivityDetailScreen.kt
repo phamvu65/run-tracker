@@ -48,6 +48,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.FeatureFlags
 import com.example.runtracker.core.formatClock
 import com.example.runtracker.domain.model.ActivityWeather
+import com.example.runtracker.domain.tracking.RunAggregator
 import com.example.runtracker.domain.training.ZoneTime
 import com.example.runtracker.ui.components.FlatCard
 import com.example.runtracker.ui.components.LabeledValue
@@ -148,6 +149,13 @@ private fun LoadedContent(
     onExportGpx: () -> Unit,
 ) {
     val activity = state.activity
+    val traceElevation = remember(state.routePoints) {
+        state.routePoints.takeIf { points ->
+            points.size >= 2 && points.any { it.altitude.isFinite() && it.altitude != 0.0 }
+        }?.let(RunAggregator::fromPoints)
+    }
+    val elevationGain = traceElevation?.elevationGainMeters ?: activity.elevationGainMeters
+    val elevationLoss = traceElevation?.elevationLossMeters ?: activity.elevationLossMeters
     Column(
         Modifier
             .fillMaxSize()
@@ -196,7 +204,7 @@ private fun LoadedContent(
                 LabeledValue("Tốc độ TB", formatSpeedUnit(activity.avgSpeedKmh))
                 LabeledValue(
                     "Độ cao lên / xuống",
-                    "${activity.elevationGainMeters.roundToInt()} / ${activity.elevationLossMeters.roundToInt()} m",
+                    "${elevationGain.roundToInt()} / ${elevationLoss.roundToInt()} m",
                 )
                 LabeledValue("Relative Effort (TRIMP)", state.trimp?.roundToInt()?.toString() ?: "—")
                 if (FeatureFlags.HEART_RATE_INTEGRATION) {
