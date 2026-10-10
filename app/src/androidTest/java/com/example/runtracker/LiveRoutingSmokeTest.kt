@@ -7,6 +7,10 @@ import com.example.runtracker.di.NetworkModule
 import com.example.runtracker.domain.model.GeoPoint
 import com.example.runtracker.domain.model.TravelMode
 import com.example.runtracker.domain.usecase.BuildRouteUseCase
+import com.example.runtracker.domain.navigation.RouteGeometry
+import com.example.runtracker.domain.tracking.GeoMath
+import org.json.JSONObject
+import org.json.JSONArray
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -18,6 +22,38 @@ import org.junit.runner.RunWith
 /** Explicit opt-in: public example coordinates, never the device's location or saved activities. */
 @RunWith(AndroidJUnit4::class)
 class LiveRoutingSmokeTest {
+    @Test fun thanhHaSketchFollowsConnectedRoadsAroundTheLake() = runBlocking<Unit> {
+        assumeTrue(InstrumentationRegistry.getArguments().getString("routingNetworkSmoke") == "true")
+        val json = JSONObject(InstrumentationRegistry.getInstrumentation().context.assets
+            .open("routing/thanh-ha-sketch.json").bufferedReader().use { it.readText().removePrefix("\uFEFF") })
+        fun JSONArray.points() = (0 until length()).map { getJSONObject(it).let { p ->
+            GeoPoint(p.getDouble("lat"), p.getDouble("lon"))
+        } }
+        val sketch = json.getJSONArray("sketch").points()
+        val lake = json.getJSONArray("lake").points()
+        val retrofit = NetworkModule.provideRetrofit(NetworkModule.provideOkHttpClient(), NetworkModule.provideJson())
+        val repository = DirectionsRepositoryImpl(NetworkModule.provideDirectionsApi(retrofit), Dispatchers.IO)
+        val result = withTimeout(35_000) { BuildRouteUseCase(repository).fromSketch(sketch, TravelMode.WALKING) }
+        assertTrue("Thanh Ha sketch did not produce a connected route", result.snappedToRoads)
+        assertTrue(result.distanceMeters > 1000)
+        assertTrue(GeoMath.distanceMeters(result.polyline.first(), sketch.first()) < 65)
+        assertTrue(GeoMath.distanceMeters(result.polyline.last(), sketch.last()) < 65)
+        assertTrue(GeoMath.distanceMeters(result.polyline.first(), result.polyline.last()) > 70)
+        assertFalse("Route crosses the lake interior", RouteGeometry(result.polyline).samples(5.0).any { point ->
+            var inside = false
+            var previous = lake.last()
+            for (vertex in lake) {
+                if ((vertex.latitude > point.latitude) != (previous.latitude > point.latitude) &&
+                    point.longitude < (previous.longitude - vertex.longitude) *
+                    (point.latitude - vertex.latitude) / (previous.latitude - vertex.latitude) + vertex.longitude) {
+                    inside = !inside
+                }
+                previous = vertex
+            }
+            inside
+        })
+    }
+
     @Test fun liveFootRouteAndSketchFollowTheRoad() = runBlocking<Unit> {
         assumeTrue(InstrumentationRegistry.getArguments().getString("routingNetworkSmoke") == "true")
         val client = NetworkModule.provideOkHttpClient()

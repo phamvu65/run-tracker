@@ -155,7 +155,7 @@ fun RouteBuilderScreen(
                     shadowElevation = 4.dp,
                 ) {
                     Text(
-                        "Vẽ theo lối đi muốn chạy rồi thả tay",
+                        "Vẽ hướng muốn chạy, app sẽ tìm đường nối",
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm),
@@ -185,7 +185,7 @@ fun RouteBuilderScreen(
                             viewModel.opening -> "Đang mở lộ trình…"
                             viewModel.loading -> "Đang bám đường…"
                             planned != null -> "${formatDistanceKm(planned.distanceMeters)} (bám đường)"
-                            drawMode -> "Vẽ theo đường bạn muốn chạy rồi thả tay"
+                            drawMode -> "Vẽ hình dạng tuyến bạn muốn chạy rồi thả tay"
                             tapped.size >= 2 -> "${tapped.size} điểm — bấm \"Tính đường\""
                             else -> "Chạm bản đồ để thêm điểm, hoặc bật \"Vẽ tay\""
                         },
@@ -249,6 +249,11 @@ fun RouteBuilderScreen(
 
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         OutlinedButton(onClick = viewModel::clear, enabled = tapped.isNotEmpty()) { Text("Xoá hết") }
+                        if (drawMode) {
+                            OutlinedButton(onClick = viewModel::undo, enabled = tapped.isNotEmpty() && !viewModel.saving) {
+                                Text("Lùi nét vẽ")
+                            }
+                        }
                         if (!drawMode) {
                             OutlinedButton(onClick = viewModel::undo, enabled = tapped.isNotEmpty()) { Text("Lùi") }
                             Button(
@@ -259,6 +264,8 @@ fun RouteBuilderScreen(
                     }
 
                     if (drawMode && viewModel.lastSketch.size >= 2) {
+                        Text("Có thể vẽ tiếp từ điểm kết thúc. Không cần vẽ trùng hoàn toàn với đường.",
+                            style = MaterialTheme.typography.bodySmall)
                         OutlinedButton(
                             onClick = viewModel::snapSketchToRoads,
                             enabled = !viewModel.loading && !viewModel.saving && !viewModel.opening,

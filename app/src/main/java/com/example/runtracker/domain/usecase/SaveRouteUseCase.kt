@@ -24,7 +24,7 @@ class SaveRouteUseCase @Inject constructor(
         drawnFromSketch: Boolean = false,
         existing: Route? = null,
     ): String {
-        require(planned.snappedToRoads && planned.gapPolylines.isEmpty() && planned.polyline.size >= 2) {
+        require(planned.snappedToRoads && planned.polyline.size >= 2) {
             "Chỉ lưu lộ trình đã bám đường."
         }
         require(planned.distanceMeters.isFinite() && planned.distanceMeters > 0.0)

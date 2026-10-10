@@ -35,6 +35,33 @@ class DirectionsRepositoryImpl @Inject constructor(
     private val requestMutex = Mutex()
     private var lastRequestNanos = 0L
 
+    private suspend fun request(url: String) = requestMutex.withLock {
+        val elapsedMs = (System.nanoTime() - lastRequestNanos) / 1_000_000
+        if (lastRequestNanos != 0L && elapsedMs < 1_050) delay(1_050 - elapsedMs)
+        lastRequestNanos = System.nanoTime()
+        api.route(url)
+    }
+
+    override suspend fun matchSketch(points: List<GeoPoint>, mode: TravelMode, radiusMeters: Double): Result<PlannedRoute> =
+        withContext(io) {
+            try {
+                require(points.size in 2..10 && radiusMeters.isFinite() && radiusMeters > 0)
+                val coords = points.joinToString(";") { "${it.longitude},${it.latitude}" }
+                val radiuses = points.joinToString(";") { radiusMeters.toString() }
+                val res = request("${DirectionsApi.BASE_URL}${mode.osrmHost}/match/v1/${mode.osrmProfile}/$coords" +
+                    "?overview=full&geometries=polyline&steps=true&gaps=ignore&tidy=false&radiuses=$radiuses")
+                // OSRM may drop outliers, split traces, or omit the first/last points.
+                // Only one connected route covering both endpoints may be used.
+                require(res.code == "Ok" && res.matchings.size == 1)
+                require(res.tracepoints.size == points.size)
+                require(res.tracepoints.first()?.matchings_index == 0 && res.tracepoints.last()?.matchings_index == 0)
+                require(res.tracepoints.count { it?.matchings_index == 0 } >= points.size * 0.7)
+                require(res.tracepoints.filterNotNull().all { it.matchings_index == 0 })
+                Result.success(res.matchings.single().toPlannedRoute())
+            } catch (cancelled: CancellationException) { throw cancelled
+            } catch (error: Exception) { Result.failure(error) }
+        }
+
     override suspend fun route(
         waypoints: List<GeoPoint>,
         mode: TravelMode,
@@ -61,12 +88,7 @@ class DirectionsRepositoryImpl @Inject constructor(
                 "?overview=full&geometries=polyline&steps=true" +
                 "&continue_straight=${if (allowUTurns) "false" else "true"}" +
                 radiuses + bearings
-            val res = requestMutex.withLock {
-                val elapsedMs = (System.nanoTime() - lastRequestNanos) / 1_000_000
-                if (lastRequestNanos != 0L && elapsedMs < 1_050) delay(1_050 - elapsedMs)
-                lastRequestNanos = System.nanoTime()
-                api.route(url)
-            }
+            val res = request(url)
             val route = res.routes.firstOrNull()
             require(res.code == "Ok" && route != null) { "OSRM: ${res.code}" }
             Result.success(route.toPlannedRoute())

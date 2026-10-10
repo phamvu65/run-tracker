@@ -113,4 +113,43 @@ class RouteBuilderViewModelTest {
             assertEquals("new", routes.stored!!.name)
         } finally { Dispatchers.resetMain() }
     }
+
+    @Test fun `drawing extends the previous stroke and undo removes the whole extension`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        try {
+            val routes = Routes()
+            val vm = RouteBuilderViewModel(BuildRouteUseCase(Directions { planned }), SaveRouteUseCase(routes), routes, SavedStateHandle(), dispatcher)
+            vm.applySketch(points)
+            val first = vm.lastSketch.toList()
+            val end = GeoPoint(0.003, 0.003)
+            vm.applySketch(listOf(points.last(), end))
+            assertEquals(first, vm.lastSketch.take(first.size))
+            assertEquals(end, vm.lastSketch.last())
+            vm.undo()
+            assertEquals(first, vm.lastSketch)
+            assertEquals(first, vm.tappedPoints)
+            vm.undo()
+            assertTrue(vm.lastSketch.isEmpty())
+            assertFalse(vm.canSave)
+            advanceUntilIdle()
+            assertNull(vm.planned)
+        } finally { Dispatchers.resetMain() }
+    }
+
+    @Test fun `disconnected new stroke cannot silently replace or bridge the old drawing`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        try {
+            val routes = Routes()
+            val vm = RouteBuilderViewModel(BuildRouteUseCase(Directions { planned }), SaveRouteUseCase(routes), routes, SavedStateHandle(), dispatcher)
+            vm.applySketch(points)
+            val previous = vm.lastSketch
+            vm.applySketch(listOf(GeoPoint(1.0, 1.0), GeoPoint(1.0, 1.01)))
+            assertEquals(previous, vm.lastSketch)
+            assertNotNull(vm.notice)
+            vm.clear()
+            advanceUntilIdle()
+        } finally { Dispatchers.resetMain() }
+    }
 }

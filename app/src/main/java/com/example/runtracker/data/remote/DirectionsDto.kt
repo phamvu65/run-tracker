@@ -7,6 +7,14 @@ import kotlinx.serialization.Serializable
 data class OsrmRouteResponse(
     val code: String = "",
     val routes: List<OsrmRoute> = emptyList(),
+    val matchings: List<OsrmRoute> = emptyList(),
+    val tracepoints: List<OsrmTracepoint?> = emptyList(),
+)
+
+@Serializable
+data class OsrmTracepoint(
+    val location: List<Double> = emptyList(),
+    val matchings_index: Int = -1,
 )
 
 @Serializable

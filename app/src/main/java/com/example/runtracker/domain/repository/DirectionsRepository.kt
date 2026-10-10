@@ -6,6 +6,10 @@ import com.example.runtracker.domain.model.TravelMode
 
 interface DirectionsRepository {
 
+    /** Match a noisy sketch as an ordered, connected trace; never join separate matches. */
+    suspend fun matchSketch(points: List<GeoPoint>, mode: TravelMode, radiusMeters: Double): Result<PlannedRoute> =
+        Result.failure(UnsupportedOperationException("Trace matching unavailable"))
+
     /**
      * Bám đường qua một chuỗi điểm (điểm người dùng chấm, hoặc điểm rút từ nét vẽ tay).
      * Thất bại (mất mạng, không tìm được đường trong bán kính...) -> [Result.failure].

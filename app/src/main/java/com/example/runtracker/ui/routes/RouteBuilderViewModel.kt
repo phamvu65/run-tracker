@@ -62,6 +62,7 @@ class RouteBuilderViewModel @Inject constructor(
     private var revision = 0L
     private var buildJob: Job? = null
     private var existing: Route? = null
+    private val sketchHistory = mutableListOf<List<GeoPoint>>()
     private val editable get() = !saving && !opening && savedRouteId == null
     val canSave get() = editable && !loading && planned?.snappedToRoads == true
 
@@ -105,6 +106,7 @@ class RouteBuilderViewModel @Inject constructor(
         if (!editable) return
         invalidate()
         drawMode = !drawMode
+        sketchHistory.clear()
         tappedPoints = emptyList()
         lastSketch = emptyList()
         selectedPointIndex = null
@@ -135,6 +137,7 @@ class RouteBuilderViewModel @Inject constructor(
         if (index !in tappedPoints.indices) return
         invalidate()
         tappedPoints = tappedPoints.toMutableList().apply { removeAt(index) }
+        if (drawMode) lastSketch = tappedPoints
         selectedPointIndex = null
     }
 
@@ -147,11 +150,17 @@ class RouteBuilderViewModel @Inject constructor(
         // Preserve the drawn endpoint; never close a gap by a chord across a lake.
         sketch.lastOrNull()?.let { if (clean.lastOrNull() != it) clean += it }
         if (clean.size < 2 || GeoMath.pathDistanceMeters(clean) < 20.0) return
+        if (lastSketch.isNotEmpty() && GeoMath.distanceMeters(lastSketch.last(), clean.first()) > 75.0) {
+            notice = "Bắt đầu nét tiếp theo gần điểm kết thúc hiện tại, hoặc bấm Xoá hết để vẽ tuyến mới."
+            return
+        }
+        sketchHistory += lastSketch.toList()
+        val combined = if (lastSketch.isEmpty()) clean else lastSketch + clean
         invalidate()
         drawMode = true
         selectedPointIndex = null
-        lastSketch = clean
-        tappedPoints = clean
+        lastSketch = combined
+        tappedPoints = combined
         snapSketchToRoads()
     }
 
@@ -163,7 +172,11 @@ class RouteBuilderViewModel @Inject constructor(
     fun undo() {
         if (!editable || tappedPoints.isEmpty()) return
         invalidate()
-        tappedPoints = tappedPoints.dropLast(1)
+        if (drawMode) {
+            lastSketch = if (sketchHistory.isNotEmpty()) sketchHistory.removeAt(sketchHistory.lastIndex) else emptyList()
+            tappedPoints = lastSketch
+            if (lastSketch.size >= 2) snapSketchToRoads()
+        } else tappedPoints = tappedPoints.dropLast(1)
         selectedPointIndex = null
     }
 
@@ -172,6 +185,7 @@ class RouteBuilderViewModel @Inject constructor(
         invalidate()
         tappedPoints = emptyList()
         lastSketch = emptyList()
+        sketchHistory.clear()
         selectedPointIndex = null
     }
 
@@ -183,7 +197,7 @@ class RouteBuilderViewModel @Inject constructor(
 
     fun computeRoute() {
         if (!editable || tappedPoints.size < 2) return
-        compute(tappedPoints, sketch = false)
+        compute(tappedPoints, sketch = drawMode)
     }
 
     private fun compute(points: List<GeoPoint>, sketch: Boolean) {

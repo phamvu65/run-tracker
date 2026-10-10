@@ -12,7 +12,13 @@ class BuildRouteUseCaseTest {
     private fun p(x: Double, y: Double = 0.0) = GeoPoint(y / 111_195.0, x / 111_195.0)
     private fun road(points: List<GeoPoint>) = PlannedRoute(points, GeoMath.pathDistanceMeters(points), emptyList(), true)
 
-    private class Fake(val results: List<Result<PlannedRoute>>) : DirectionsRepository {
+    private class Fake(val results: List<Result<PlannedRoute>>,
+        val matched: PlannedRoute? = null) : DirectionsRepository {
+        var matchedInputs = emptyList<GeoPoint>()
+        override suspend fun matchSketch(points: List<GeoPoint>, mode: TravelMode, radiusMeters: Double): Result<PlannedRoute> {
+            matchedInputs = points
+            return matched?.let { Result.success(it) } ?: Result.failure(Exception("NoMatch"))
+        }
         var calls = 0
         var anchors = emptyList<GeoPoint>()
         var radius: Double? = null
@@ -141,5 +147,55 @@ class BuildRouteUseCaseTest {
             BuildRouteUseCase(fake).fromSketch(listOf(p(0.0), p(300.0)), TravelMode.WALKING)
             fail("Cancellation was swallowed")
         } catch (_: CancellationException) { }
+    }
+
+    @Test fun `lake outline with imperfect drawing follows a connected ring and keeps approach tail`() = runTest {
+        val streets = listOf(p(0.0, -120.0), p(0.0), p(0.0, 450.0), p(500.0, 450.0), p(500.0), p(0.0))
+        val sketch = listOf(streets.first(), p(0.0), p(-20.0, 200.0), p(10.0, 470.0),
+            p(250.0, 480.0), p(520.0, 440.0), p(530.0, 200.0), p(490.0, -10.0), streets.last())
+        val actual = road(streets)
+        val fake = Fake(listOf(Result.failure(Exception("Forced vias fail"))), actual)
+        val result = BuildRouteUseCase(fake).fromSketch(sketch, TravelMode.WALKING)
+        assertEquals(actual, result)
+        assertNotEquals(result.polyline.first(), result.polyline.last())
+        assertTrue(fake.matchedInputs.size <= 10)
+    }
+
+    @Test fun `samples follow original curve instead of simplified chords`() {
+        val sketch = listOf(p(0.0), p(100.0, 10.0), p(200.0), p(300.0, 10.0), p(400.0))
+        val reference = com.example.runtracker.domain.navigation.RouteGeometry(sketch)
+        val builder = BuildRouteUseCase(Fake(listOf(Result.failure(Exception()))))
+        assertTrue(builder.anchors(sketch, 40.0).all { reference.project(it).distance < 0.1 })
+        assertTrue(builder.sketchSamples(reference).all { reference.project(it).distance < 0.1 })
+    }
+
+    @Test fun `matching cannot turn an open lake route into a closed loop`() = runTest {
+        val sketch = listOf(p(0.0, -120.0), p(0.0, 400.0), p(400.0, 400.0), p(400.0), p(0.0))
+        val closed = road(sketch + sketch.first())
+        val fake = Fake(listOf(Result.failure(Exception())), closed)
+        assertFalse(BuildRouteUseCase(fake).fromSketch(sketch, TravelMode.WALKING).snappedToRoads)
+    }
+
+    @Test fun `matching cannot return a chord instead of a loop`() = runTest {
+        val sketch = listOf(p(0.0), p(0.0, 400.0), p(600.0, 400.0), p(600.0))
+        val chord = road(listOf(sketch.first(), sketch.last()))
+        assertFalse(BuildRouteUseCase(Fake(listOf(Result.failure(Exception())), chord))
+            .fromSketch(sketch, TravelMode.WALKING).snappedToRoads)
+    }
+
+    @Test fun `slow later attempt does not discard an already verified route`() = runTest {
+        val sketch = listOf(p(0.0), p(600.0))
+        val valid = road(listOf(p(0.0, 10.0), p(600.0, 10.0)))
+        val repository = object : DirectionsRepository {
+            var calls = 0
+            override suspend fun matchSketch(points: List<GeoPoint>, mode: TravelMode, radiusMeters: Double): Result<PlannedRoute> {
+                if (calls++ == 0) return Result.success(valid)
+                kotlinx.coroutines.awaitCancellation()
+            }
+            override suspend fun route(waypoints: List<GeoPoint>, mode: TravelMode, allowUTurns: Boolean,
+                radiusMeters: Double?, bearingsDegrees: List<Double>?, bearingRangeDegrees: Double): Result<PlannedRoute> =
+                Result.failure(Exception("unused"))
+        }
+        assertEquals(valid, BuildRouteUseCase(repository).fromSketch(sketch, TravelMode.WALKING))
     }
 }

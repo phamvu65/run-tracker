@@ -50,4 +50,46 @@ class DirectionsRepositoryImplTest {
             fail("Cancellation swallowed")
         } catch (_: CancellationException) { }
     }
+
+    @Test fun `trace matcher uses matching geometry and preserves walking profile`() = runTest {
+        var requested = ""
+        val route = response(listOf(step("depart", 0), step("turn", 1), step("arrive", 2))).routes.single()
+        val api = object : DirectionsApi {
+            override suspend fun route(url: String): OsrmRouteResponse {
+                requested = url
+                return OsrmRouteResponse(code = "Ok", matchings = listOf(route),
+                    tracepoints = points.map { OsrmTracepoint(listOf(it.longitude, it.latitude), 0) })
+            }
+        }
+        val result = DirectionsRepositoryImpl(api, StandardTestDispatcher(testScheduler))
+            .matchSketch(points, TravelMode.WALKING, 20.0).getOrThrow()
+        assertTrue(requested.contains("routed-foot/match/v1/foot"))
+        assertTrue(requested.contains("tidy=false"))
+        assertTrue(result.snappedToRoads)
+        assertEquals(points, result.polyline)
+    }
+
+    @Test fun `split matches or missing endpoints cannot become a continuous route`() = runTest {
+        val route = response(listOf(step("depart", 0), step("arrive", 2))).routes.single()
+        for (split in listOf(true, false)) {
+            val api = object : DirectionsApi {
+                override suspend fun route(url: String) = OsrmRouteResponse(code = "Ok",
+                    matchings = if (split) listOf(route, route) else listOf(route),
+                    tracepoints = listOf(null, OsrmTracepoint(listOf(0.0, 0.0), 0), OsrmTracepoint(listOf(0.0, 0.0), 0)))
+            }
+            assertTrue(DirectionsRepositoryImpl(api, StandardTestDispatcher(testScheduler))
+                .matchSketch(points, TravelMode.WALKING, 20.0).isFailure)
+        }
+    }
+
+    @Test fun `cancelled trace matching propagates cancellation`() = runTest {
+        val api = object : DirectionsApi {
+            override suspend fun route(url: String): OsrmRouteResponse = throw CancellationException()
+        }
+        try {
+            DirectionsRepositoryImpl(api, StandardTestDispatcher(testScheduler))
+                .matchSketch(points, TravelMode.WALKING, 20.0)
+            fail("Cancellation swallowed")
+        } catch (_: CancellationException) { }
+    }
 }
