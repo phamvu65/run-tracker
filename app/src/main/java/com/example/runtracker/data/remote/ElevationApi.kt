@@ -5,7 +5,7 @@ import retrofit2.http.GET
 import retrofit2.http.Query
 
 /**
- * Open-Meteo Elevation (SRTM 90m) — tra độ cao thật theo toạ độ, miễn phí, không cần API key,
+ * Open-Meteo Elevation (Copernicus GLO-90, 90m) — ước lượng độ cao địa hình theo toạ độ,
  * cùng domain đã dùng cho `WeatherApi` (không bị chặn DNS như `*.openstreetmap.org` — xem
  * `GeocodingApi`). Dùng khi máy không có barometer nên độ cao đang dựa hoàn toàn vào GPS altitude
  * thô (sai số thường ±10-30m, rất nhiễu) — xem `CorrectElevationUseCase`.

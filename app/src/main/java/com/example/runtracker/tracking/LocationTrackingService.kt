@@ -32,9 +32,10 @@ import com.example.runtracker.domain.model.LiveLocationUpdate
 import com.example.runtracker.domain.model.RoutePoint
 import com.example.runtracker.domain.navigation.NavigationSession
 import com.example.runtracker.domain.repository.ActivityRepository
-import com.example.runtracker.domain.tracking.BarometerAltitude
+import com.example.runtracker.domain.tracking.AltitudeEstimator
 import com.example.runtracker.domain.tracking.GeoMath
 import com.example.runtracker.domain.tracking.RunAggregator
+import com.example.runtracker.domain.tracking.ElevationAccumulator
 import com.example.runtracker.domain.usecase.BuildRouteUseCase
 import com.example.runtracker.domain.usecase.FinalizeActivityUseCase
 import dagger.hilt.android.AndroidEntryPoint
@@ -100,6 +101,7 @@ class LocationTrackingService : Service() {
     private var activityId: String? = null
     private var startedAt: Instant? = null
     private var lastAccepted: RoutePoint? = null
+    private var elevationAccumulator = ElevationAccumulator()
     private var pausedAccumSeconds: Long = 0
     private var pausedAt: Instant? = null
 
@@ -110,9 +112,10 @@ class LocationTrackingService : Service() {
     // Mốc lần cuối phát hiện đang di chuyển thật (tốc độ tức thời ≥ ngưỡng) — dùng cho auto-pause.
     private var lastMovingAt: Instant? = null
 
-    // Độ cao từ khí áp (chính xác hơn GPS altitude), hiệu chỉnh 1 lần theo GPS altitude điểm đầu.
-    private var latestPressureHpa: Float? = null
-    private var seaLevelPressureHpa: Double? = null
+    private var altitudeEstimator = AltitudeEstimator()
+    private var altitudeReading: AltitudeEstimator.Reading? = null
+    private var allRecordedAltitudesBarometric = true
+    private var previousAltitudeSource: Boolean? = null
 
     // Số bước tích luỹ từ cảm biến phần cứng — chỉ cộng dồn khi đang TRACKING (không tính lúc tạm dừng).
     private var lastStepCumulative: Int? = null
@@ -281,7 +284,7 @@ class LocationTrackingService : Service() {
         barometerJob = scope.launch {
             barometerSource.pressureUpdates()
                 .catch { e -> Log.w(TAG, "barometer stream error", e) }
-                .collect { latestPressureHpa = it }
+                .collect { altitudeEstimator.updatePressure(it, android.os.SystemClock.elapsedRealtime()) }
         }
     }
 
@@ -350,7 +353,12 @@ class LocationTrackingService : Service() {
                 return@launch
             }
             val points = repository.getRoutePoints(id)
+            // The current schema does not persist the altitude source of recovered points.
+            allRecordedAltitudesBarometric = false
             val aggregate = RunAggregator.fromPoints(points)
+            elevationAccumulator = ElevationAccumulator().also { accumulator ->
+                points.forEach { accumulator.add(it.altitude, it.timestamp) }
+            }
             val last = points.lastOrNull()
 
             startedAt = activity.startTime
@@ -589,6 +597,13 @@ class LocationTrackingService : Service() {
 
         val stored = repository.appendRoutePoints(id, listOf(point))
         val accepted = stored.lastOrNull() ?: return
+        val reading = altitudeReading
+        allRecordedAltitudesBarometric = allRecordedAltitudesBarometric && reading?.barometric == true
+        if (previousAltitudeSource != reading?.barometric) {
+            elevationAccumulator.add(null, accepted.timestamp.minusNanos(1))
+        }
+        previousAltitudeSource = reading?.barometric
+        elevationAccumulator.add(reading?.meters, accepted.timestamp)
 
         val prev = lastAccepted
         if (prev != null) {
@@ -600,10 +615,8 @@ class LocationTrackingService : Service() {
                     distanceMeters = s.distanceMeters + delta.meters,
                     movingTimeSeconds = s.movingTimeSeconds +
                         if (delta.moving) delta.dtSeconds.roundToLong() else 0,
-                    elevationGainMeters = s.elevationGainMeters +
-                        if (delta.dAlt > RunAggregator.ELEVATION_THRESHOLD_M) delta.dAlt else 0.0,
-                    elevationLossMeters = s.elevationLossMeters +
-                        if (delta.dAlt < -RunAggregator.ELEVATION_THRESHOLD_M) -delta.dAlt else 0.0,
+                    elevationGainMeters = elevationAccumulator.gainMeters,
+                    elevationLossMeters = elevationAccumulator.lossMeters,
                     pointCount = s.pointCount + 1,
                     lastLatitude = accepted.latitude,
                     lastLongitude = accepted.longitude,
@@ -776,6 +789,7 @@ class LocationTrackingService : Service() {
             pausedSeconds = pausedAccumSeconds,
             steps = stepsAccumulated,
             avgCadence = avgCadence,
+            reliableBarometricAltitude = allRecordedAltitudesBarometric && lastAccepted != null,
         )
         session.activityFinished(id)
         stateStore.clear()
@@ -785,6 +799,7 @@ class LocationTrackingService : Service() {
 
     /** Đưa mọi state trong bộ nhớ về mốc IDLE — dùng chung cho cả chốt buổi ([finalizeAndReset]) lẫn huỷ ([discard]). */
     private fun resetState() {
+        elevationAccumulator = ElevationAccumulator()
         session.reset()
         session.selectRoute(null)
         activityId = null
@@ -796,8 +811,10 @@ class LocationTrackingService : Service() {
         lastMovingAt = null
         stopNavigation()
         heartRateBuffer.clear()
-        latestPressureHpa = null
-        seaLevelPressureHpa = null
+        altitudeEstimator = AltitudeEstimator()
+        altitudeReading = null
+        allRecordedAltitudesBarometric = true
+        previousAltitudeSource = null
         lastStepCumulative = null
         stepsAccumulated = 0
         cadenceWindow.clear()
@@ -895,29 +912,22 @@ class LocationTrackingService : Service() {
     }
 
     private fun Location.toRoutePoint(): RoutePoint {
-        val gpsAltitude = if (hasAltitude()) altitude else 0.0
-        calibrateBarometerIfNeeded(gpsAltitude)
+        val gpsAltitude = if (hasAltitude()) altitude else null
+        altitudeReading = altitudeEstimator.read(
+            gpsAltitude,
+            if (hasVerticalAccuracy()) verticalAccuracyMeters else null,
+            android.os.SystemClock.elapsedRealtime(),
+        )
         return RoutePoint(
             latitude = latitude,
             longitude = longitude,
-            altitude = barometerAltitudeMeters() ?: gpsAltitude,
+            // Legacy non-null schema: keep raw GPS for offline recovery, but only validated
+            // readings enter live ascent. Finalization tries DEM when coverage is incomplete.
+            altitude = altitudeReading?.meters ?: gpsAltitude?.takeIf { it.isFinite() } ?: 0.0,
             speedMps = if (hasSpeed()) speed else null,
             accuracyMeters = if (hasAccuracy()) accuracy else null,
             timestamp = Instant.ofEpochMilli(time),
         )
-    }
-
-    /** Hiệu chỉnh khí áp 1 lần, dùng GPS altitude của điểm đầu tiên đọc được làm mốc. */
-    private fun calibrateBarometerIfNeeded(gpsAltitudeMeters: Double) {
-        if (seaLevelPressureHpa != null) return
-        val pressure = latestPressureHpa ?: return
-        seaLevelPressureHpa = BarometerAltitude.seaLevelPressure(pressure, gpsAltitudeMeters)
-    }
-
-    private fun barometerAltitudeMeters(): Double? {
-        val seaLevel = seaLevelPressureHpa ?: return null
-        val pressure = latestPressureHpa ?: return null
-        return BarometerAltitude.altitudeFor(pressure, seaLevel)
     }
 
     companion object {

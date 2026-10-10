@@ -40,9 +40,10 @@ class FinalizeActivityUseCase @Inject constructor(
         pausedSeconds: Long = 0,
         steps: Int? = null,
         avgCadence: Int? = null,
+        reliableBarometricAltitude: Boolean = false,
     ) {
         val activity = repository.getActivity(activityId) ?: return
-        val points = correctElevation(activityId, repository.getRoutePoints(activityId))
+        val points = correctElevation(activityId, repository.getRoutePoints(activityId), reliableBarometricAltitude)
         val aggregate = RunAggregator.fromPoints(points)
         val hr = repository.getHeartRateSamples(activityId).summary()
         val end = endTime ?: points.lastOrNull()?.timestamp ?: Instant.now()

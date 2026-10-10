@@ -35,18 +35,16 @@ class RunAggregatorTest {
     }
 
     @Test
-    fun `elevation gain and loss ignore sub-threshold noise`() {
+    fun `elevation gain and loss preserve gradual climbs after DEM interpolation`() {
         val aggregate = RunAggregator.fromPoints(
             listOf(
                 point(0.0, 0, altitude = 100.0),
-                point(100.0, 30, altitude = 100.5),   // +0.5m -> ignored
-                point(200.0, 60, altitude = 110.0),   // +9.5m -> gain
-                point(300.0, 90, altitude = 104.0),   // -6m   -> loss
-            ),
+            ) + (0..20).map { point((it + 1) * 3.0, it + 1L, 100.0 + it * 0.5) } +
+                point(66.0, 22, 110.0),
         )
 
-        assertEquals(9.5, aggregate.elevationGainMeters, 0.001)
-        assertEquals(6.0, aggregate.elevationLossMeters, 0.001)
+        assertEquals(10.0, aggregate.elevationGainMeters, 0.001)
+        assertEquals(0.0, aggregate.elevationLossMeters, 0.001)
     }
 
     @Test
@@ -54,5 +52,21 @@ class RunAggregatorTest {
         val aggregate = RunAggregator.fromPoints(listOf(point(0.0, 0)))
         assertEquals(0.0, aggregate.distanceMeters, 0.0)
         assertEquals(0, aggregate.movingTimeSeconds)
+    }
+
+    @Test fun `live accumulation and restoration match final calculation`() {
+        val points = (0..200).map { i ->
+            point(i * 3.0, i.toLong(), if (i <= 100) 100.0 + i * 0.5 else 200.0 - i * 0.5)
+        }
+        val live = ElevationAccumulator()
+        val restored = ElevationAccumulator()
+        points.take(80).forEach { restored.add(it.altitude, it.timestamp) }
+        points.drop(80).forEach { restored.add(it.altitude, it.timestamp) }
+        points.forEach { live.add(it.altitude, it.timestamp) }
+        val final = RunAggregator.fromPoints(points)
+        assertEquals(final.elevationGainMeters, live.gainMeters, 0.001)
+        assertEquals(final.elevationLossMeters, live.lossMeters, 0.001)
+        assertEquals(final.elevationGainMeters, restored.gainMeters, 0.001)
+        assertEquals(final.elevationLossMeters, restored.lossMeters, 0.001)
     }
 }
