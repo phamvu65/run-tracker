@@ -22,6 +22,10 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.time.LocalDate
 import javax.inject.Inject
 
@@ -39,6 +43,11 @@ class FitnessViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val today: LocalDate = LocalDate.now()
+    private val _isLoading = MutableStateFlow(true)
+    val isLoading = _isLoading.asStateFlow()
+    private val _loadError = MutableStateFlow<String?>(null)
+    val loadError = _loadError.asStateFlow()
+    private var refreshJob: Job? = null
 
     val snapshots: StateFlow<List<FitnessFreshnessSnapshot>> = trainingLoadRepository
         .observeSnapshotsBetween(LOCAL_USER_ID, today.minusDays(WINDOW_DAYS), today)
@@ -66,9 +75,24 @@ class FitnessViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     init {
-        viewModelScope.launch {
-            recalculate(today) // cuộn EWMA tới hôm nay, không đợi job đêm
-            updatePredictions() // cửa sổ 90 ngày trượt mỗi ngày
+        refresh()
+    }
+
+    fun refresh() {
+        if (refreshJob?.isActive == true) return
+        refreshJob = viewModelScope.launch {
+            _isLoading.value = true
+            _loadError.value = null
+            try {
+                recalculate(today)
+                updatePredictions()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                _loadError.value = "Không thể cập nhật dữ liệu thể trạng. Vui lòng thử lại."
+            } finally {
+                _isLoading.value = false
+            }
         }
     }
 }

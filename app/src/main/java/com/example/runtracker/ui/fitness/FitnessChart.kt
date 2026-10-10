@@ -33,7 +33,7 @@ fun FitnessChart(
     snapshots: List<FitnessFreshnessSnapshot>,
     modifier: Modifier = Modifier,
 ) {
-    if (snapshots.size < 2) return
+    if (snapshots.isEmpty()) return
 
     val ctlColor = MaterialTheme.colorScheme.primary
     val atlColor = MaterialTheme.colorScheme.tertiary
@@ -55,10 +55,11 @@ fun FitnessChart(
                 .height(160.dp)
                 .padding(top = 8.dp),
         ) {
-            val w = size.width
-            val h = size.height
-            fun px(i: Int) = if (ctl.size == 1) 0f else i.toFloat() / (ctl.size - 1) * w
-            fun py(v: Double) = (h - (v / maxValue) * h).toFloat()
+            val inset = 6.dp.toPx()
+            val w = (size.width - 2 * inset).coerceAtLeast(0f)
+            val h = (size.height - 2 * inset).coerceAtLeast(0f)
+            fun px(i: Int) = inset + if (ctl.size == 1) w / 2 else i.toFloat() / (ctl.size - 1) * w
+            fun py(v: Double) = inset + (h - (v / maxValue) * h).toFloat()
 
             // Vùng tô dưới đường CTL, làm nổi bật xu hướng Fitness — cùng kỹ thuật ElevationChart.
             val ctlPath = Path().apply {
@@ -95,6 +96,10 @@ fun FitnessChart(
                 ),
                 style = labelStyle,
             )
+        }
+        if (snapshots.size == 1) {
+            Text("Đã có dữ liệu 1 ngày; biểu đồ xu hướng sẽ nối các điểm từ ngày tiếp theo.",
+                style = MaterialTheme.typography.bodySmall)
         }
     }
 }

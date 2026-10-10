@@ -68,6 +68,8 @@ fun FitnessScreen(
     val predictions by viewModel.predictions.collectAsState()
     val suggestion by viewModel.dailySuggestion.collectAsState()
     val hasGoal by viewModel.hasGoal.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val loadError by viewModel.loadError.collectAsState()
 
     Scaffold(
         modifier = modifier,
@@ -107,6 +109,16 @@ fun FitnessScreen(
                 }
             }
 
+            if (isLoading) {
+                androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth())
+                Text("Đang cập nhật dữ liệu thể trạng…")
+            }
+            loadError?.let { message ->
+                FlatCard {
+                    Text(message)
+                    TextButton(onClick = viewModel::refresh) { Text("Thử lại") }
+                }
+            }
             if (latest != null) {
                 DiagramCard(
                     title = "Thể trạng hôm nay",
@@ -128,8 +140,14 @@ fun FitnessScreen(
                 }
                 DiagramCard(title = "90 ngày qua") {
                     FitnessChart(snapshots = snapshots, modifier = Modifier.fillMaxWidth())
+                    if (snapshots.all { it.ctl == 0.0 && it.atl == 0.0 }) {
+                        Text(
+                            "Chưa tính được tải tập luyện. Mở chi tiết buổi tập để nhập mức gắng sức (RPE), hoặc bổ sung nhịp tim buổi tập và thông tin nhịp tim trong hồ sơ.",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
                 }
-            } else {
+            } else if (!isLoading && loadError == null) {
                 FlatCard {
                     EmptyState(
                         title = "Chưa có dữ liệu Fitness",

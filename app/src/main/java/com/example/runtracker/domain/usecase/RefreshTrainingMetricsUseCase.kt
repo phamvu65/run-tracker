@@ -14,7 +14,7 @@ class RefreshTrainingMetricsUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(activityDate: LocalDate) {
         updateDailyTrainingLoad(activityDate)
-        recalculateFitnessFreshness(LocalDate.now())
+        recalculateFitnessFreshness(LocalDate.now(), fromDate = activityDate)
         updatePerformancePredictions()
     }
 }
