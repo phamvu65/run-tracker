@@ -23,6 +23,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.formatClock
 import com.example.runtracker.ui.theme.formatDistanceUnit
@@ -55,23 +56,20 @@ fun ActivityListScreen(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = { Text("Hoạt động") },
-                navigationIcon = {
-                    if (onBack != null) {
+            com.example.runtracker.ui.components.CompactTopHeader(
+                title = "Hoạt động",
+                navigationIcon = if (onBack != null) {
+                    {
                         IconButton(onClick = onBack) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
                         }
                     }
-                },
+                } else null,
                 actions = {
                     IconButton(onClick = onAddManual) {
                         Icon(Icons.Filled.Add, contentDescription = "Nhập buổi tập thủ công")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                ),
             )
         },
     ) { padding ->

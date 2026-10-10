@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -33,6 +35,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
@@ -63,6 +66,53 @@ fun StravaLabel(text: String, modifier: Modifier = Modifier, color: Color = Mate
         style = MaterialTheme.typography.labelMedium,
         color = color,
     )
+}
+
+/**
+ * Thanh tiêu đề cố định thu gọn (Compact Fixed Header):
+ * Chiều cao 48dp, tiêu đề chữ to đậm (`titleLarge` + ExtraBold), khoảng trống phía trên thu gọn,
+ * giữ cố định khi nội dung cuộn bên dưới trong Scaffold.
+ */
+@Composable
+fun CompactTopHeader(
+    title: String,
+    modifier: Modifier = Modifier,
+    navigationIcon: (@Composable () -> Unit)? = null,
+    actions: (@Composable RowScope.() -> Unit)? = null,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.background,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .height(48.dp)
+                .padding(horizontal = Spacing.xs),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (navigationIcon != null) {
+                navigationIcon()
+                Spacer(Modifier.width(Spacing.xs))
+            } else {
+                Spacer(Modifier.width(Spacing.md))
+            }
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+            )
+            if (actions != null) {
+                Row(verticalAlignment = Alignment.CenterVertically, content = actions)
+            } else {
+                Spacer(Modifier.width(Spacing.md))
+            }
+        }
+    }
 }
 
 /** Tiêu đề một khối: nhãn IN HOA + hành động phụ tuỳ chọn bên phải. */
@@ -585,8 +635,8 @@ fun AthleteAvatar(name: String, modifier: Modifier = Modifier, size: androidx.co
     }
 }
 
-/** Nền "bản đồ" cố định (không theo theme) — gợi tả tile bản đồ tối kiểu Strava thay vì màu surface phẳng. */
-private val RouteThumbnailBackground = Color(0xFF1E2B33)
+/** Nền "bản đồ" hình thu nhỏ — nền teal nhạt tươi mát, hài hoà với bảng màu trắng ngà. */
+private val RouteThumbnailBackground = Color(0xFFEAF5F2)
 
 /**
  * Hình thu nhỏ đường chạy — vẽ polyline bằng Canvas (nhẹ, hợp danh sách cuộn, không dùng MapView

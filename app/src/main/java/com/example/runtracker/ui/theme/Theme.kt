@@ -79,9 +79,9 @@ private val DarkColors = darkColorScheme(
 
 @Composable
 fun RunTrackerTheme(
-    /** Kiểu Strava: mặc định luôn dark. Truyền `false` để buộc bản sáng. */
-    darkTheme: Boolean = true,
-    /** Mặc định tắt: luôn hiện màu thương hiệu, không đổi theo hình nền máy. */
+    /** Mặc định bản sáng trắng ngà nhẹ nhàng, tươi mới. */
+    darkTheme: Boolean = false,
+    /** Mặc định tắt: luôn hiện bảng màu thương hiệu Teal/Coral/Kem, không đổi theo hình nền máy. */
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {

@@ -382,14 +382,14 @@ private fun RecordPanel(
                     Modifier
                         .fillMaxWidth()
                         .clip(MaterialTheme.shapes.small)
-                        .background(Color(0xFF3A2E1B))
+                        .background(MaterialTheme.colorScheme.secondaryContainer)
                         .padding(vertical = Spacing.sm, horizontal = Spacing.md),
                     horizontalArrangement = Arrangement.Center,
                 ) {
                     Text(
                         "⏸  Tự động tạm dừng — di chuyển tiếp để ghi lại",
                         style = MaterialTheme.typography.labelLarge,
-                        color = Color(0xFFE2C08D),
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
                     )
                 }
             }
@@ -544,14 +544,14 @@ private fun GpsStrip(
             onClick = onEnableLocation
         }
         waitingForFix -> {
-            bg = Color(0xFF3A2E1B)
-            fg = Color(0xFFE2C08D)
+            bg = MaterialTheme.colorScheme.tertiaryContainer
+            fg = MaterialTheme.colorScheme.onTertiaryContainer
             label = "📡  Đang chờ tín hiệu GPS…"
             onClick = null
         }
         else -> {
-            bg = Color(0xFF1B3A1E)
-            fg = Color(0xFF9BE29E)
+            bg = MaterialTheme.colorScheme.primaryContainer
+            fg = MaterialTheme.colorScheme.onPrimaryContainer
             label = "📶  Đã kết nối GPS"
             onClick = null
         }

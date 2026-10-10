@@ -75,18 +75,15 @@ fun FitnessScreen(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = { Text("Fitness & Freshness") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
-                navigationIcon = {
-                    if (onBack != null) {
+            com.example.runtracker.ui.components.CompactTopHeader(
+                title = "Fitness & Freshness",
+                navigationIcon = if (onBack != null) {
+                    {
                         IconButton(onClick = onBack) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
                         }
                     }
-                },
+                } else null,
             )
         },
     ) { padding ->

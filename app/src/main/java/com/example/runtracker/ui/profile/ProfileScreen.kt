@@ -34,12 +34,15 @@ import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.TrendingDown
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -99,13 +102,16 @@ fun ProfileScreen(
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            com.example.runtracker.ui.components.CompactTopHeader(title = "Hồ sơ")
+        },
     ) { padding ->
         Column(
             Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(top = Spacing.lg, bottom = Spacing.xl),
+                .padding(top = Spacing.sm, bottom = Spacing.xl),
         ) {
             // ---- Đầu hồ sơ ----
             Row(
