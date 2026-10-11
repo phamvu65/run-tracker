@@ -77,8 +77,8 @@ private fun RecordEntry.primaryValueText(): String = when (this) {
 /** Subtitle phụ ở dòng kỷ lục hiện tại — chỉ cự ly chuẩn mới có pace tương ứng để hiện thêm. */
 @Composable
 private fun RecordEntry.subtitleText(): String? = when (this) {
-    is RecordEntry.Distance -> formatPaceUnit(effort.elapsedSeconds / (effort.distance.meters / 1000.0))
-    is RecordEntry.Whole -> null
+    is RecordEntry.Distance -> "${formatPaceUnit(effort.elapsedSeconds / (effort.distance.meters / 1000.0))} · đạt ${effort.achievedAt.atZone(ZoneId.systemDefault()).format(HISTORY_DATE)}"
+    is RecordEntry.Whole -> "Đạt ${record.achievedAt.atZone(ZoneId.systemDefault()).format(HISTORY_DATE)}"
 }
 
 private fun RecordEntry.historyTitle(): String = when (this) {
@@ -145,7 +145,7 @@ fun PersonalRecordsScreen(
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 EmptyState(
                     title = "Chưa có kỷ lục nào",
-                    message = "Chạy liên tục đủ 1km trở lên trong một buổi tập để bắt đầu ghi nhận kỷ lục cá nhân.",
+                    message = "Ghi một buổi chạy có dữ liệu GPS hợp lệ để bắt đầu tạo kỷ lục cá nhân. Kỷ lục theo cự ly cần tối thiểu 1 km.",
                     action = {
                         AppListCard(title = "Xem tiến độ theo tuần/tháng/năm", onClick = onOpenProgress)
                     },
@@ -177,30 +177,53 @@ fun PersonalRecordsScreen(
                 }
             }
 
-            if (currentRecords.isNotEmpty()) {
+            val distanceRecords = currentRecords.filterIsInstance<RecordEntry.Distance>()
+            val wholeRecords = currentRecords.filterIsInstance<RecordEntry.Whole>()
+
+            if (distanceRecords.isNotEmpty()) {
                 item {
                     Column {
-                        SectionHeader("Kỷ lục cá nhân")
+                        SectionHeader("Cự ly nhanh nhất")
                         Spacer(Modifier.height(Spacing.xs))
                     }
                 }
+                items(distanceRecords, key = { "distance_record_${it.title()}" }) { entry ->
+                    AppListCard(
+                        title = entry.title(),
+                        subtitle = entry.subtitleText(),
+                        onClick = { onActivityClick(entry.activityId) },
+                        trailing = {
+                            Text(entry.primaryValueText(), style = MaterialTheme.typography.titleMedium)
+                        },
+                    )
+                }
             }
-            items(currentRecords, key = { "record_${it.title()}" }) { entry ->
-                AppListCard(
-                    title = entry.title(),
-                    subtitle = entry.subtitleText(),
-                    onClick = { onActivityClick(entry.activityId) },
-                    trailing = {
-                        Text(entry.primaryValueText(), style = MaterialTheme.typography.titleMedium)
-                    },
-                )
+
+            if (wholeRecords.isNotEmpty()) {
+                item {
+                    Column {
+                        Spacer(Modifier.height(Spacing.md))
+                        SectionHeader("Kỷ lục toàn buổi")
+                        Spacer(Modifier.height(Spacing.xs))
+                    }
+                }
+                items(wholeRecords, key = { "whole_record_${it.title()}" }) { entry ->
+                    AppListCard(
+                        title = entry.title(),
+                        subtitle = entry.subtitleText(),
+                        onClick = { onActivityClick(entry.activityId) },
+                        trailing = {
+                            Text(entry.primaryValueText(), style = MaterialTheme.typography.titleMedium)
+                        },
+                    )
+                }
             }
 
             if (history.isNotEmpty()) {
                 item {
                     Column {
                         Spacer(Modifier.height(Spacing.md))
-                        SectionHeader("Lịch sử thành tích")
+                        SectionHeader("Top 3 tại thời điểm đạt được")
                         Spacer(Modifier.height(Spacing.xs))
                     }
                 }

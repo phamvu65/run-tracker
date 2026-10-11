@@ -444,7 +444,7 @@ fun PeriodSwitch(
 }
 
 /**
- * Thẻ mẹo dạng carousel kiểu GoRun "Tips": icon lớn giữa nền gradient, chú thích mờ phía dưới
+ * Thẻ mẹo dạng carousel: icon lớn phía trên, nội dung tự xuống dòng đầy đủ phía dưới
  * (thay ảnh minh hoạ bằng gradient token màu — nội dung tĩnh trong app, không tải ảnh ngoài).
  */
 @Composable
@@ -456,8 +456,8 @@ fun TipCard(
 ) {
     Box(
         modifier
-            .width(148.dp)
-            .height(168.dp)
+            .width(220.dp)
+            .height(190.dp)
             .clip(MaterialTheme.shapes.extraLarge)
             .background(Brush.verticalGradient(gradientColors)),
     ) {
@@ -478,8 +478,6 @@ fun TipCard(
                 text,
                 style = MaterialTheme.typography.labelMedium,
                 color = Color.White,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
             )
         }
     }

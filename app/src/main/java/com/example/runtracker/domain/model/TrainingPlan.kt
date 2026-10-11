@@ -18,9 +18,9 @@ enum class TrainingPhase { BASE, BUILD, PEAK, TAPER, RACE }
 enum class SessionType(val label: String) {
     REST("Nghỉ"),
     EASY("Chạy nhẹ"),
-    LONG_RUN("Long run"),
-    TEMPO("Tempo"),
-    INTERVAL("Interval"),
+    LONG_RUN("Chạy dài"),
+    TEMPO("Chạy tempo"),
+    INTERVAL("Chạy biến tốc"),
     RACE_PACE("Pace thi đấu"),
     RACE("Thi đấu"),
 }

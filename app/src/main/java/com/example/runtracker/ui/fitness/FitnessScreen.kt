@@ -268,8 +268,8 @@ private fun PredictionSection(predictions: List<PerformancePrediction>) {
 }
 
 private fun formInterpretation(tsb: Double): String = when {
-    tsb > 5 -> "Form dương — cơ thể tươi, phù hợp buổi nặng hoặc thi đấu."
-    tsb >= -10 -> "Form cân bằng — tải tập hợp lý."
-    tsb >= -30 -> "Form âm — đang mệt tích luỹ, cân nhắc giảm tải."
-    else -> "Form rất âm — nguy cơ quá tải, nên nghỉ hồi phục."
+    tsb > 5 -> "Thể trạng tốt — phù hợp buổi nặng hoặc thi đấu."
+    tsb >= -10 -> "Thể trạng cân bằng — tải tập hiện tại hợp lý."
+    tsb >= -30 -> "Đang mệt tích lũy — cân nhắc giảm tải."
+    else -> "Cơ thể đang chịu tải cao — ưu tiên nghỉ và hồi phục."
 }

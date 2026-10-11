@@ -8,9 +8,9 @@ import com.example.runtracker.domain.tracking.RunAggregator
  * trace, chỉ so sánh trực tiếp field đã tổng hợp sẵn của [Activity]).
  */
 enum class ActivityRecordType(val label: String, val unit: String, val higherIsBetter: Boolean) {
-    FASTEST_PACE("Pace nhanh nhất", "giây/km", higherIsBetter = false),
+    FASTEST_PACE("Pace trung bình tốt nhất", "giây/km", higherIsBetter = false),
     LONGEST_DISTANCE("Quãng đường dài nhất", "m", higherIsBetter = true),
-    MOST_ELEVATION_GAIN("Độ cao lên nhiều nhất", "m", higherIsBetter = true),
+    MOST_ELEVATION_GAIN("Tổng độ cao leo nhiều nhất", "m", higherIsBetter = true),
 }
 
 /**

@@ -44,7 +44,7 @@ class DetectPersonalRecordsUseCase @Inject constructor(
             if (prevBestPace == null || current.avgPaceSecPerKm < prevBestPace) {
                 records += PersonalRecord(
                     PersonalRecordKind.FASTEST_PACE,
-                    "Pace nhanh nhất",
+                    "Pace trung bình tốt nhất",
                     formatPace(current.avgPaceSecPerKm),
                 )
             }

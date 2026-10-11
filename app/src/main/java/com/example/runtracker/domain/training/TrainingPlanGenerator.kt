@@ -184,7 +184,7 @@ object TrainingPlanGenerator {
                 when {
                     date == goal.raceDate -> PlannedSession(
                         date, SessionType.RACE, raceKm.round1(),
-                        "🏁 ${goal.raceDistance.label} — ngày thi đấu! Target Pace: ${paceInfo?.let { formatPace(it.racePaceSec) } ?: "chỉnh đều tay"}",
+                        "🏁 ${goal.raceDistance.label} — ngày thi đấu! Pace mục tiêu: ${paceInfo?.let { formatPace(it.racePaceSec) } ?: "chạy đều sức"}",
                     )
                     date == goal.raceDate.minusDays(1) -> PlannedSession(
                         date, SessionType.REST, null, "Nghỉ ngơi hoàn toàn, nạp carb, ngủ sớm",
@@ -252,7 +252,7 @@ object TrainingPlanGenerator {
             }
 
             val desc = when (sessionType) {
-                SessionType.LONG_RUN -> "Long run $longRunKm km ở pace nhẹ nhàng ${paceText(paceInfo?.easyPaceMinSec, paceInfo?.easyPaceMaxSec)}, nạp điện giải/gel"
+                SessionType.LONG_RUN -> "Chạy dài $longRunKm km ở pace nhẹ nhàng ${paceText(paceInfo?.easyPaceMinSec, paceInfo?.easyPaceMaxSec)}, bổ sung nước/điện giải"
                 SessionType.EASY -> "Chạy nhẹ $easyKm km ${paceText(paceInfo?.easyPaceMinSec, paceInfo?.easyPaceMaxSec)}, thả lỏng"
                 SessionType.REST -> "Nghỉ ngơi hoặc đi bộ, giãn cơ, tập core nhẹ"
                 else -> qualityDescription(qualityType, qualityKm, paceInfo)
@@ -281,11 +281,11 @@ object TrainingPlanGenerator {
     private fun qualityDescription(type: SessionType, km: Double, paceInfo: PaceInfo?): String = when (type) {
         SessionType.TEMPO -> {
             val paceStr = paceInfo?.let { "ở Pace ${formatPace(it.tempoPaceSec)}" } ?: "ở pace ngưỡng"
-            "Tempo: 1.5km khởi động + ${km - 2}km $paceStr + 0.5km thả lỏng"
+            "Tempo: 1,5 km khởi động + ${km - 2} km $paceStr + 0,5 km thả lỏng"
         }
         SessionType.INTERVAL -> {
             val paceStr = paceInfo?.let { "ở Pace ${formatPace(it.intervalPaceSec)}" } ?: "nhanh"
-            "Interval: khởi động + 6–8 × 800m $paceStr (nghỉ đi bộ 200m) + thả lỏng (~$km km tổng)"
+            "Biến tốc: khởi động + 6–8 × 800 m $paceStr (nghỉ đi bộ 200 m) + thả lỏng (tổng khoảng $km km)"
         }
         SessionType.RACE_PACE -> {
             val paceStr = paceInfo?.let { "ở Pace thi đấu ${formatPace(it.racePaceSec)}" } ?: "ở pace mục tiêu"
