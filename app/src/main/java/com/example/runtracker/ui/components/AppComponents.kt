@@ -1,5 +1,6 @@
 package com.example.runtracker.ui.components
 
+import com.example.runtracker.ui.icons.AthleticIcons
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -22,16 +23,15 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
+import com.example.runtracker.ui.theme.LocalReducedMotion
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.getValue
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -129,7 +129,8 @@ fun SectionHeader(
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Column(Modifier.weight(1f)) {
-            StravaLabel(title)
+            Text(title.uppercase(), style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface)
             if (subtitle != null) {
                 Text(
                     subtitle,
@@ -214,7 +215,7 @@ fun IconStatTile(
         Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
         StravaLabel(label)
         Row(verticalAlignment = Alignment.Bottom) {
-            Text(value, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+            Text(value, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface)
             if (unit != null) {
                 Spacer(Modifier.width(2.dp))
                 Text(
@@ -275,7 +276,7 @@ fun LabeledValue(
     }
 }
 
-/** Thẻ phẳng (trắng trên nền xám) — không đổ bóng, viền tóc. */
+/** Tonal card with a quiet border and restrained elevation. */
 @Composable
 fun FlatCard(
     modifier: Modifier = Modifier,
@@ -285,8 +286,8 @@ fun FlatCard(
         modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)),
     ) {
         Column(Modifier.fillMaxWidth().padding(Spacing.lg), content = content)
     }
@@ -387,7 +388,7 @@ fun ChallengeRunCard(
                 overflow = TextOverflow.Ellipsis,
             )
             if (progress != null) {
-                LinearProgressIndicator(
+                PremiumProgressIndicator(
                     progress = { progress.coerceIn(0f, 1f) },
                     modifier = Modifier.fillMaxWidth(),
                     trackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -395,7 +396,7 @@ fun ChallengeRunCard(
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                 Icon(
-                    Icons.Filled.CalendarMonth,
+                    AthleticIcons.Calendar,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(14.dp),
@@ -425,10 +426,14 @@ fun PeriodSwitch(
     ) {
         options.forEachIndexed { index, label ->
             val selected = index == selectedIndex
+            val background by animateColorAsState(
+                if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                tween(if (LocalReducedMotion.current) 0 else 160), label = "period-selection",
+            )
             Box(
                 Modifier
                     .clip(CircleShape)
-                    .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                    .background(background)
                     .clickable { onSelect(index) }
                     .padding(horizontal = Spacing.md, vertical = Spacing.xs),
                 contentAlignment = Alignment.Center,
@@ -445,13 +450,12 @@ fun PeriodSwitch(
 
 /**
  * Thẻ mẹo dạng carousel: icon lớn phía trên, nội dung tự xuống dòng đầy đủ phía dưới
- * (thay ảnh minh hoạ bằng gradient token màu — nội dung tĩnh trong app, không tải ảnh ngoài).
+ * Nền tonal giữ các mẹo ở mức nhấn phụ so với số liệu và CTA.
  */
 @Composable
 fun TipCard(
     icon: ImageVector,
     text: String,
-    gradientColors: List<Color>,
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -459,25 +463,25 @@ fun TipCard(
             .width(220.dp)
             .height(190.dp)
             .clip(MaterialTheme.shapes.extraLarge)
-            .background(Brush.verticalGradient(gradientColors)),
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
     ) {
         Icon(
             icon,
             contentDescription = null,
-            tint = Color.White.copy(alpha = 0.92f),
+            tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.align(Alignment.Center).size(40.dp),
         )
         Box(
             Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .background(Color.Black.copy(alpha = 0.38f))
+                .background(MaterialTheme.colorScheme.surfaceContainerLow)
                 .padding(Spacing.sm),
         ) {
             Text(
                 text,
                 style = MaterialTheme.typography.labelMedium,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onSurface,
             )
         }
     }
@@ -548,7 +552,7 @@ fun NavGroup(
                 headlineContent = { Text(label, style = MaterialTheme.typography.bodyLarge) },
                 trailingContent = {
                     Icon(
-                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        AthleticIcons.Next,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -605,7 +609,7 @@ fun AppListCard(
                 trailing()
             } else {
                 Icon(
-                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    AthleticIcons.Next,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -634,7 +638,6 @@ fun AthleteAvatar(name: String, modifier: Modifier = Modifier, size: androidx.co
 }
 
 /** Nền "bản đồ" hình thu nhỏ — nền teal nhạt tươi mát, hài hoà với bảng màu trắng ngà. */
-private val RouteThumbnailBackground = Color(0xFFEAF5F2)
 
 /**
  * Hình thu nhỏ đường chạy — vẽ polyline bằng Canvas (nhẹ, hợp danh sách cuộn, không dùng MapView
@@ -648,7 +651,7 @@ fun RouteThumbnail(
     modifier: Modifier = Modifier,
 ) {
     val line = MaterialTheme.colorScheme.primary
-    Box(modifier.background(RouteThumbnailBackground)) {
+    Box(modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
         if (points.size >= 2) {
             Canvas(Modifier.fillMaxWidth().fillMaxHeight().padding(Spacing.lg)) {
                 val lats = points.map { it.latitude }
@@ -750,7 +753,7 @@ fun FeedActivityCard(
                 if (locationText != null) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            Icons.Filled.LocationOn,
+                            AthleticIcons.Distance,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(14.dp),
@@ -792,10 +795,12 @@ fun FeedActivityCard(
                 Column(horizontalAlignment = Alignment.End) {
                     StravaLabel("Thành tích")
                     Spacer(Modifier.height(2.dp))
-                    Text(
-                        "${achievement.bestMedalEmoji} ${achievement.medalCount}",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(AthleticIcons.PersonalBest, contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                        Spacer(Modifier.width(Spacing.xs))
+                        Text(achievement.medalCount.toString(), style = MaterialTheme.typography.headlineSmall)
+                    }
                 }
             }
         }
@@ -811,7 +816,8 @@ fun FeedActivityCard(
                     .padding(Spacing.md),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(achievement.bestMedalEmoji, style = MaterialTheme.typography.titleMedium)
+                Icon(AthleticIcons.PersonalBest, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onTertiaryContainer, modifier = Modifier.size(24.dp))
                 Spacer(Modifier.width(Spacing.md))
                 Column(Modifier.weight(1f)) {
                     Text(

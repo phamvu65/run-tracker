@@ -1,5 +1,6 @@
 package com.example.runtracker.ui.profile
 
+import com.example.runtracker.ui.icons.AthleticIcons
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -13,10 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DirectionsRun
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -43,6 +40,7 @@ import com.example.runtracker.core.formatClock
 import com.example.runtracker.core.formatDistanceKm
 import com.example.runtracker.core.formatPace
 import com.example.runtracker.ui.theme.Spacing
+import com.example.runtracker.ui.theme.metricReveal
 import kotlin.math.roundToInt
 
 private val DAY_LABELS = listOf("T2", "T3", "T4", "T5", "T6", "T7", "CN")
@@ -103,9 +101,9 @@ fun WeeklyActivityChart(
                         } else {
                             0.0
                         }
-                        TooltipRow(Icons.Filled.LocationOn, formatDistanceKm(selected.distanceMeters))
-                        TooltipRow(Icons.Filled.DirectionsRun, formatPace(paceSecPerKm))
-                        TooltipRow(Icons.Filled.Timer, formatClock(selected.movingTime.inWholeSeconds))
+                        TooltipRow(AthleticIcons.Distance, formatDistanceKm(selected.distanceMeters))
+                        TooltipRow(AthleticIcons.Pace, formatPace(paceSecPerKm))
+                        TooltipRow(AthleticIcons.Duration, formatClock(selected.movingTime.inWholeSeconds))
                     }
                 }
             }
@@ -114,6 +112,7 @@ fun WeeklyActivityChart(
         Canvas(
             Modifier
                 .fillMaxWidth()
+                .metricReveal(days)
                 .height(120.dp)
                 .onSizeChanged { canvasWidthPx = it.width.toFloat() }
                 .pointerInput(days) {

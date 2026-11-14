@@ -23,6 +23,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.unit.dp
 import com.example.runtracker.domain.model.FitnessFreshnessSnapshot
+import com.example.runtracker.ui.theme.metricReveal
 
 /**
  * CTL (Fitness) và ATL (Fatigue) theo thời gian — hai chuỗi cùng đơn vị, một trục y,
@@ -44,7 +45,7 @@ fun FitnessChart(
     val textMeasurer = rememberTextMeasurer()
     val labelStyle = MaterialTheme.typography.labelSmall.copy(color = ctlColor)
 
-    Column(modifier) {
+    Column(modifier.metricReveal(snapshots)) {
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             LegendItem(ctlColor, "Fitness (CTL)")
             LegendItem(atlColor, "Fatigue (ATL)")

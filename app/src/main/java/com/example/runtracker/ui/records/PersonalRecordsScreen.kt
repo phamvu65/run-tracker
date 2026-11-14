@@ -1,5 +1,6 @@
 package com.example.runtracker.ui.records
 
+import com.example.runtracker.ui.icons.AthleticIcons
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,14 +15,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import com.example.runtracker.ui.components.AthleticIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -52,11 +50,6 @@ import kotlin.math.roundToInt
 private val HISTORY_DATE: DateTimeFormatter =
     DateTimeFormatter.ofPattern("d 'thg' M, yyyy", Locale.forLanguageTag("vi"))
 
-private fun medalEmoji(rank: Int) = when (rank) {
-    1 -> "🥇"
-    2 -> "🥈"
-    else -> "🥉"
-}
 
 private fun RecordEntry.title(): String = when (this) {
     is RecordEntry.Distance -> effort.distance.label
@@ -98,7 +91,7 @@ private fun BadgeChip(type: BadgeType, modifier: Modifier = Modifier) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Icon(
-                Icons.Filled.EmojiEvents,
+                AthleticIcons.PersonalBest,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.width(28.dp),
@@ -134,8 +127,8 @@ fun PersonalRecordsScreen(
             com.example.runtracker.ui.components.CompactTopHeader(
                 title = "Thành tích",
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
+                    AthleticIconButton(onClick = onBack) {
+                        Icon(AthleticIcons.Back, contentDescription = "Quay lại")
                     }
                 },
             )
@@ -229,7 +222,7 @@ fun PersonalRecordsScreen(
                 }
                 items(history, key = { "${it.activityId}_${it.title()}_${it.achievedAt}" }) { entry ->
                     AppListCard(
-                        title = "${medalEmoji(entry.rank)}  ${entry.historyTitle()}",
+                        title = entry.historyTitle(),
                         subtitle = entry.achievedAt.atZone(ZoneId.systemDefault()).format(HISTORY_DATE),
                         onClick = { onActivityClick(entry.activityId) },
                         trailing = {

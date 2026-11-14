@@ -1,5 +1,6 @@
 package com.example.runtracker.ui.detail
 
+import com.example.runtracker.ui.icons.AthleticIcons
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.BorderStroke
@@ -17,9 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
+import com.example.runtracker.ui.components.PremiumButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -51,6 +50,7 @@ import com.example.runtracker.domain.model.ActivityWeather
 import com.example.runtracker.domain.tracking.RunAggregator
 import com.example.runtracker.domain.training.ZoneTime
 import com.example.runtracker.ui.components.FlatCard
+import com.example.runtracker.ui.components.DistanceHero
 import com.example.runtracker.ui.components.LabeledValue
 import com.example.runtracker.ui.components.SectionHeader
 import com.example.runtracker.ui.components.StatCell
@@ -130,8 +130,8 @@ fun ActivityDetailScreen(
     }
 }
 
-/** Chiều cao bản đồ đầu màn — lớn, tràn viền kiểu Strava thay vì một dải nhỏ 240dp trước đây. */
-private val MAP_HEIGHT = 420.dp
+/** Bản đồ phát lại ở đầu nội dung chi tiết buổi tập. */
+private val MAP_HEIGHT = 300.dp
 
 @Composable
 private fun LoadedContent(
@@ -161,37 +161,40 @@ private fun LoadedContent(
             .fillMaxSize()
             .verticalScroll(rememberScrollState()),
     ) {
-        Box(Modifier.fillMaxWidth().height(MAP_HEIGHT)) {
-            if (state.routePoints.isEmpty()) {
-                Box(
-                    Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainerHigh),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("Không có dữ liệu GPS", style = MaterialTheme.typography.bodyMedium)
-                }
-            } else {
-                RoutePlaybackMap(points = state.routePoints, modifier = Modifier.fillMaxSize())
-            }
-
-            // Nút back nổi trực tiếp trên bản đồ thay cho TopAppBar đặc — Scaffold đã chừa an
-            // toàn status bar nên không cần statusBarsPadding() thêm ở đây (tránh đệm 2 lần).
-            FloatingBackButton(onBack, modifier = Modifier.align(Alignment.TopStart).padding(Spacing.md))
+        Row(
+            Modifier.fillMaxWidth().padding(Spacing.screen),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+        ) {
+            FloatingBackButton(onBack)
+            Text("Chi tiết buổi tập", style = MaterialTheme.typography.titleLarge)
         }
 
         Column(
             Modifier.fillMaxWidth().padding(Spacing.screen),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
+            Box(Modifier.fillMaxWidth().height(MAP_HEIGHT).clip(MaterialTheme.shapes.large)) {
+                if (state.routePoints.isEmpty()) {
+                    Box(
+                        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                        contentAlignment = Alignment.Center,
+                    ) { Text("Không có dữ liệu GPS", style = MaterialTheme.typography.bodyMedium) }
+                } else {
+                    RoutePlaybackMap(points = state.routePoints, modifier = Modifier.fillMaxSize())
+                }
+            }
+
             Text(
                 "${activity.type} · ${activity.startTime.atZone(ZoneId.systemDefault()).format(HEADER_DATE)}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            DistanceHero(activity.distanceMeters)
 
             FlatCard {
                 StatStrip(
                     listOf(
-                        StatCell("Quãng đường", formatDistanceUnit(activity.distanceMeters)),
                         StatCell("Pace", formatPaceUnit(activity.avgPaceSecPerKm)),
                         StatCell("Thời gian di chuyển", formatClock(activity.movingTime.inWholeSeconds)),
                     ),
@@ -314,7 +317,7 @@ private fun RpeEditor(current: Int?, onSave: (Int) -> Unit) {
             valueRange = 1f..10f,
             steps = 8,
         )
-        Button(onClick = { onSave(rpe) }) {
+        PremiumButton(onClick = { onSave(rpe) }) {
             Text(if (current == null) "Lưu RPE" else "Cập nhật RPE")
         }
     }
@@ -412,7 +415,7 @@ private fun FloatingBackButton(onClick: () -> Unit, modifier: Modifier = Modifie
         shadowElevation = 2.dp,
     ) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
+            Icon(AthleticIcons.Back, contentDescription = "Quay lại")
         }
     }
 }

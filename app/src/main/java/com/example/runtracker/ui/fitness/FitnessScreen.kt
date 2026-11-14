@@ -1,5 +1,6 @@
 package com.example.runtracker.ui.fitness
 
+import com.example.runtracker.ui.icons.AthleticIcons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,18 +15,10 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.TrendingDown
-import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import com.example.runtracker.ui.components.AthleticIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -79,8 +72,8 @@ fun FitnessScreen(
                 title = "Fitness & Freshness",
                 navigationIcon = if (onBack != null) {
                     {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
+                        AthleticIconButton(onClick = onBack) {
+                            Icon(AthleticIcons.Back, contentDescription = "Quay lại")
                         }
                     }
                 } else null,
@@ -122,9 +115,9 @@ fun FitnessScreen(
                     footerGrid = {
                         IconStatGrid(
                             listOf(
-                                IconStatTileData(Icons.Filled.TrendingUp, "Fitness", latest.ctl.roundToInt().toString()),
-                                IconStatTileData(Icons.Filled.TrendingDown, "Fatigue", latest.atl.roundToInt().toString()),
-                                IconStatTileData(Icons.Filled.Favorite, "Form", latest.tsb.roundToInt().toString()),
+                                IconStatTileData(AthleticIcons.TrendUp, "Fitness", latest.ctl.roundToInt().toString()),
+                                IconStatTileData(AthleticIcons.TrendDown, "Fatigue", latest.atl.roundToInt().toString()),
+                                IconStatTileData(AthleticIcons.HeartRate, "Form", latest.tsb.roundToInt().toString()),
                             ),
                         )
                     },
@@ -162,23 +155,16 @@ fun FitnessScreen(
     }
 }
 
-/** Carousel mẹo tập luyện kiểu GoRun "Tips": nền gradient token màu, chú thích mờ phía dưới. */
+/** Carousel mẹo tập luyện dùng nền tonal và điểm nhấn theo theme. */
 @Composable
 private fun TipsSection() {
-    val gradients = listOf(
-        listOf(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.primary),
-        listOf(MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.tertiary),
-        listOf(MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.secondary),
-        listOf(MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.surfaceContainerHigh),
-    )
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         SectionHeader(title = "Mẹo chạy bộ")
         LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-            itemsIndexed(FITNESS_TIPS) { index, tip ->
+            itemsIndexed(FITNESS_TIPS) { _, tip ->
                 TipCard(
                     icon = tip.icon,
                     text = tip.text,
-                    gradientColors = gradients[index % gradients.size],
                 )
             }
         }
@@ -188,10 +174,10 @@ private fun TipsSection() {
 private data class FitnessTip(val icon: androidx.compose.ui.graphics.vector.ImageVector, val text: String)
 
 private val FITNESS_TIPS = listOf(
-    FitnessTip(Icons.Filled.Favorite, "Nhập mức gắng sức (RPE) sau mỗi buổi tập để theo dõi tải tập luyện."),
-    FitnessTip(Icons.Filled.LocationOn, "Giữ điện thoại lộ thiên khi chạy để tránh tín hiệu GPS yếu làm lệch quãng đường."),
-    FitnessTip(Icons.Filled.TrendingUp, "TSB âm sâu kéo dài là dấu hiệu nên giảm tải, tránh chấn thương."),
-    FitnessTip(Icons.Filled.Build, "Một số máy (Xiaomi, Oppo...) tự tắt app nền — nhớ miễn tối ưu pin khi ghi buổi tập."),
+    FitnessTip(AthleticIcons.HeartRate, "Nhập mức gắng sức (RPE) sau mỗi buổi tập để theo dõi tải tập luyện."),
+    FitnessTip(AthleticIcons.Gps, "Giữ điện thoại lộ thiên khi chạy để tránh tín hiệu GPS yếu làm lệch quãng đường."),
+    FitnessTip(AthleticIcons.TrendUp, "TSB âm sâu kéo dài là dấu hiệu nên giảm tải, tránh chấn thương."),
+    FitnessTip(AthleticIcons.Tools, "Một số máy (Xiaomi, Oppo...) tự tắt app nền — nhớ miễn tối ưu pin khi ghi buổi tập."),
 )
 
 /** Thẻ "Gợi ý hôm nay" kiểu Figma Insights: icon tròn + heading + mô tả + CTA dạng link. */
@@ -205,7 +191,7 @@ private fun SuggestionCard(suggestion: DailySuggestion, hasGoal: Boolean, onOpen
             .padding(Spacing.lg),
     ) {
         Icon(
-            Icons.Filled.Lightbulb,
+            AthleticIcons.Tip,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onPrimaryContainer,
             modifier = Modifier.padding(top = 2.dp),

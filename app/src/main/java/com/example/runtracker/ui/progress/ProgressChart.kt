@@ -13,6 +13,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import com.example.runtracker.ui.theme.LocalReducedMotion
+import com.example.runtracker.ui.theme.LocalPremiumPalette
+import com.example.runtracker.ui.theme.animatedMetricFraction
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,6 +37,9 @@ fun ProgressBarChart(buckets: List<PeriodBucket>, modifier: Modifier = Modifier)
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
         buckets.forEach { bucket ->
+            val target = (bucket.distanceMeters / maxDistance).toFloat().coerceIn(0f, 1f)
+            val animated by animatedMetricFraction(target)
+            val fraction = if (LocalReducedMotion.current) target else animated
             Column(
                 Modifier.weight(1f),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -44,9 +51,9 @@ fun ProgressBarChart(buckets: List<PeriodBucket>, modifier: Modifier = Modifier)
                     Box(
                         Modifier
                             .fillMaxWidth()
-                            .height((BAR_AREA_HEIGHT.value * (bucket.distanceMeters / maxDistance).toFloat().coerceIn(0.03f, 1f)).dp)
+                            .height((BAR_AREA_HEIGHT.value * fraction).dp)
                             .clip(RoundedCornerShape(4.dp))
-                            .background(MaterialTheme.colorScheme.primary),
+                            .background(LocalPremiumPalette.current.progressGradient),
                     )
                 }
                 Spacer(Modifier.height(Spacing.xs))

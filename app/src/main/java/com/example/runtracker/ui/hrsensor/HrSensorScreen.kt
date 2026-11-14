@@ -1,5 +1,6 @@
 package com.example.runtracker.ui.hrsensor
 
+import com.example.runtracker.ui.icons.AthleticIcons
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -10,14 +11,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
+import com.example.runtracker.ui.components.PremiumButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import com.example.runtracker.ui.components.AthleticIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -71,8 +70,8 @@ fun HrSensorScreen(
             TopAppBar(
                 title = { Text("Đai nhịp tim") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
+                    AthleticIconButton(onClick = onBack) {
+                        Icon(AthleticIcons.Back, contentDescription = "Quay lại")
                     }
                 },
             )
@@ -121,7 +120,7 @@ fun HrSensorScreen(
                 }
             }
 
-            Button(
+            PremiumButton(
                 onClick = ::scanWithPermission,
                 enabled = !viewModel.scanning,
                 modifier = Modifier.fillMaxWidth(),

@@ -1,7 +1,9 @@
 package com.example.runtracker.ui.complete
 
+import com.example.runtracker.ui.icons.AthleticIcons
 import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -21,15 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.DirectionsRun
-import androidx.compose.material.icons.filled.DirectionsWalk
-import androidx.compose.material.icons.filled.EmojiEvents
-import androidx.compose.material.icons.filled.LocalFireDepartment
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material3.Button
+import com.example.runtracker.ui.components.PremiumButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -60,6 +54,7 @@ import com.example.runtracker.ui.components.IconStatGrid
 import com.example.runtracker.ui.components.IconStatTileData
 import com.example.runtracker.ui.components.StravaLabel
 import com.example.runtracker.ui.theme.Spacing
+import com.example.runtracker.ui.theme.LocalReducedMotion
 import kotlinx.coroutines.delay
 
 /**
@@ -81,6 +76,7 @@ fun RunCompleteScreen(
     val activity = viewModel.activity
     val records = viewModel.records
     val context = LocalContext.current
+    val reduced = LocalReducedMotion.current
 
     var contentVisible by remember { mutableStateOf(false) }
     LaunchedEffect(viewModel.loading) {
@@ -109,7 +105,7 @@ fun RunCompleteScreen(
                 if (!viewModel.loading) {
                     AnimatedVisibility(
                         visible = contentVisible,
-                        enter = fadeIn(tween(350)) + slideInVertically(tween(350)) { it / 4 },
+                        enter = if (reduced) EnterTransition.None else fadeIn(tween(350)) + slideInVertically(tween(350)) { it / 4 },
                     ) {
                         CelebrationHeader(records, viewModel.quote, viewModel.athleteName)
                     }
@@ -119,7 +115,7 @@ fun RunCompleteScreen(
                     Spacer(Modifier.height(Spacing.xl))
                     AnimatedVisibility(
                         visible = contentVisible,
-                        enter = fadeIn(tween(400, delayMillis = 150)) +
+                        enter = if (reduced) EnterTransition.None else fadeIn(tween(400, delayMillis = 150)) +
                             slideInVertically(tween(400, delayMillis = 150)) { it / 3 },
                     ) {
                         FlatCard { IconStatGrid(statTiles(a)) }
@@ -136,10 +132,10 @@ fun RunCompleteScreen(
 
             AnimatedVisibility(
                 visible = contentVisible,
-                enter = fadeIn(tween(300, delayMillis = 300)),
+                enter = if (reduced) EnterTransition.None else fadeIn(tween(300, delayMillis = 300)),
             ) {
                 Column(Modifier.fillMaxWidth().padding(Spacing.screen)) {
-                    Button(
+                    PremiumButton(
                         onClick = { onViewDetail(viewModel.activityId) },
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text("Xem chi tiết") }
@@ -154,21 +150,21 @@ fun RunCompleteScreen(
             }
         }
 
-        if (contentVisible) {
+        if (contentVisible && !reduced) {
             ConfettiOverlay(Modifier.fillMaxSize())
         }
     }
 }
 
 private fun statTiles(a: Activity): List<IconStatTileData> = buildList {
-    add(IconStatTileData(Icons.Filled.LocationOn, "Quãng đường", formatDistanceKm(a.distanceMeters)))
-    add(IconStatTileData(Icons.Filled.Timer, "Thời gian", formatClock(a.movingTime.inWholeSeconds)))
-    add(IconStatTileData(Icons.Filled.DirectionsRun, "Nhịp độ", formatPace(a.avgPaceSecPerKm)))
+    add(IconStatTileData(AthleticIcons.Distance, "Quãng đường", formatDistanceKm(a.distanceMeters)))
+    add(IconStatTileData(AthleticIcons.Duration, "Thời gian", formatClock(a.movingTime.inWholeSeconds)))
+    add(IconStatTileData(AthleticIcons.Pace, "Nhịp độ", formatPace(a.avgPaceSecPerKm)))
     a.calories?.takeIf { it > 0 }?.let {
-        add(IconStatTileData(Icons.Filled.LocalFireDepartment, "Calo", it.toString(), unit = "kcal"))
+        add(IconStatTileData(AthleticIcons.Calories, "Calo", it.toString(), unit = "kcal"))
     }
     a.steps?.takeIf { it > 0 }?.let {
-        add(IconStatTileData(Icons.Filled.DirectionsWalk, "Bước chân", "%,d".format(it)))
+        add(IconStatTileData(AthleticIcons.Walking, "Bước chân", "%,d".format(it)))
     }
 }
 
@@ -222,6 +218,7 @@ private fun CelebrationHeader(records: List<PersonalRecord>, quote: String, athl
 
 @Composable
 private fun RecordsList(records: List<PersonalRecord>) {
+    val reduced = LocalReducedMotion.current
     Column(
         Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(Spacing.sm),
@@ -232,13 +229,13 @@ private fun RecordsList(records: List<PersonalRecord>) {
             // truyền true ngay từ đầu) sẽ không có hiệu ứng gì để chạy; state nội bộ này mới thật
             // sự bắt đầu ở false rồi bật lên true, nên hiệu ứng so le mới thực sự chạy.
             var itemVisible by remember { mutableStateOf(false) }
-            LaunchedEffect(Unit) {
-                delay(150L + index * 80L)
+            LaunchedEffect(reduced) {
+                if (!reduced) delay(150L + index * 80L)
                 itemVisible = true
             }
             AnimatedVisibility(
-                visible = itemVisible,
-                enter = fadeIn(tween(300)) + slideInVertically(tween(300)) { it / 2 },
+                visible = reduced || itemVisible,
+                enter = if (reduced) EnterTransition.None else fadeIn(tween(300)) + slideInVertically(tween(300)) { it / 2 },
             ) {
                 FlatCard {
                     StravaLabel(record.label)
@@ -258,8 +255,10 @@ private fun RecordsList(records: List<PersonalRecord>) {
  */
 @Composable
 private fun CelebrationBadge(isRecord: Boolean, modifier: Modifier = Modifier) {
+    val reduced = LocalReducedMotion.current
     val scale = remember { Animatable(0f) }
-    LaunchedEffect(isRecord) {
+    LaunchedEffect(isRecord, reduced) {
+        if (reduced) { scale.snapTo(1f); return@LaunchedEffect }
         scale.animateTo(
             1f,
             animationSpec = spring(
@@ -272,27 +271,27 @@ private fun CelebrationBadge(isRecord: Boolean, modifier: Modifier = Modifier) {
         Box(
             Modifier
                 .size(128.dp)
-                .scale(scale.value)
+                .scale(if (reduced) 1f else scale.value)
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)),
         )
         Box(
             Modifier
                 .size(96.dp)
-                .scale(scale.value)
+                .scale(if (reduced) 1f else scale.value)
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)),
         )
         Box(
             Modifier
                 .size(68.dp)
-                .scale(scale.value)
+                .scale(if (reduced) 1f else scale.value)
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.primary),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                if (isRecord) Icons.Filled.EmojiEvents else Icons.Filled.Check,
+                if (isRecord) AthleticIcons.PersonalBest else AthleticIcons.Check,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier.size(34.dp),

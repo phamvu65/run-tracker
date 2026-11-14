@@ -1,5 +1,6 @@
 package com.example.runtracker.ui.tracking
 
+import com.example.runtracker.ui.icons.AthleticIcons
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -25,9 +26,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -77,6 +75,8 @@ import com.example.runtracker.ui.components.StatCell
 import com.example.runtracker.ui.components.StatStrip
 import com.example.runtracker.ui.components.StravaLabel
 import com.example.runtracker.ui.theme.Spacing
+import com.example.runtracker.ui.theme.LocalPremiumPalette
+import com.example.runtracker.ui.components.PremiumButton
 
 @Composable
 fun TrackingScreen(
@@ -210,78 +210,112 @@ fun TrackingScreen(
     // Lúc IDLE service chưa chạy nên `state.gpsSignalOk` không có ý nghĩa gì — dùng tín hiệu fix
     // thật từ chính bản đồ (osmdroid) để banner không "nói dối" là đã kết nối trước khi có fix.
     var idleGpsFix by remember { mutableStateOf(false) }
+    var showLiveMap by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(state.status) {
+        if (state.status == TrackingStatus.IDLE) showLiveMap = false
+    }
+
+    fun stopCurrentRun() {
+        if (state.movingTimeSeconds == 0L) {
+            showNoMovementDialog = true
+        } else {
+            LocationTrackingService.stop(context)
+        }
+    }
 
     Box(modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        TrackingMap(
-            plannedRoute = plannedRoute,
-            trace = liveTrace,
-            current = current,
-            follow = state.status != TrackingStatus.IDLE,
-            hasPermission = hasPermission,
-            modifier = Modifier.fillMaxSize(),
-            controlsAlignment = BiasAlignment(horizontalBias = 1f, verticalBias = -0.15f),
-            onFixAvailable = { idleGpsFix = it },
-        )
+        if (!state.isActive || showLiveMap) {
+            TrackingMap(
+                plannedRoute = plannedRoute,
+                trace = liveTrace,
+                current = current,
+                follow = state.status != TrackingStatus.IDLE,
+                hasPermission = hasPermission,
+                modifier = Modifier.fillMaxSize(),
+                controlsAlignment = BiasAlignment(horizontalBias = 1f, verticalBias = -0.15f),
+                onFixAvailable = { idleGpsFix = it },
+            )
 
-        // ---- Lớp phủ trên ----
-        Column(
-            Modifier
-                .align(Alignment.TopCenter)
-                .padding(Spacing.screen),
-            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
-        ) {
-            if (state.status == TrackingStatus.IDLE &&
-                !BatteryOptimization.isIgnoringOptimizations(context)
+            // ---- Lớp phủ trên ----
+            Column(
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(Spacing.screen),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
             ) {
-                BatteryOptimizationBanner(context)
-            }
-            if (state.navRouteName != null) {
-                if (state.navRerouting) Text("Đang tính đường quay lại lộ trình…")
-                NavigationCard(
-                    routeName = state.navRouteName!!,
-                    instruction = state.navInstruction,
-                    distanceMeters = state.navDistanceMeters,
-                    offRoute = state.navOffRoute,
-                    stepIndex = state.navStepIndex,
-                    stepCount = state.navStepCount,
-                )
-                TextButton(onClick = { voiceEnabled = !voiceEnabled }) {
-                    Text(if (voiceEnabled) "🔊 Tắt đọc chỉ đường" else "🔈 Bật đọc chỉ đường")
+                if (state.isActive) {
+                    Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surface) {
+                        TextButton(onClick = { showLiveMap = false }) { Text("Xem số liệu") }
+                    }
+                }
+                if (state.status == TrackingStatus.IDLE &&
+                    !BatteryOptimization.isIgnoringOptimizations(context)
+                ) {
+                    BatteryOptimizationBanner(context)
+                }
+                if (state.navRouteName != null) {
+                    if (state.navRerouting) Text("Đang tính đường quay lại lộ trình…")
+                    NavigationCard(
+                        routeName = state.navRouteName!!,
+                        instruction = state.navInstruction,
+                        distanceMeters = state.navDistanceMeters,
+                        offRoute = state.navOffRoute,
+                        stepIndex = state.navStepIndex,
+                        stepCount = state.navStepCount,
+                    )
+                    TextButton(onClick = { voiceEnabled = !voiceEnabled }) {
+                        Icon(if (voiceEnabled) AthleticIcons.VolumeOn else AthleticIcons.VolumeOff, contentDescription = null)
+                        Spacer(Modifier.width(Spacing.sm))
+                        Text(if (voiceEnabled) "Tắt đọc chỉ đường" else "Bật đọc chỉ đường")
+                    }
                 }
             }
-        }
 
-        // ---- Bảng điều khiển dưới ----
-        RecordPanel(
-            state = state,
-            hasPermission = hasPermission,
-            locationEnabled = locationEnabled,
-            hasIdleGpsFix = idleGpsFix,
-            plannedType = plannedType,
-            selectedRoute = selectedRoute,
-            beaconSharing = beacon.sharing,
-            beaconCode = beacon.code,
-            onRequestPermission = { withPermission {} },
-            onEnableLocation = ::openLocationSettings,
-            onStart = {
-                withPermission {
-                    if (locationEnabled) LocationTrackingService.start(context) else openLocationSettings()
-                }
-            },
-            onPause = { LocationTrackingService.pause(context) },
-            onResume = { LocationTrackingService.resume(context) },
-            onStop = {
-                if (state.movingTimeSeconds == 0L) {
-                    showNoMovementDialog = true
-                } else {
-                    LocationTrackingService.stop(context)
-                }
-            },
-            onPickSport = { showSportPicker = true },
-            onPickRoute = { showRoutePicker = true },
-            onToggleBeacon = viewModel::setBeaconSharing,
-            modifier = Modifier.align(Alignment.BottomCenter),
-        )
+            // ---- Bảng điều khiển dưới ----
+            RecordPanel(
+                state = state,
+                hasPermission = hasPermission,
+                locationEnabled = locationEnabled,
+                hasIdleGpsFix = idleGpsFix,
+                plannedType = plannedType,
+                selectedRoute = selectedRoute,
+                beaconSharing = beacon.sharing,
+                beaconCode = beacon.code,
+                onRequestPermission = { withPermission {} },
+                onEnableLocation = ::openLocationSettings,
+                onStart = {
+                    withPermission {
+                        if (locationEnabled) LocationTrackingService.start(context) else openLocationSettings()
+                    }
+                },
+                onPause = { LocationTrackingService.pause(context) },
+                onResume = { LocationTrackingService.resume(context) },
+                onStop = ::stopCurrentRun,
+                onPickSport = { showSportPicker = true },
+                onPickRoute = { showRoutePicker = true },
+                onToggleBeacon = viewModel::setBeaconSharing,
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
+        }
+        if (state.isActive && !showLiveMap) {
+            RecordingDashboard(
+                state = state,
+                sportName = plannedType.vi(),
+                showSpeed = plannedType == ActivityType.CYCLING,
+                onPauseResume = {
+                    if (state.status == TrackingStatus.PAUSED) LocationTrackingService.resume(context)
+                    else LocationTrackingService.pause(context)
+                },
+                onStop = ::stopCurrentRun,
+                onShowMap = { showLiveMap = true },
+                voiceEnabled = voiceEnabled,
+                onToggleVoice = { voiceEnabled = !voiceEnabled },
+                beaconSharing = beacon.sharing,
+                beaconCode = beacon.code,
+                onToggleBeacon = { viewModel.setBeaconSharing(!beacon.sharing) },
+            )
+        }
     }
 }
 
@@ -350,7 +384,8 @@ private fun RecordPanel(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
         color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 12.dp,
+        shadowElevation = 6.dp,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)),
     ) {
         Column(
             Modifier
@@ -419,16 +454,15 @@ private fun RecordPanel(
                     CircleAction(
                         label = plannedType.vi(),
                         onClick = onPickSport,
-                        content = { Text(plannedType.glyph(), style = MaterialTheme.typography.titleLarge) },
+                        content = { Icon(plannedType.athleticIcon(), contentDescription = null) },
                     )
                     BigButton(
-                        color = MaterialTheme.colorScheme.primary,
                         onClick = onStart,
                     ) {
                         Icon(
-                            Icons.Filled.PlayArrow,
+                            AthleticIcons.Play,
                             contentDescription = "Bắt đầu",
-                            tint = MaterialTheme.colorScheme.onPrimary,
+                            tint = LocalPremiumPalette.current.onAccent,
                             modifier = Modifier.size(40.dp),
                         )
                     }
@@ -437,7 +471,7 @@ private fun RecordPanel(
                         onClick = onPickRoute,
                         content = {
                             Icon(
-                                Icons.Filled.Add,
+                                AthleticIcons.RoutePlanning,
                                 contentDescription = "Chọn lộ trình",
                                 tint = MaterialTheme.colorScheme.onSurface,
                             )
@@ -451,18 +485,17 @@ private fun RecordPanel(
                         content = { StopGlyph(MaterialTheme.colorScheme.onErrorContainer) },
                     )
                     BigButton(
-                        color = MaterialTheme.colorScheme.primary,
                         onClick = if (paused) onResume else onPause,
                     ) {
                         if (paused) {
                             Icon(
-                                Icons.Filled.PlayArrow,
+                                AthleticIcons.Play,
                                 contentDescription = "Tiếp tục",
-                                tint = MaterialTheme.colorScheme.onPrimary,
+                                tint = LocalPremiumPalette.current.onAccent,
                                 modifier = Modifier.size(40.dp),
                             )
                         } else {
-                            PauseGlyph(MaterialTheme.colorScheme.onPrimary)
+                            PauseGlyph(LocalPremiumPalette.current.onAccent)
                         }
                     }
                     if (FeatureFlags.BEACON_LOCATION_SHARING) {
@@ -474,7 +507,7 @@ private fun RecordPanel(
                             } else {
                                 MaterialTheme.colorScheme.surfaceContainerHighest
                             },
-                            content = { Text("📡", style = MaterialTheme.typography.titleMedium) },
+                            content = { Icon(AthleticIcons.Signal, contentDescription = null) },
                         )
                     }
                 }
@@ -529,30 +562,35 @@ private fun GpsStrip(
     val bg: Color
     val fg: Color
     val label: String
+    val statusIcon: androidx.compose.ui.graphics.vector.ImageVector
     val onClick: (() -> Unit)?
     when {
         !hasPermission -> {
             bg = MaterialTheme.colorScheme.errorContainer
             fg = MaterialTheme.colorScheme.onErrorContainer
-            label = "⚠  Cần quyền vị trí — chạm để cấp"
+            label = "Cần quyền vị trí — chạm để cấp"
+            statusIcon = AthleticIcons.Warning
             onClick = onRequestPermission
         }
         !locationEnabled -> {
             bg = MaterialTheme.colorScheme.errorContainer
             fg = MaterialTheme.colorScheme.onErrorContainer
-            label = "📍  GPS đang tắt — chạm để bật"
+            label = "GPS đang tắt — chạm để bật"
+            statusIcon = AthleticIcons.GpsOff
             onClick = onEnableLocation
         }
         waitingForFix -> {
             bg = MaterialTheme.colorScheme.tertiaryContainer
             fg = MaterialTheme.colorScheme.onTertiaryContainer
-            label = "📡  Đang chờ tín hiệu GPS…"
+            label = "Đang chờ tín hiệu GPS…"
+            statusIcon = AthleticIcons.Signal
             onClick = null
         }
         else -> {
             bg = MaterialTheme.colorScheme.primaryContainer
             fg = MaterialTheme.colorScheme.onPrimaryContainer
-            label = "📶  Đã kết nối GPS"
+            label = "Đã kết nối GPS"
+            statusIcon = AthleticIcons.Gps
             onClick = null
         }
     }
@@ -564,22 +602,24 @@ private fun GpsStrip(
             .clickable(enabled = onClick != null, onClick = onClick ?: {})
             .padding(vertical = Spacing.sm, horizontal = Spacing.md),
         horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
+        Icon(statusIcon, contentDescription = null, tint = fg, modifier = Modifier.size(24.dp))
+        Spacer(Modifier.width(Spacing.sm))
         Text(label, style = MaterialTheme.typography.labelLarge, color = fg)
     }
 }
 
 @Composable
 private fun BigButton(
-    color: Color,
     onClick: () -> Unit,
     content: @Composable () -> Unit,
 ) {
-    Surface(
+    PremiumButton(
         onClick = onClick,
-        shape = CircleShape,
-        color = color,
+        shape = RoundedCornerShape(16.dp),
         modifier = Modifier.size(76.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
     ) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { content() }
     }
@@ -598,7 +638,7 @@ private fun CircleAction(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(Spacing.xs),
     ) {
-        Surface(onClick = onClick, shape = CircleShape, color = bg, modifier = Modifier.size(52.dp)) {
+        Surface(onClick = onClick, shape = RoundedCornerShape(12.dp), color = bg, modifier = Modifier.size(52.dp)) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { content() }
         }
         Text(
@@ -613,26 +653,12 @@ private fun CircleAction(
 
 @Composable
 private fun PauseGlyph(color: Color) {
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        repeat(2) {
-            Box(
-                Modifier
-                    .size(width = 7.dp, height = 26.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(color),
-            )
-        }
-    }
+    Icon(AthleticIcons.Pause, contentDescription = "Tạm dừng", tint = color, modifier = Modifier.size(32.dp))
 }
 
 @Composable
 private fun StopGlyph(color: Color) {
-    Box(
-        Modifier
-            .size(18.dp)
-            .clip(RoundedCornerShape(3.dp))
-            .background(color),
-    )
+    Icon(AthleticIcons.Stop, contentDescription = null, tint = color, modifier = Modifier.size(24.dp))
 }
 
 @Composable
@@ -672,11 +698,11 @@ private fun ActivityType.vi(): String = when (this) {
     ActivityType.OTHER -> "Khác"
 }
 
-private fun ActivityType.glyph(): String = when (this) {
-    ActivityType.RUNNING -> "🏃"
-    ActivityType.CYCLING -> "🚴"
-    ActivityType.WALKING -> "🚶"
-    ActivityType.OTHER -> "🏋"
+private fun ActivityType.athleticIcon(): androidx.compose.ui.graphics.vector.ImageVector = when (this) {
+    ActivityType.RUNNING -> AthleticIcons.Running
+    ActivityType.CYCLING -> AthleticIcons.Cycling
+    ActivityType.WALKING -> AthleticIcons.Walking
+    ActivityType.OTHER -> AthleticIcons.Training
 }
 
 @Composable
@@ -695,10 +721,10 @@ private fun SportPickerDialog(
                         onClick = { onSelect(t) },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text(
-                            (if (t == selected) "✓  " else "") + "${t.glyph()}  ${t.vi()}",
-                            modifier = Modifier.fillMaxWidth(),
-                        )
+                        Icon(t.athleticIcon(), contentDescription = null)
+                        Spacer(Modifier.width(Spacing.sm))
+                        Text(t.vi(), modifier = Modifier.weight(1f))
+                        if (t == selected) Icon(AthleticIcons.Check, contentDescription = "Đã chọn")
                     }
                 }
             }
@@ -767,7 +793,7 @@ private fun NavigationCard(
             StravaLabel(routeName)
             Text(
                 when {
-                    offRoute -> "⚠ Đã đi chệch route"
+                    offRoute -> "Đã đi chệch route"
                     instruction != null -> instruction
                     else -> "Bám theo route"
                 },

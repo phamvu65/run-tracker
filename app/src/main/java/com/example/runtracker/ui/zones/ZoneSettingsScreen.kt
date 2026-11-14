@@ -1,5 +1,6 @@
 package com.example.runtracker.ui.zones
 
+import com.example.runtracker.ui.icons.AthleticIcons
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,12 +11,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
+import com.example.runtracker.ui.components.PremiumButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import com.example.runtracker.ui.components.AthleticIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -120,7 +119,7 @@ fun ZoneSettingsScreen(
                     },
                 ) { Text("Đặt lại theo % maxHR") }
 
-                Button(
+                PremiumButton(
                     onClick = {
                         val zoneList = (0 until 5).map { i ->
                             HeartRateZone(
@@ -143,8 +142,8 @@ private fun ZoneTopBar(onBack: () -> Unit) {
     TopAppBar(
         title = { Text("Vùng nhịp tim") },
         navigationIcon = {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
+            AthleticIconButton(onClick = onBack) {
+                Icon(AthleticIcons.Back, contentDescription = "Quay lại")
             }
         },
     )

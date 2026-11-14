@@ -1,5 +1,6 @@
 package com.example.runtracker.ui.common
 
+import com.example.runtracker.ui.icons.AthleticIcons
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.DashPathEffect
@@ -15,8 +16,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -231,9 +230,9 @@ fun MapView.renderPath(
                         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                         icon = badgeDrawable(context, m.color, m.label, density)
                     }
-                    MarkerStyle.EMOJI -> {
+                    MarkerStyle.RUNNER -> {
                         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                        icon = emojiDrawable(context, m.label.orEmpty(), density)
+                        icon = runnerDrawable(context, m.color, density)
                     }
                     MarkerStyle.PIN -> setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                 }
@@ -403,15 +402,14 @@ fun MapControls(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         MapControlButton(onClick = onToggleStyle) {
-            Text(
-                if (style == MapStyle.STREET) "🛰" else "🗺",
-                style = MaterialTheme.typography.titleMedium,
-            )
+            Icon(if (style == MapStyle.STREET) AthleticIcons.Satellite else AthleticIcons.Map,
+                contentDescription = if (style == MapStyle.STREET) "Đổi sang vệ tinh" else "Đổi sang đường phố",
+                tint = MaterialTheme.colorScheme.primary)
         }
         if (onRecenter != null) {
             MapControlButton(onClick = onRecenter) {
                 Icon(
-                    Icons.Filled.LocationOn,
+                    AthleticIcons.Gps,
                     contentDescription = "Về vị trí của tôi",
                     tint = MaterialTheme.colorScheme.primary,
                 )

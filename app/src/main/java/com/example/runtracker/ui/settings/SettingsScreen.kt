@@ -1,5 +1,6 @@
 package com.example.runtracker.ui.settings
 
+import com.example.runtracker.ui.icons.AthleticIcons
 import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -13,12 +14,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import com.example.runtracker.ui.components.AthleticIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -71,8 +70,8 @@ fun SettingsScreen(
             com.example.runtracker.ui.components.CompactTopHeader(
                 title = "Cài đặt",
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
+                    AthleticIconButton(onClick = onBack) {
+                        Icon(AthleticIcons.Back, contentDescription = "Quay lại")
                     }
                 },
             )

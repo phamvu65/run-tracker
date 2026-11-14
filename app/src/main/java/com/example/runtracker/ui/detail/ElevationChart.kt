@@ -16,6 +16,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import com.example.runtracker.domain.model.RoutePoint
 import com.example.runtracker.domain.tracking.RouteStats
+import com.example.runtracker.ui.theme.metricReveal
 import kotlin.math.roundToInt
 
 /**
@@ -37,7 +38,7 @@ fun ElevationChart(
     val lineColor = MaterialTheme.colorScheme.primary
     val fillColor = lineColor.copy(alpha = 0.18f)
 
-    Column(modifier) {
+    Column(modifier.metricReveal(points)) {
         Text("Độ cao", style = MaterialTheme.typography.titleSmall)
         Text(
             "${minAlt.roundToInt()}–${maxAlt.roundToInt()} m",

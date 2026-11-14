@@ -1,5 +1,6 @@
 package com.example.runtracker.ui.profile
 
+import com.example.runtracker.ui.icons.AthleticIcons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,24 +17,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.DirectionsRun
-import androidx.compose.material.icons.filled.DirectionsWalk
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.EmojiEvents
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.LocalFireDepartment
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Place
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material.icons.filled.TrendingDown
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -58,16 +41,14 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.runtracker.core.FeatureFlags
 import com.example.runtracker.core.formatClock
-import com.example.runtracker.core.formatDistanceKm
-import com.example.runtracker.core.formatPace
 import com.example.runtracker.ui.components.AthleteAvatar
 import com.example.runtracker.ui.components.IconStatGrid
 import com.example.runtracker.ui.components.IconStatTileData
 import com.example.runtracker.ui.components.PeriodSwitch
-import com.example.runtracker.ui.components.StatCell
-import com.example.runtracker.ui.components.StatStrip
 import com.example.runtracker.ui.components.StravaLabel
 import com.example.runtracker.ui.theme.Spacing
+import com.example.runtracker.ui.theme.formatDistanceUnit
+import com.example.runtracker.ui.theme.formatPaceUnit
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.TextStyle
@@ -118,7 +99,7 @@ fun ProfileScreen(
                 Modifier.fillMaxWidth().padding(horizontal = Spacing.screen),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                AthleteAvatar(name, size = 64.dp)
+                AthleteAvatar(name, size = 48.dp)
                 Spacer(Modifier.width(Spacing.lg))
                 Column {
                     StravaLabel("Thành viên từ ${summary.memberSinceYear}")
@@ -145,13 +126,7 @@ fun ProfileScreen(
 
             Spacer(Modifier.height(Spacing.lg))
             Box(Modifier.padding(horizontal = Spacing.screen)) {
-                StatStrip(
-                    listOf(
-                        StatCell("Hoạt động", summary.activityCount.toString()),
-                        StatCell("Quãng đường", "%.1f km".format(summary.totalDistanceMeters / 1000.0)),
-                        StatCell("Thời gian", formatHours(summary.totalMovingTime.inWholeSeconds)),
-                    ),
-                )
+                ProfileActivityOverview(summary)
             }
 
             Spacer(Modifier.height(Spacing.lg))
@@ -159,7 +134,7 @@ fun ProfileScreen(
                 onClick = onOpenInfo,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screen),
             ) {
-                Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                Icon(AthleticIcons.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(Spacing.sm))
                 Text("Chỉnh sửa hồ sơ")
             }
@@ -199,27 +174,27 @@ fun ProfileScreen(
             HorizontalDivider(thickness = 8.dp, color = MaterialTheme.colorScheme.surfaceContainerLow)
 
             // ---- Danh sách mục ----
-            ProfileMenuRow(Icons.Filled.EmojiEvents, "Thành tích", onOpenRecords)
+            ProfileMenuRow(AthleticIcons.PersonalBest, "Thành tích", onOpenRecords)
             MenuDivider()
-            ProfileMenuRow(Icons.Filled.Place, "Đoạn (Segments)", onOpenSegments)
+            ProfileMenuRow(AthleticIcons.RoutePlanning, "Đoạn (Segments)", onOpenSegments)
             MenuDivider()
-            ProfileMenuRow(Icons.Filled.DateRange, "Kế hoạch tập luyện", onOpenPlan)
+            ProfileMenuRow(AthleticIcons.History, "Kế hoạch tập luyện", onOpenPlan)
             MenuDivider()
             if (FeatureFlags.HEART_RATE_INTEGRATION) {
-                ProfileMenuRow(Icons.Filled.Favorite, "Vùng nhịp tim", onOpenZones)
+                ProfileMenuRow(AthleticIcons.HeartRate, "Vùng nhịp tim", onOpenZones)
                 MenuDivider()
             }
-            ProfileMenuRow(Icons.Filled.LocationOn, "Lộ trình đã lưu", onOpenRoutes)
+            ProfileMenuRow(AthleticIcons.RoutePlanning, "Lộ trình đã lưu", onOpenRoutes)
             MenuDivider()
             if (FeatureFlags.HEART_RATE_INTEGRATION) {
-                ProfileMenuRow(Icons.Filled.Build, "Đai nhịp tim (BLE)", onOpenHrSensor)
+                ProfileMenuRow(AthleticIcons.HeartRate, "Đai nhịp tim (BLE)", onOpenHrSensor)
                 MenuDivider()
             }
             if (FeatureFlags.BEACON_LOCATION_SHARING) {
-                ProfileMenuRow(Icons.Filled.Share, "Theo dõi trực tiếp (Beacon)", onOpenBeacon)
+                ProfileMenuRow(AthleticIcons.Share, "Theo dõi trực tiếp (Beacon)", onOpenBeacon)
                 MenuDivider()
             }
-            ProfileMenuRow(Icons.Filled.Tune, "Cài đặt", onOpenSettings)
+            ProfileMenuRow(AthleticIcons.Settings, "Cài đặt", onOpenSettings)
         }
     }
 }
@@ -233,14 +208,14 @@ private fun WeeklyDiagramCard(stat: PeriodStat, days: List<DayStat>, modifier: M
         modifier
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.extraLarge)
-            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .background(MaterialTheme.colorScheme.surface)
             .padding(Spacing.lg),
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         DeltaRow(deltaPct = stat.deltaPct, comparisonLabel = "tuần trước")
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text(
-                formatDistanceKm(stat.distanceMeters),
+                formatDistanceUnit(stat.distanceMeters),
                 style = MaterialTheme.typography.displaySmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
@@ -272,7 +247,7 @@ private fun MonthlyDiagramCard(
         modifier
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.extraLarge)
-            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .background(MaterialTheme.colorScheme.surface)
             .padding(Spacing.lg),
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
@@ -280,7 +255,7 @@ private fun MonthlyDiagramCard(
             DeltaRow(deltaPct = stat.deltaPct, comparisonLabel = "tháng trước", modifier = Modifier.weight(1f))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Icon(
-                    Icons.Filled.CalendarMonth,
+                    AthleticIcons.Calendar,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(16.dp),
@@ -294,7 +269,7 @@ private fun MonthlyDiagramCard(
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text(
-                formatDistanceKm(stat.distanceMeters),
+                formatDistanceUnit(stat.distanceMeters),
                 style = MaterialTheme.typography.displaySmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
@@ -322,7 +297,7 @@ private fun DeltaRow(deltaPct: Double?, comparisonLabel: String, modifier: Modif
     val up = deltaPct >= 0
     Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         Icon(
-            if (up) Icons.Filled.TrendingUp else Icons.Filled.TrendingDown,
+            if (up) AthleticIcons.TrendUp else AthleticIcons.TrendDown,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(18.dp),
@@ -344,7 +319,7 @@ private fun PeriodIconBadge() {
             .background(MaterialTheme.colorScheme.surfaceContainerHighest),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(Icons.Filled.DirectionsRun, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+        Icon(AthleticIcons.Running, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
     }
 }
 
@@ -357,18 +332,18 @@ private fun ProfileStatGrid(stat: PeriodStat) {
     }
     IconStatGrid(
         listOfNotNull(
-            IconStatTileData(Icons.Filled.LocationOn, "Quãng đường", formatDistanceKm(stat.distanceMeters)),
-            IconStatTileData(Icons.Filled.DirectionsRun, "Nhịp độ TB", formatPace(paceSecPerKm)),
-            IconStatTileData(Icons.Filled.DirectionsWalk, "Bước chân", "%,d".format(stat.steps)),
-            IconStatTileData(Icons.Filled.Timer, "Thời gian", formatHours(stat.movingTime.inWholeSeconds)),
+            IconStatTileData(AthleticIcons.Distance, "Quãng đường", formatDistanceUnit(stat.distanceMeters)),
+            IconStatTileData(AthleticIcons.Pace, "Nhịp độ TB", formatPaceUnit(paceSecPerKm)),
+            IconStatTileData(AthleticIcons.Walking, "Bước chân", "%,d".format(stat.steps)),
+            IconStatTileData(AthleticIcons.Duration, "Thời gian", formatHours(stat.movingTime.inWholeSeconds)),
             if (FeatureFlags.HEART_RATE_INTEGRATION) IconStatTileData(
-                Icons.Filled.Favorite,
+                AthleticIcons.HeartRate,
                 "Nhịp tim TB",
                 stat.avgHeartRate?.toString() ?: "—",
                 unit = stat.avgHeartRate?.let { "bpm" },
             ) else null,
             IconStatTileData(
-                Icons.Filled.LocalFireDepartment,
+                AthleticIcons.Calories,
                 "Calo",
                 if (stat.calories > 0) stat.calories.toString() else "—",
                 unit = if (stat.calories > 0) "kcal" else null,
@@ -399,7 +374,7 @@ private fun ProfileMenuRow(icon: ImageVector, title: String, onClick: () -> Unit
             }
         }
         Icon(
-            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            AthleticIcons.Next,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )

@@ -1,5 +1,6 @@
 package com.example.runtracker.ui.manual
 
+import com.example.runtracker.ui.icons.AthleticIcons
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,13 +12,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
+import com.example.runtracker.ui.components.PremiumButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import com.example.runtracker.ui.components.AthleticIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -78,8 +77,8 @@ fun ManualActivityScreen(
             TopAppBar(
                 title = { Text("Nhập buổi tập") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
+                    AthleticIconButton(onClick = onBack) {
+                        Icon(AthleticIcons.Back, contentDescription = "Quay lại")
                     }
                 },
             )
@@ -162,7 +161,7 @@ fun ManualActivityScreen(
                         Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                     }
 
-                    Button(
+                    PremiumButton(
                         onClick = {
                             val distance = distanceKm.trim().replace(',', '.').toDoubleOrNull()
                             val duration = durationMinutes.trim().replace(',', '.').toDoubleOrNull()

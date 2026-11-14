@@ -1,5 +1,6 @@
 package com.example.runtracker.ui.routes
 
+import com.example.runtracker.ui.icons.AthleticIcons
 import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -9,15 +10,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import com.example.runtracker.ui.components.AthleticIconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -69,23 +65,23 @@ fun RouteDetailScreen(
             TopAppBar(
                 title = { Text(route?.name ?: "Route") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
+                    AthleticIconButton(onClick = onBack) {
+                        Icon(AthleticIcons.Back, contentDescription = "Quay lại")
                     }
                 },
                 actions = {
-                    IconButton(onClick = { route?.let { onEdit(it.id) } }) {
-                        Icon(Icons.Filled.Edit, contentDescription = "Sửa lộ trình")
+                    AthleticIconButton(onClick = { route?.let { onEdit(it.id) } }) {
+                        Icon(AthleticIcons.Edit, contentDescription = "Sửa lộ trình")
                     }
-                    IconButton(
+                    AthleticIconButton(
                         onClick = {
                             route?.polyline?.let { startOfflineDownload(context, mapView, it, downloadState) }
                         },
                     ) {
-                        Icon(Icons.Filled.Download, contentDescription = "Tải bản đồ offline")
+                        Icon(AthleticIcons.Download, contentDescription = "Tải bản đồ offline")
                     }
-                    IconButton(onClick = viewModel::delete) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Xoá route")
+                    AthleticIconButton(onClick = viewModel::delete) {
+                        Icon(AthleticIcons.Delete, contentDescription = "Xoá route")
                     }
                 },
             )

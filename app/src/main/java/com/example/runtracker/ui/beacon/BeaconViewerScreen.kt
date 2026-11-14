@@ -1,5 +1,6 @@
 package com.example.runtracker.ui.beacon
 
+import com.example.runtracker.ui.icons.AthleticIcons
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,14 +9,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
-import androidx.compose.material3.Button
+import com.example.runtracker.ui.components.PremiumButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import com.example.runtracker.ui.components.AthleticIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -60,8 +59,8 @@ fun BeaconViewerScreen(
             TopAppBar(
                 title = { Text("Theo dõi trực tiếp") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
+                    AthleticIconButton(onClick = onBack) {
+                        Icon(AthleticIcons.Back, contentDescription = "Quay lại")
                     }
                 },
             )
@@ -112,7 +111,7 @@ private fun CodeEntry(
             supportingText = error?.let { { Text(it) } },
             modifier = Modifier.fillMaxWidth(),
         )
-        Button(onClick = onFollow, modifier = Modifier.fillMaxWidth()) { Text("Theo dõi") }
+        PremiumButton(onClick = onFollow, modifier = Modifier.fillMaxWidth()) { Text("Theo dõi") }
     }
 }
 

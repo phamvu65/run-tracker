@@ -9,6 +9,7 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
@@ -79,10 +80,11 @@ private val DarkColors = darkColorScheme(
 
 @Composable
 fun RunTrackerTheme(
-    /** Mặc định bản sáng trắng ngà nhẹ nhàng, tươi mới. */
-    darkTheme: Boolean = false,
-    /** Mặc định tắt: luôn hiện bảng màu thương hiệu Teal/Coral/Kem, không đổi theo hình nền máy. */
+    /** Phù hợp mặc định DARK trong AppSettingsStore; vẫn tôn trọng lựa chọn đã lưu. */
+    darkTheme: Boolean = true,
+    /** Giữ nhận diện Black & Pink, không đổi theo hình nền máy. */
     dynamicColor: Boolean = false,
+    reduceMotion: Boolean? = null,
     content: @Composable () -> Unit,
 ) {
     val colorScheme = when {
@@ -104,10 +106,16 @@ fun RunTrackerTheme(
         }
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        shapes = Shapes,
-        content = content,
-    )
+    val reducedMotion = reduceMotion ?: if (view.isInEditMode) true else rememberSystemReducedMotion()
+    CompositionLocalProvider(
+        LocalPremiumPalette provides if (darkTheme) DarkPremiumPalette else LightPremiumPalette,
+        LocalReducedMotion provides reducedMotion,
+    ) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = Typography,
+            shapes = Shapes,
+            content = content,
+        )
+    }
 }

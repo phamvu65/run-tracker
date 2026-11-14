@@ -1,5 +1,6 @@
 package com.example.runtracker.ui.profile
 
+import com.example.runtracker.ui.icons.AthleticIcons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,10 +12,6 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DirectionsRun
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -84,9 +81,9 @@ fun MonthlyCalendarGrid(
         if (selectedStat != null && selectedStat.hasActivity) {
             val paceSecPerKm = selectedStat.movingTime.inWholeSeconds / (selectedStat.distanceMeters / 1000.0)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.lg)) {
-                IconStatChip(Icons.Filled.LocationOn, formatDistanceKm(selectedStat.distanceMeters))
-                IconStatChip(Icons.Filled.DirectionsRun, formatPace(paceSecPerKm))
-                IconStatChip(Icons.Filled.Timer, formatClock(selectedStat.movingTime.inWholeSeconds))
+                IconStatChip(AthleticIcons.Distance, formatDistanceKm(selectedStat.distanceMeters))
+                IconStatChip(AthleticIcons.Pace, formatPace(paceSecPerKm))
+                IconStatChip(AthleticIcons.Duration, formatClock(selectedStat.movingTime.inWholeSeconds))
             }
         } else {
             Text(

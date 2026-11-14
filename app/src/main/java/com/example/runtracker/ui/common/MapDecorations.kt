@@ -6,6 +6,9 @@ import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
+import androidx.core.content.ContextCompat
+import androidx.core.content.res.ResourcesCompat
+import com.example.runtracker.R
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import com.example.runtracker.domain.model.GeoPoint
@@ -19,9 +22,9 @@ import android.graphics.Path as AndroidPath
 
 /**
  * Kiểu vẽ mốc: ghim mặc định của osmdroid, chấm tròn có chữ (bắt đầu / kết thúc), hoặc một
- * emoji không nền (dùng cho hình người chạy khi xem lại buổi tập).
+ * biểu tượng người chạy Sharp khi xem lại buổi tập.
  */
-enum class MarkerStyle { PIN, BADGE, EMOJI }
+enum class MarkerStyle { PIN, BADGE, RUNNER }
 
 /** Màu mốc xuất phát / về đích — cố ý không lấy từ theme để luôn đọc được trên mọi nền bản đồ. */
 val RouteStartColor = Color(0xFF1B8A3A)
@@ -66,24 +69,27 @@ internal fun badgeDrawable(context: Context, fill: Color, label: String?, densit
         paint.color = AndroidColor.WHITE
         paint.textSize = 14f * density
         paint.textAlign = Paint.Align.CENTER
-        paint.typeface = Typeface.DEFAULT_BOLD
+        paint.typeface = ResourcesCompat.getFont(context, R.font.inter_semibold)
         val metrics = paint.fontMetrics
         canvas.drawText(label, radius, radius - (metrics.ascent + metrics.descent) / 2f, paint)
     }
     return BitmapDrawable(context.resources, bitmap)
 }
 
-/** Emoji vẽ không nền, căn giữa — dùng làm icon [org.osmdroid.views.overlay.Marker]. */
-internal fun emojiDrawable(context: Context, emoji: String, density: Float): Drawable {
-    val size = (32 * density).toInt().coerceAtLeast(8)
+/** Same Sharp runner as Compose, drawn on a contrasting disk over satellite/street tiles. */
+internal fun runnerDrawable(context: Context, tint: Color, density: Float): Drawable {
+    val size = (36 * density).toInt().coerceAtLeast(8)
     val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
     val canvas = AndroidCanvas(bitmap)
-    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        textSize = 22f * density
-        textAlign = Paint.Align.CENTER
-    }
-    val metrics = paint.fontMetrics
-    canvas.drawText(emoji, size / 2f, size / 2f - (metrics.ascent + metrics.descent) / 2f, paint)
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = AndroidColor.WHITE }
+    canvas.drawCircle(size / 2f, size / 2f, size / 2f, paint)
+    paint.color = AndroidColor.rgb(13, 13, 15)
+    canvas.drawCircle(size / 2f, size / 2f, size / 2f - density, paint)
+    val icon = requireNotNull(ContextCompat.getDrawable(context, R.drawable.ic_athletic_running)).mutate()
+    icon.setTint(if (tint == Color.Unspecified) AndroidColor.WHITE else tint.toAndroidArgb())
+    val inset = (5 * density).toInt()
+    icon.setBounds(inset, inset, size - inset, size - inset)
+    icon.draw(canvas)
     return BitmapDrawable(context.resources, bitmap)
 }
 

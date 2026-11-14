@@ -11,7 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
+import com.example.runtracker.ui.theme.LocalReducedMotion
 import androidx.compose.ui.graphics.drawscope.rotate
 import kotlin.math.sin
 import kotlin.random.Random
@@ -33,11 +33,12 @@ private class ConfettiPiece(
  */
 @Composable
 fun ConfettiOverlay(modifier: Modifier = Modifier, pieceCount: Int = 28) {
+    if (LocalReducedMotion.current) return
     val colors = listOf(
         MaterialTheme.colorScheme.primary,
         MaterialTheme.colorScheme.tertiary,
         MaterialTheme.colorScheme.secondary,
-        Color(0xFFFFBE4C),
+        MaterialTheme.colorScheme.onPrimaryContainer,
     )
     val pieces = remember {
         val rnd = Random(System.nanoTime())

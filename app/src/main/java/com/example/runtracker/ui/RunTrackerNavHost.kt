@@ -1,11 +1,6 @@
 package com.example.runtracker.ui
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PlayArrow
+import com.example.runtracker.ui.icons.AthleticIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -19,6 +14,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
+import com.example.runtracker.ui.theme.LocalReducedMotion
+import com.example.runtracker.ui.theme.ambientGlow
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -98,11 +98,11 @@ private object Routes {
 }
 
 private enum class TopLevelDest(val route: String, val label: String, val icon: ImageVector) {
-    TRACKING(Routes.TRACKING, "Ghi", Icons.Filled.PlayArrow),
-    ACTIVITIES(Routes.ACTIVITIES, "Hoạt động", Icons.Filled.Home),
-    FITNESS(Routes.FITNESS, "Fitness", Icons.Filled.Favorite),
-    CHALLENGES(Routes.CHALLENGES, "Thử thách", Icons.Filled.DateRange),
-    PROFILE(Routes.PROFILE, "Hồ sơ", Icons.Filled.Person),
+    TRACKING(Routes.TRACKING, "Ghi", AthleticIcons.Running),
+    ACTIVITIES(Routes.ACTIVITIES, "Hoạt động", AthleticIcons.History),
+    FITNESS(Routes.FITNESS, "Fitness", AthleticIcons.Training),
+    CHALLENGES(Routes.CHALLENGES, "Thử thách", AthleticIcons.Challenges),
+    PROFILE(Routes.PROFILE, "Hồ sơ", AthleticIcons.Profile),
 }
 
 @Composable
@@ -110,6 +110,7 @@ fun RunTrackerNavHost(modifier: Modifier = Modifier) {
     val navController = rememberNavController()
     val currentRoute by navController.currentBackStackEntryAsState()
     val currentDest = currentRoute?.destination?.route
+    val transitionMillis = if (LocalReducedMotion.current) 0 else 180
 
     // SettingsViewModel không gắn 1 màn cụ thể — dùng chung ở gốc để mọi màn con đọc được đơn vị
     // hiển thị đã lưu qua LocalUnitSystem, không cần truyền tham số qua từng layer điều hướng.
@@ -129,7 +130,7 @@ fun RunTrackerNavHost(modifier: Modifier = Modifier) {
                     val itemColors = NavigationBarItemDefaults.colors(
                         selectedIconColor = MaterialTheme.colorScheme.primary,
                         selectedTextColor = MaterialTheme.colorScheme.primary,
-                        indicatorColor = MaterialTheme.colorScheme.surface,
+                        indicatorColor = MaterialTheme.colorScheme.primaryContainer,
                         unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -148,7 +149,11 @@ fun RunTrackerNavHost(modifier: Modifier = Modifier) {
                                     }
                                 }
                             },
-                            icon = { Icon(dest.icon, contentDescription = dest.label) },
+                            icon = {
+                                Icon(dest.icon, contentDescription = dest.label,
+                                    modifier = Modifier.ambientGlow(MaterialTheme.colorScheme.primary,
+                                        if (currentDest == dest.route) 0.16f else 0f))
+                            },
                             label = {
                                 Text(
                                     dest.label,
@@ -167,6 +172,10 @@ fun RunTrackerNavHost(modifier: Modifier = Modifier) {
             navController = navController,
             startDestination = Routes.TRACKING,
             modifier = Modifier.padding(innerPadding),
+            enterTransition = { fadeIn(tween(transitionMillis)) },
+            exitTransition = { fadeOut(tween(transitionMillis)) },
+            popEnterTransition = { fadeIn(tween(transitionMillis)) },
+            popExitTransition = { fadeOut(tween(transitionMillis)) },
         ) {
             composable(Routes.TRACKING) { entry ->
                 val trackingViewModel: TrackingViewModel = hiltViewModel()

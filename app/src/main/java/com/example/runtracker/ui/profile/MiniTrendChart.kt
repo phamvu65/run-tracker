@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import com.example.runtracker.ui.theme.metricReveal
 
 /** Đường + vùng tô đơn giản cho một chuỗi giá trị (không nhãn trục) — dùng cho xu hướng nhiều kỳ. */
 @Composable
@@ -16,7 +17,7 @@ fun MiniTrendChart(values: List<Double>, modifier: Modifier = Modifier) {
     val line = MaterialTheme.colorScheme.primary
     val fill = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
     val grid = MaterialTheme.colorScheme.outlineVariant
-    Canvas(modifier) {
+    Canvas(modifier.metricReveal(values)) {
         if (values.isEmpty()) return@Canvas
         val maxV = values.max().coerceAtLeast(1.0)
         val stepX = if (values.size > 1) size.width / (values.size - 1) else 0f

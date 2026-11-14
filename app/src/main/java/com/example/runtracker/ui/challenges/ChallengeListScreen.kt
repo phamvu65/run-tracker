@@ -1,5 +1,6 @@
 package com.example.runtracker.ui.challenges
 
+import com.example.runtracker.ui.icons.AthleticIcons
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -7,17 +8,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.DirectionsRun
-import androidx.compose.material.icons.filled.SportsScore
-import androidx.compose.material.icons.filled.Terrain
-import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import com.example.runtracker.ui.components.AthleticIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -61,8 +55,8 @@ fun ChallengeListScreen(
                 title = "Thử thách",
                 navigationIcon = if (onBack != null) {
                     {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
+                        AthleticIconButton(onClick = onBack) {
+                            Icon(AthleticIcons.Back, contentDescription = "Quay lại")
                         }
                     }
                 } else null,
@@ -71,7 +65,7 @@ fun ChallengeListScreen(
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = onCreateChallenge,
-                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                icon = { Icon(AthleticIcons.Add, contentDescription = null) },
                 text = { Text("Tạo thử thách") },
             )
         },
@@ -99,10 +93,10 @@ fun ChallengeListScreen(
 }
 
 private fun ChallengeGoalType.icon(): ImageVector = when (this) {
-    ChallengeGoalType.TOTAL_DISTANCE -> Icons.Filled.DirectionsRun
-    ChallengeGoalType.TOTAL_ACTIVITIES -> Icons.Filled.SportsScore
-    ChallengeGoalType.TOTAL_ELEVATION -> Icons.Filled.Terrain
-    ChallengeGoalType.TOTAL_DURATION -> Icons.Filled.Timer
+    ChallengeGoalType.TOTAL_DISTANCE -> AthleticIcons.Running
+    ChallengeGoalType.TOTAL_ACTIVITIES -> AthleticIcons.Finish
+    ChallengeGoalType.TOTAL_ELEVATION -> AthleticIcons.Elevation
+    ChallengeGoalType.TOTAL_DURATION -> AthleticIcons.Duration
 }
 
 @Composable

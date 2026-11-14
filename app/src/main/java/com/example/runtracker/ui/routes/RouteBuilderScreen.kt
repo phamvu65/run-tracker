@@ -1,5 +1,6 @@
 package com.example.runtracker.ui.routes
 
+import com.example.runtracker.ui.icons.AthleticIcons
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -15,14 +16,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import com.example.runtracker.ui.components.PremiumButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import com.example.runtracker.ui.components.AthleticIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -97,8 +96,8 @@ fun RouteBuilderScreen(
             TopAppBar(
                 title = { Text("Dựng route") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
+                    AthleticIconButton(onClick = onBack) {
+                        Icon(AthleticIcons.Back, contentDescription = "Quay lại")
                     }
                 },
             )
@@ -256,7 +255,7 @@ fun RouteBuilderScreen(
                         }
                         if (!drawMode) {
                             OutlinedButton(onClick = viewModel::undo, enabled = tapped.isNotEmpty()) { Text("Lùi") }
-                            Button(
+                            PremiumButton(
                                 onClick = viewModel::computeRoute,
                                 enabled = tapped.size >= 2 && !viewModel.loading,
                             ) { Text(if (viewModel.loading) "Đang tính…" else "Tính đường") }
@@ -273,7 +272,7 @@ fun RouteBuilderScreen(
                         ) { Text(if (viewModel.loading) "Đang bám đường…" else "Thử bám đường lại") }
                     }
 
-                    Button(
+                    PremiumButton(
                         onClick = { showNameDialog = true },
                         enabled = viewModel.canSave,
                         modifier = Modifier.fillMaxWidth(),

@@ -1,16 +1,13 @@
 package com.example.runtracker.ui.detail
 
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
+import com.example.runtracker.ui.icons.AthleticIcons
+import androidx.compose.material3.Icon
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -22,11 +19,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.unit.dp
 import com.example.runtracker.domain.model.GeoPoint
 import com.example.runtracker.domain.model.RoutePoint
@@ -43,7 +37,6 @@ import kotlinx.coroutines.delay
 /** Toàn bộ buổi tập phát lại trong ngần này thời gian, bất kể buổi tập dài bao lâu. */
 private const val PLAYBACK_DURATION_MS = 25_000L
 private const val PLAYBACK_TICK_MS = 120L
-private const val RUNNER_EMOJI = "🏃"
 
 /** Vị trí người chạy + phần đường đã "đi qua" tại một mốc tiến độ (0..1) của buổi phát lại. */
 private data class PlaybackFrame(val runner: GeoPoint, val revealed: List<GeoPoint>)
@@ -112,7 +105,7 @@ fun RoutePlaybackMap(
                 }
             },
             markers = startFinishMarkers(geoPoints) +
-                listOfNotNull(frame?.runner?.let { MapMarker(it, style = MarkerStyle.EMOJI, label = RUNNER_EMOJI) }),
+                listOfNotNull(frame?.runner?.let { MapMarker(it, style = MarkerStyle.RUNNER, color = primary) }),
             fitToLines = true,
             followTrail = if (playing) frame?.revealed else null,
             controlsPadding = PaddingValues(top = Spacing.sm, end = Spacing.sm, bottom = Spacing.sm),
@@ -150,32 +143,15 @@ private fun PlaybackFab(playing: Boolean, onClick: () -> Unit, modifier: Modifie
     }
 }
 
-/** Tam giác phát tự vẽ (tránh phụ thuộc icon "PlayArrow" lệch tâm khi phóng to trong nút tròn). */
+/** Sharp playback control, consistent with the recording controls. */
 @Composable
 private fun PlayGlyph(color: Color) {
-    Canvas(Modifier.size(22.dp)) {
-        val path = Path().apply {
-            moveTo(0f, 0f)
-            lineTo(size.width, size.height / 2f)
-            lineTo(0f, size.height)
-            close()
-        }
-        translate(left = size.width * 0.12f) { drawPath(path, color) }
-    }
+    Icon(AthleticIcons.Play, contentDescription = "Phát lại lộ trình", tint = color, modifier = Modifier.size(24.dp))
 }
 
 @Composable
 private fun PauseGlyph(color: Color) {
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        repeat(2) {
-            Box(
-                Modifier
-                    .size(width = 5.dp, height = 20.dp)
-                    .clip(RoundedCornerShape(1.dp))
-                    .background(color),
-            )
-        }
-    }
+    Icon(AthleticIcons.Pause, contentDescription = "Tạm dừng phát lại", tint = color, modifier = Modifier.size(24.dp))
 }
 
 /**
