@@ -42,10 +42,6 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindActivityRepository(impl: ActivityRepositoryImpl): ActivityRepository
-
-    @Binds
-    @Singleton
     abstract fun bindUserRepository(impl: UserRepositoryImpl): UserRepository
 
     @Binds
@@ -96,9 +92,21 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindElevationRepository(impl: ElevationRepositoryImpl): ElevationRepository
+    abstract fun bindBadgeRepository(impl: BadgeRepositoryImpl): BadgeRepository
+}
 
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class ActivityRepositoryModule {
     @Binds
     @Singleton
-    abstract fun bindBadgeRepository(impl: BadgeRepositoryImpl): BadgeRepository
+    abstract fun bindActivityRepository(impl: ActivityRepositoryImpl): ActivityRepository
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class ElevationRepositoryModule {
+    @Binds
+    @Singleton
+    abstract fun bindElevationRepository(impl: ElevationRepositoryImpl): ElevationRepository
 }

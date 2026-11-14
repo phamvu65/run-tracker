@@ -25,7 +25,7 @@ import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
-object DatabaseModule {
+object DatabaseProviderModule {
 
     @Provides
     @Singleton
@@ -35,7 +35,11 @@ object DatabaseModule {
             // -> Activity, RouteWaypoint -> Route) hoạt động sẵn.
             .addMigrations(*ALL_MIGRATIONS)
             .build()
+}
 
+@Module
+@InstallIn(SingletonComponent::class)
+object DatabaseModule {
     @Provides fun provideUserDao(db: RunTrackerDatabase): UserDao = db.userDao()
 
     @Provides fun provideActivityDao(db: RunTrackerDatabase): ActivityDao = db.activityDao()

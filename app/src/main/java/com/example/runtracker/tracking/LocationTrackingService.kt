@@ -39,10 +39,11 @@ import com.example.runtracker.domain.tracking.ElevationAccumulator
 import com.example.runtracker.domain.usecase.BuildRouteUseCase
 import com.example.runtracker.domain.usecase.FinalizeActivityUseCase
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableJob
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -88,6 +89,10 @@ class LocationTrackingService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var locationJob: Job? = null
+    private var stopLocationInput: CompletableJob? = null
+    private var restoreJob: Job? = null
+    private var finishing = false
+    private var routeWriteFailure: Exception? = null
     private var tickerJob: Job? = null
     private var heartRateJob: Job? = null
     private var beaconJob: Job? = null
@@ -107,10 +112,10 @@ class LocationTrackingService : Service() {
 
     // Mốc thời gian nhận fix GPS gần nhất — dùng để phát hiện mất tín hiệu giữa buổi
     // (khác lastAccepted.timestamp vì đó là giờ GPS, có thể lệch giờ hệ thống).
-    private var lastFixAt: Instant? = null
+    @Volatile private var lastFixAt: Instant? = null
 
     // Mốc lần cuối phát hiện đang di chuyển thật (tốc độ tức thời ≥ ngưỡng) — dùng cho auto-pause.
-    private var lastMovingAt: Instant? = null
+    @Volatile private var lastMovingAt: Instant? = null
 
     private var altitudeEstimator = AltitudeEstimator()
     private var altitudeReading: AltitudeEstimator.Reading? = null
@@ -144,6 +149,7 @@ class LocationTrackingService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (finishing) return START_NOT_STICKY
         when (intent?.action) {
             ACTION_START -> start()
             ACTION_RESTORE -> restore(intent.getStringExtra(EXTRA_ACTIVITY_ID))
@@ -215,8 +221,8 @@ class LocationTrackingService : Service() {
             )
         }
 
-        scope.launch { repository.upsertActivity(initialActivity(id, now)) }
-        startLocationCollection()
+        val activity = initialActivity(id, now)
+        startLocationCollection { repository.upsertActivity(activity) }
         startTicker()
         startHeartRateCollection(id)
         startBeaconCollection()
@@ -343,7 +349,7 @@ class LocationTrackingService : Service() {
         startAsForeground(TrackingStatus.TRACKING)
         acquireWakeLock()
 
-        scope.launch {
+        restoreJob = scope.launch(Dispatchers.Main.immediate) {
             val activity = repository.getActivity(id)
             if (activity == null) {
                 stateStore.clear()
@@ -355,10 +361,12 @@ class LocationTrackingService : Service() {
             val points = repository.getRoutePoints(id)
             // The current schema does not persist the altitude source of recovered points.
             allRecordedAltitudesBarometric = false
-            val aggregate = RunAggregator.fromPoints(points)
-            elevationAccumulator = ElevationAccumulator().also { accumulator ->
-                points.forEach { accumulator.add(it.altitude, it.timestamp) }
+            val (aggregate, elevation) = withContext(Dispatchers.Default) {
+                RunAggregator.fromPoints(points) to ElevationAccumulator().also { accumulator ->
+                    points.forEach { accumulator.add(it.altitude, it.timestamp) }
+                }
             }
+            elevationAccumulator = elevation
             val last = points.lastOrNull()
 
             startedAt = activity.startTime
@@ -389,6 +397,7 @@ class LocationTrackingService : Service() {
                 )
             }
 
+            if (finishing) return@launch
             startLocationCollection()
             startTicker()
             startHeartRateCollection(id)
@@ -455,8 +464,7 @@ class LocationTrackingService : Service() {
         offRouteSince = null
         if (session.state.value.status != TrackingStatus.TRACKING) return
         pausedAt = Instant.now()
-        locationJob?.cancel()
-        locationJob = null
+        stopLocationInput?.complete()
         session.update { it.copy(status = TrackingStatus.PAUSED, autoPaused = false) }
         updateNotification()
         publishBeacon()
@@ -468,10 +476,9 @@ class LocationTrackingService : Service() {
         pausedAt = null
         lastFixAt = Instant.now()
         lastMovingAt = Instant.now()
+        val autoPaused = session.state.value.autoPaused
         session.update { it.copy(status = TrackingStatus.TRACKING, gpsSignalOk = true, autoPaused = false) }
-        // Job có thể đã sống sẵn nếu vừa tự động tạm dừng (xem [autoPause]) — khởi động lại vẫn an
-        // toàn (huỷ job cũ trước khi mở job mới).
-        startLocationCollection()
+        if (!autoPaused) startLocationCollection()
         updateNotification()
         publishBeacon()
     }
@@ -501,16 +508,7 @@ class LocationTrackingService : Service() {
     }
 
     private fun stop() {
-        stopCollecting()
-        scope.launch {
-            withContext(NonCancellable) {
-                flushHeartRate()
-                stopBeacon()
-                finalizeAndReset()
-            }
-            stopForeground(STOP_FOREGROUND_REMOVE)
-            stopSelf()
-        }
+        finish(discard = false)
     }
 
     /**
@@ -519,51 +517,77 @@ class LocationTrackingService : Service() {
      * [stop] ở chỗ xoá thẳng activity đã tạo lúc START thay vì chốt số liệu.
      */
     private fun discard() {
-        stopCollecting()
-        val id = activityId
-        scope.launch {
-            withContext(NonCancellable) {
-                stopBeacon()
-                id?.let { repository.deleteActivity(it) }
-                stateStore.clear()
-                beaconController.reset()
-            }
-            resetState()
-            stopForeground(STOP_FOREGROUND_REMOVE)
-            stopSelf()
-        }
+        finish(discard = true)
     }
 
-    private fun stopCollecting() {
+    private fun finish(discard: Boolean) {
+        finishing = true
+        val endTime = Instant.now()
+        stopLocationInput?.complete()
         stopNavigation()
-        locationJob?.cancel()
         tickerJob?.cancel()
         heartRateJob?.cancel()
         barometerJob?.cancel()
         stepJob?.cancel()
-        releaseWakeLock()
+        scope.launch(Dispatchers.Main.immediate) {
+            try {
+                restoreJob?.join()
+                locationJob?.join()
+                heartRateJob?.join()
+                barometerJob?.join()
+                stepJob?.join()
+                beaconJob?.cancel()
+                beaconJob?.join()
+                stopBeacon()
+                val id = activityId ?: return@launch
+                if (discard) {
+                    repository.deleteActivity(id)
+                } else {
+                    routeWriteFailure?.let { throw it }
+                    flushHeartRate()
+                    withContext(Dispatchers.Default) { finalizeActivity(id, endTime) }
+                }
+                stateStore.clear()
+                if (!discard) session.activityFinished(id)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                // Keep the persisted activity available for recovery after a failed save.
+                Log.e(TAG, "Could not finish activity", failure)
+            } finally {
+                beaconController.reset()
+                resetState()
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+            }
+        }
     }
 
     // ---- Thu thập vị trí ----
 
-    private fun startLocationCollection() {
-        locationJob?.cancel()
+    private fun startLocationCollection(prepare: suspend () -> Unit = {}) {
+        val previous = locationJob
+        val stopInput = Job()
+        stopLocationInput = stopInput
         locationJob = scope.launch {
-            locationClient.locationUpdates(LOCATION_INTERVAL_MS)
-                .catch { e ->
-                    Log.w(TAG, "location updates stopped", e)
-                    session.update { it.copy(gpsSignalOk = false) }
-                }
-                .collect { event ->
-                    when (event) {
-                        is LocationEvent.Fix -> onLocation(event.location)
-                        // Bỏ qua: `isLocationAvailable` khá nhạy, có thể nhảy true/false liên tục
-                        // dù fix vẫn tới đều — dùng trực tiếp làm banner nháy liên tục dù GPS đang
-                        // kết nối tốt. Mất tín hiệu thật đã được [startTicker] phát hiện ổn định
-                        // hơn qua "quá GPS_STALE_THRESHOLD_SECONDS giây không có fix mới".
-                        is LocationEvent.Availability -> Unit
+            previous?.join()
+            if (routeWriteFailure != null) return@launch
+            try {
+                prepare()
+                if (stopInput.isCompleted) return@launch
+                locationClient.locationUpdates(LOCATION_INTERVAL_MS, stopInput)
+                    .catch { e ->
+                        Log.w(TAG, "location updates stopped", e)
+                        session.update { it.copy(gpsSignalOk = false) }
                     }
-                }
+                    .collect { event -> if (event is LocationEvent.Fix) onLocation(event.location) }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                routeWriteFailure = failure
+                Log.e(TAG, "Could not record GPS point", failure)
+                session.update { it.copy(gpsSignalOk = false) }
+            }
         }
     }
 
@@ -587,12 +611,13 @@ class LocationTrackingService : Service() {
         val point = location.toRoutePoint()
         lastFixAt = Instant.now()
 
-        // Chỉ auto-pause mới còn nhận fix lúc PAUSED (tạm dừng tay huỷ locationJob) — điểm đứng
-        // yên trong lúc này KHÔNG lưu vào trace, chỉ dùng để dò lúc di chuyển lại rồi tự resume.
-        if (session.state.value.status == TrackingStatus.PAUSED) {
+        // Sau khi tạm dừng tay, các fix đã vào hàng đợi vẫn thuộc phần vừa chạy.
+        if (session.state.value.autoPaused) {
             val prev = lastAccepted
             if (prev != null && !movementBetween(prev, point).moving) return
-            autoResume()
+            withContext(Dispatchers.Main.immediate) {
+                if (session.state.value.autoPaused) autoResume()
+            }
         }
 
         val stored = repository.appendRoutePoints(id, listOf(point))
@@ -727,7 +752,7 @@ class LocationTrackingService : Service() {
 
     private fun startTicker() {
         tickerJob?.cancel()
-        tickerJob = scope.launch {
+        tickerJob = scope.launch(Dispatchers.Main.immediate) {
             while (isActive) {
                 delay(1_000)
                 val start = startedAt ?: continue
@@ -779,25 +804,21 @@ class LocationTrackingService : Service() {
         gpxRawPath = null,
     )
 
-    private suspend fun finalizeAndReset() {
-        val id = activityId ?: return
+    private suspend fun finalizeActivity(id: String, endTime: Instant) {
         val avgCadence = if (cadenceSampleCount > 0) (cadenceSum / cadenceSampleCount).toInt() else null
         // Tính lại aggregate + lap từ trace đã lưu (số liệu chuẩn, không lệ thuộc state bộ nhớ).
         finalizeActivityUseCase(
             id,
-            endTime = Instant.now(),
-            pausedSeconds = pausedAccumSeconds,
+            endTime = endTime,
+            pausedSeconds = pausedAccumSeconds +
+                (pausedAt?.let { Duration.between(it, endTime).seconds.coerceAtLeast(0) } ?: 0),
             steps = stepsAccumulated,
             avgCadence = avgCadence,
             reliableBarometricAltitude = allRecordedAltitudesBarometric && lastAccepted != null,
         )
-        session.activityFinished(id)
-        stateStore.clear()
-        beaconController.reset()
-        resetState()
     }
 
-    /** Đưa mọi state trong bộ nhớ về mốc IDLE — dùng chung cho cả chốt buổi ([finalizeAndReset]) lẫn huỷ ([discard]). */
+    /** Đưa mọi state trong bộ nhớ về mốc IDLE sau khi chốt hoặc huỷ. */
     private fun resetState() {
         elevationAccumulator = ElevationAccumulator()
         session.reset()
